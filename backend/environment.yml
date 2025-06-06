@@ -1,0 +1,16 @@
+name: grievance-backend
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - fastapi
+      - uvicorn[standard]
+      - httpx              # For making async HTTP calls (e.g., ingestion)
+      - pydantic           # FastAPI already uses it, but useful explicitly too
+      - pytest             # For unit testing
+      - pytest-asyncio     # For testing async code
+      - black              # Code formatter
+      - isort              # Import sorter
+      - flake8             # Linter

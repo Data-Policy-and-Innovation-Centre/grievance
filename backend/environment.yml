@@ -4,11 +4,13 @@ channels:
 dependencies:
   - python=3.11
   - pip
+  - loguru
   - pip:
       - fastapi
       - uvicorn[standard]
       - httpx              # For making async HTTP calls (e.g., ingestion)
       - pydantic           # FastAPI already uses it, but useful explicitly too
+      - pydantic_settings
       - pytest             # For unit testing
       - pytest-asyncio     # For testing async code
       - black              # Code formatter

@@ -7,6 +7,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 class Settings(BaseSettings):
     ENV: str = os.getenv("ENV", "dev")
     DEBUG: bool = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
+    JANSUNANI_API_BASE_URL: str = os.getenv("JANSUNANI_API_BASE_URL", "https://janasunani.odisha.gov.in/api/DataServices")
     JANSUNANI_API_USERNAME: str = os.getenv("JANSUNANI_API_USERNAME")
     JANSUNANI_API_PASSWORD: str = os.getenv("JANSUNANI_API_PASSWORD")
 

@@ -115,9 +115,15 @@ class JanasunaniAPIClient:
             requests.RequestException: If the HTTP request fails.
             ValueError: If the response cannot be handled or parsed.
         """
+        if status not in [0,1,2]:
+            raise ValueError(f"Status must be in {[0, 1, 2]}")
+        
+        if office not in list(range(1,8)):
+            raise ValueError(f"Office must be in {list(range(1,8))}")
+
         if settings.DEBUG:
             logger.debug(
-                f"Fetching complaints for year: {year}, district ID: {distId}, status: {STATUS[status]}, office: {OFFICE[office]}..."
+                f"Fetching complaints for year: {year}, district ID: {distId}, status: {STATUS[status]}, office: {OFFICE[office]}\n"
             )
         url = f"{self.base_url}/getGrievanceDetails"
         params = {"year": year, "distId": distId, "status": status, "office": office}
@@ -128,10 +134,7 @@ class JanasunaniAPIClient:
 if __name__ == "__main__":
     client = JanasunaniAPIClient()
     try:
-        # complaints = client.get_complaints(2025, status=2, distId=344, office=5)
-        # print(json.dumps(complaints, indent=2))
-        districts = client.get_districts()
-        validated_districts = validate(districts, District)
-        print(validated_districts)
+        complaints = client.get_complaints(2025, status=1, distId=344, office=5)
+        print(len(json.dumps(complaints, indent=2)))
     except requests.RequestException as e:
         print(f"An error occurred: {e}")

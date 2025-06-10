@@ -33,12 +33,24 @@ class TestJansunaniAPIClient:
         }
         mock_get.return_value = mock_response
 
-        result = client.get_complaints(year=2024, distId=1, status=2, office=0)
+        result = client.get_complaints(year=2024, distId=1, status=2, office=4)
         assert result == {"complaints": [{"id": 123, "desc": "Test"}]}
         mock_get.assert_called_once()
         args, kwargs = mock_get.call_args
         assert args[0] == "http://fake-url/getGrievanceDetails"
-        assert kwargs["params"] == {"year": 2024, "distId": 1, "status": 2, "office": 0}
+        assert kwargs["params"] == {"year": 2024, "distId": 1, "status": 2, "office": 4}
+
+    @patch("app.ingestion.client.requests.get")
+    def test_get_complaints_wrong_params(self, mock_get, client: JanasunaniAPIClient):
+        mock_response = MagicMock()
+        mock_response.status_code = None
+        mock_response.json.return_value = None
+        mock_get.return_value = mock_response
+
+        with pytest.raises(ValueError, match="Status must be in"):
+            client.get_complaints(year=2024, distId=1, status=3, office=4)
+        with pytest.raises(ValueError, match="Office must be in"):
+            client.get_complaints(year=2024, distId=1, status=2, office=8)
 
     @patch("app.ingestion.client.requests.get")
     def test_handle_response_missing_keys(self, mock_get, client: JanasunaniAPIClient):

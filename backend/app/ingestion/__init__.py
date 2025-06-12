@@ -4,7 +4,7 @@ STATUS = {
     2: "Disposed"
 }
 OFFICE = {
-    1: "Chief Minister",
+    1: "Office of Chief Minister",
     2: "Governor",
     3: "Chief Secretary",
     4: "DG & IG Police",
@@ -12,3 +12,4 @@ OFFICE = {
     6: "Collector",
     7: "Superintendent of Police"
 }
+

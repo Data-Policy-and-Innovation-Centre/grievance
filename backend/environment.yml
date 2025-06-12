@@ -6,6 +6,7 @@ dependencies:
   - pip
   - loguru
   - requests
+  - sqlalchemy
   - pip:
       - fastapi
       - uvicorn[standard]

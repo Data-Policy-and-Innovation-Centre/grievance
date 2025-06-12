@@ -1,7 +1,6 @@
 import requests
-import json
 from app.config import settings
-from .schemas import validate, District
+from .schemas import validate, Complaint, District
 from loguru import logger
 from . import STATUS, OFFICE
 
@@ -134,7 +133,9 @@ class JanasunaniAPIClient:
 if __name__ == "__main__":
     client = JanasunaniAPIClient()
     try:
-        complaints = client.get_complaints(2025, status=1, distId=344, office=5)
-        print(len(json.dumps(complaints, indent=2)))
+        districts = client.get_districts()
+        districts_validated = validate(districts, District)
+        complaints = client.get_complaints(2025, status=1, distId=344, office=4)
+        complaints_validated = validate(complaints, Complaint)
     except requests.RequestException as e:
         print(f"An error occurred: {e}")

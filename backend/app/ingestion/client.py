@@ -120,8 +120,8 @@ class JanasunaniAPIClient:
         if office not in list(range(1,8)):
             raise ValueError(f"Office must be in {list(range(1,8))}")
 
-        if settings.DEBUG:
-            logger.debug(
+        
+        logger.info(
                 f"Fetching complaints for year: {year}, district ID: {distId}, status: {STATUS[status]}, office: {OFFICE[office]}\n"
             )
         url = f"{self.base_url}/getGrievanceDetails"

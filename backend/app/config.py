@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     )
     JANASUNANI_API_USERNAME: str = os.getenv("JANASUNANI_API_USERNAME")
     JANASUNANI_API_PASSWORD: str = os.getenv("JANASUNANI_API_PASSWORD")
+    DB_URL: str = os.getenv("DB_URL", "sqlite:///./grievance.db")
 
     class Config:
         env_file = ROOT_DIR / ".env"

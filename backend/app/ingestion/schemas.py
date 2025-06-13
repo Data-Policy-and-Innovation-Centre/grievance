@@ -117,21 +117,54 @@ class Complaint(BaseModel):
                 return datetime.strptime(v, "%Y-%m-%dT%H:%M:%S")
             except (ValueError, TypeError):
                 return None
+            
+class ActionHistory(BaseModel):
+    """
+    Represents an action taken on a complaint, including the action taken by, the date of action, the remarks, and the status of the action.
+
+    Attributes:
+        ticket_no (str): The ticket number associated with the complaint.
+        action_taken_by (str): The name of the person who took the action.
+        action_taken_date (datetime): The date on which the action was taken.
+        action_taken_remark (str): The remarks made by the person who took the action.
+        action_status (str): The status of the action taken.
+        complaint_status_with_authority (str): The status of the complaint with the authority.
+    """
+    ticket_no: str = Field(..., alias="ticketNumber")
+    action_taken_by: str
+    action_taken_date: datetime
+    action_taken_remark: str
+    action_status: str
+    complaint_status_with_authority: str
+
+    @field_validator("action_taken_date", mode="before")
+    def validate_datetime(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            return v
+        try:
+            return datetime.fromisoformat(v)
+        except (ValueError, TypeError):
+            try:
+                return datetime.strptime(v, "%Y-%m-%dT%H:%M:%S")
+            except (ValueError, TypeError):
+                return None
         
 
-def validate(items: list[dict], model: BaseModel) -> dict:
+def validate(items: list[dict], model: BaseModel) -> list[BaseModel]:
     """
     Validates data against a Pydantic model.
     Args:
         items (list[dict]): The data to validate.
         model (BaseModel): The Pydantic model to validate against.
     Returns:
-        dict: The validated data as a dictionary.
+        list[BaseModel]: The validated data.
     Raises:
         ValueError: If the data does not match the expected format.
     """
     if settings.DEBUG:
-        logger.debug(f"Num. items: {len(items)}")
+        logger.debug(f"Validating {len(items)} {model.__name__} records...")
     validated = []
     errors = []
     for idx, item in enumerate(items):
@@ -145,3 +178,19 @@ def validate(items: list[dict], model: BaseModel) -> dict:
         )
         logger.error(f"Validation failed for {len(errors)} records. Errors:\n{error_msgs}")
     return validated
+
+def validate_action_history(items: list[dict], ticket_no: str) -> list[ActionHistory]:
+    """
+    Validates action history data against the ActionHistory model.
+
+    Args:
+        items (list[dict]): The action history data to validate.
+        ticket_no (str): The ticket number to associate with each action history record.
+
+    Returns:
+        list[ActionHistory]: The validated data.
+    """
+    for item in items:
+        item["ticketNumber"] = ticket_no
+    return validate(items, ActionHistory)
+

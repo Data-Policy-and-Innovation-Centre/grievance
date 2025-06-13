@@ -114,11 +114,11 @@ class JanasunaniAPIClient:
             requests.RequestException: If the HTTP request fails.
             ValueError: If the response cannot be handled or parsed.
         """
-        if status not in [0,1,2]:
-            raise ValueError(f"Status must be in {[0, 1, 2]}")
+        if status not in STATUS.keys():
+            raise ValueError(f"Status must be in {STATUS.keys()}")
         
-        if office not in list(range(1,8)):
-            raise ValueError(f"Office must be in {list(range(1,8))}")
+        if office not in OFFICE.keys():
+            raise ValueError(f"Office must be in {OFFICE.keys()}")
 
         
         logger.info(

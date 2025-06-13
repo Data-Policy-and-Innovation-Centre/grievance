@@ -4,10 +4,46 @@ from pathlib import Path
 from loguru import logger
 from tqdm import tqdm
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+
+# Directories
+class Directories:
+    """
+    Directories used by the application.
+
+    Attributes:
+        ROOT_DIR (Path): The root directory of the project.
+        DATA (Path): The directory containing data.
+        RAW_DATA (Path): The directory containing raw data.
+        PROCESSED_DATA (Path): The directory containing processed data.
+        LOGS (Path): The directory containing logs.
+    """
+    ROOT_DIR = Path(__file__).resolve().parent.parent
+    DATA = ROOT_DIR / "data"
+    RAW_DATA = DATA / "raw"
+    PROCESSED_DATA = DATA / "processed"
+    LOGS = ROOT_DIR / "logs"
+
+    def __init__(self):
+        for dir in [self.DATA, self.RAW_DATA, self.PROCESSED_DATA, self.LOGS]:
+            dir.mkdir(exist_ok=True)
 
 
+directories = Directories()
+
+# Settings
 class Settings(BaseSettings):
+    """
+    Settings for the application.
+
+    The settings are loaded from the following sources in order of priority:
+
+    1. Environment variables
+    2. `.env` file in the root directory of the project
+    3. Default values
+
+    The settings are used to configure the application, such as setting up the database connection.
+    """
+
     ENV: str = os.getenv("ENV", "dev")
     DEBUG: bool = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
     JANASUNANI_API_BASE_URL: str = os.getenv(
@@ -18,12 +54,12 @@ class Settings(BaseSettings):
     DB_URL: str = os.getenv("DB_URL", "sqlite:///./grievance.db")
 
     class Config:
-        env_file = ROOT_DIR / ".env"
+        env_file = directories.ROOT_DIR / ".env"
 
 
 settings = Settings()
 
-def stop_logging_to_console(filename: str, mode: str = "a"):
+def stop_logging_to_console(filename: str = directories.LOGS / "main.log", mode: str = "a"):
     """
     Stops logging messages to the console and redirects them to a file.
 

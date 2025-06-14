@@ -132,7 +132,7 @@ class ActionHistory(BaseModel):
     """
     ticket_no: str = Field(..., alias="ticketNumber")
     action_taken_by: str
-    action_taken_date: datetime
+    action_taken_date: Optional[datetime]
     action_taken_remark: str
     action_status: str
     complaint_status_with_authority: str
@@ -163,8 +163,8 @@ def validate(items: list[dict], model: BaseModel) -> list[BaseModel]:
     Raises:
         ValueError: If the data does not match the expected format.
     """
-    if settings.DEBUG:
-        logger.debug(f"Validating {len(items)} {model.__name__} records...")
+    
+    logger.info(f"Validating {len(items)} {model.__name__} records")
     validated = []
     errors = []
     for idx, item in enumerate(items):

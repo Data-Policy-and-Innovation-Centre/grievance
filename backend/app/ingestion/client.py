@@ -1,6 +1,6 @@
 import requests
 from app.config import settings
-from .schemas import validate, Complaint, District
+from .schemas import validate, validate_action_history, Complaint, District
 from loguru import logger
 from . import STATUS, OFFICE
 
@@ -57,7 +57,7 @@ class JanasunaniAPIClient:
             dict: The parsed response data from either the 'distRes' or 'Res' key.
 
         Raises:
-            JansunaniAPIError: If neither 'distRes' nor 'Res' is found in the response,
+            JansunaniAPIError: If neither 'distRes', 'Res' or 'actionHistory' is found in the response,
                 or if the API returns an error status.
             requests.HTTPError: If the HTTP response status code is not 200.
         """
@@ -70,9 +70,11 @@ class JanasunaniAPIClient:
                     return response["distRes"]
                 elif "Res" in response:
                     return response["Res"]
+                elif "actionHistory" in response:
+                    return response["actionHistory"]
                 else:
                     raise JanasunaniAPIError(
-                        "Neither 'distRes' nor 'Res' found in response."
+                        "Neither 'distRes', 'Res' or 'actionHistory' found in response."
                     )
             else:
                 raise JanasunaniAPIError(
@@ -89,8 +91,7 @@ class JanasunaniAPIClient:
             dict: A dictionary containing the districts data as returned by the API.
 
         Raises:
-            requests.RequestException: If the HTTP request fails.
-            ValueError: If the response cannot be handled or parsed.
+            JanasunaniAPIError: If the HTTP request fails.
         """
         logger.info("Fetching districts from Jansunani API...")
         url = f"{self.base_url}/getDistricts"
@@ -111,8 +112,8 @@ class JanasunaniAPIClient:
             dict: The response data containing the filtered complaints.
 
         Raises:
-            requests.RequestException: If the HTTP request fails.
-            ValueError: If the response cannot be handled or parsed.
+            JanasunaniAPIError: If the HTTP request fails.
+            ValueError: If the input parameters are invalid.
         """
         if status not in STATUS.keys():
             raise ValueError(f"Status must be in {STATUS.keys()}")
@@ -128,6 +129,25 @@ class JanasunaniAPIClient:
         params = {"year": year, "distId": distId, "status": status, "office": office}
         response = requests.get(url, params=params, auth=self.auth)
         return self._handle_response(response)
+    
+    def get_action_history(self, ticket_no: str) -> dict:
+        """
+        Retrieves action history for a given ticket number from the grievance system.
+
+        Args:
+            ticket_no (str): The ticket number for which to retrieve the action history.
+
+        Returns:
+            dict: The response data containing the action history.
+
+        Raises:
+            JanasunaniAPIError: If the HTTP request fails.
+        """
+        logger.info(f"Fetching action history for ticket number: {ticket_no}")
+        url = f"{self.base_url}/getGrievanceHistory"
+        params = {"ticketNumber": ticket_no}
+        response = requests.get(url, params=params, auth=self.auth)
+        return self._handle_response(response)
 
 
 if __name__ == "__main__":
@@ -137,5 +157,11 @@ if __name__ == "__main__":
         districts_validated = validate(districts, District)
         complaints = client.get_complaints(2025, status=1, distId=344, office=4)
         complaints_validated = validate(complaints, Complaint)
+
+        # Get action history
+        ticket_no = complaints_validated[0].ticket_no
+        action_history = client.get_action_history(ticket_no)
+        action_history = validate_action_history(action_history, ticket_no)
+        print(action_history)
     except requests.RequestException as e:
         print(f"An error occurred: {e}")

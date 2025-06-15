@@ -13,6 +13,7 @@ dependencies:
       - uvicorn[standard]
       - httpx              # For making async HTTP calls (e.g., ingestion)
       - pydantic           # FastAPI already uses it, but useful explicitly too
+      - boto3              # AWS SDK
       - pydantic_settings
       - pytest             # For unit testing
       - pytest-asyncio     # For testing async code

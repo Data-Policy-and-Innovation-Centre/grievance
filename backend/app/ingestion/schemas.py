@@ -14,8 +14,8 @@ class District(BaseModel):
         distName (str): The name of the district.
         distId (int): The unique identifier for the district.
     """
-    distName: str
-    distId: int
+    dist_name: str = Field(..., alias="distName")
+    dist_id: int = Field(..., alias="distId")
 
 class Complaint(BaseModel):
     """

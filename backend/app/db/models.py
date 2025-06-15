@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -16,6 +16,8 @@ class District(Base):
     id = Column(Integer, primary_key=True)
     dist_name = Column(String, nullable=False)
     dist_id = Column(Integer, nullable=False, unique=True)
+
+    __table_args__ = (UniqueConstraint('dist_id', name='dist_id_uniq'),)
 
 
 class Complaint(Base):
@@ -94,6 +96,8 @@ class Complaint(Base):
     resolved_on = Column(DateTime, nullable=True)
     benefitted = Column(String, nullable=True)
 
+    __table_args__ = (UniqueConstraint('ticket_no', name='ticket_no_uniq'),)
+
 class ActionHistory(Base):
     """
     Represents an action history record with details about the action taken on a complaint.
@@ -119,3 +123,5 @@ class ActionHistory(Base):
     action_to = Column(String, nullable=False)
     action_status = Column(String, nullable=False)
     remarks = Column(String, nullable=True)
+
+    

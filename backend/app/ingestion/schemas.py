@@ -152,12 +152,13 @@ class ActionHistory(BaseModel):
                 return None
         
 
-def validate(items: list[dict], model: BaseModel) -> list[BaseModel]:
+def validate(items: list[dict], model: BaseModel, dict_mode: bool = True) -> list[dict] | list[BaseModel]:
     """
     Validates data against a Pydantic model.
     Args:
         items (list[dict]): The data to validate.
         model (BaseModel): The Pydantic model to validate against.
+        dict_mode (bool): Whether to return the data as a list of dictionaries or a list of BaseModel objects.
     Returns:
         list[BaseModel]: The validated data.
     Raises:
@@ -177,7 +178,9 @@ def validate(items: list[dict], model: BaseModel) -> list[BaseModel]:
             [f"Index {idx}: {err}" for idx, itm, err in errors]
         )
         logger.error(f"Validation failed for {len(errors)} records. Errors:\n{error_msgs}")
-    return validated
+    
+    validated_dict = [model.model_dump(by_alias=False) for model in validated]
+    return validated_dict if dict_mode else validated
 
 def validate_action_history(items: list[dict], ticket_no: str) -> list[ActionHistory]:
     """

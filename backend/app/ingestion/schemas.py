@@ -165,7 +165,7 @@ def validate(items: list[dict], model: BaseModel, dict_mode: bool = True) -> lis
         ValueError: If the data does not match the expected format.
     """
     
-    logger.info(f"Validating {len(items)} {model.__name__} records")
+    logger.info(f"Attempting to validate {len(items)} {model.__name__} records")
     validated = []
     errors = []
     for idx, item in enumerate(items):
@@ -179,10 +179,11 @@ def validate(items: list[dict], model: BaseModel, dict_mode: bool = True) -> lis
         )
         logger.error(f"Validation failed for {len(errors)} records. Errors:\n{error_msgs}")
     
+    logger.info(f"Validated {len(validated)} {model.__name__} records")
     validated_dict = [model.model_dump(by_alias=False) for model in validated]
     return validated_dict if dict_mode else validated
 
-def validate_action_history(items: list[dict], ticket_no: str) -> list[ActionHistory]:
+def validate_action_history(items: list[dict], ticket_no: str, dict_mode: bool = True) -> list[ActionHistory]:
     """
     Validates action history data against the ActionHistory model.
 
@@ -195,5 +196,5 @@ def validate_action_history(items: list[dict], ticket_no: str) -> list[ActionHis
     """
     for item in items:
         item["ticketNumber"] = ticket_no
-    return validate(items, ActionHistory)
+    return validate(items, ActionHistory, dict_mode=dict_mode)
 

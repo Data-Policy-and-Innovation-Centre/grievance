@@ -195,3 +195,4 @@ cython_debug/
 /.vscode
 .DS_Store
 backend/JanaSunani_API_document_2.pdf
+backend/data/

@@ -62,7 +62,7 @@ class TestJansunaniAPIClient:
         }
         mock_get.return_value = mock_response
 
-        with pytest.raises(JanasunaniAPIError, match="Neither 'distRes' nor 'Res' found in response."):
+        with pytest.raises(JanasunaniAPIError, match="Neither 'distRes', 'Res' or 'actionHistory' found in response."):
             client.get_districts()
 
     @patch("app.ingestion.client.requests.get")

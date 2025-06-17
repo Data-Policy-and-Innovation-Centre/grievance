@@ -20,10 +20,7 @@ def get_district_by_name(db: Session, dist_name: str) -> Optional[District]:
 
 def create_or_update_district(db: Session, district_data: DistrictSchema) -> District:
     """Create or update a district record."""
-    if not isinstance(district_data, DistrictSchema):
-        raise ValueError("district_data must be an instance of DistrictSchema")
-    
-    # Convert Pydantic model to dict for database operations
+        # Convert Pydantic model to dict for database operations
     district_data = district_data.model_dump(by_alias=False)
     
     try:
@@ -56,9 +53,6 @@ def get_complaint_by_ticket(db: Session, ticket_no: str) -> Optional[ComplaintMo
 
 def create_or_update_complaint(db: Session, complaint_data: ComplaintSchema) -> ComplaintModel | None: 
     """Create or update a complaint record."""
-    
-    if not isinstance(complaint_data, ComplaintSchema):
-        raise ValueError("complaint_data must be an instance of ComplaintSchema")
     
     # Convert Pydantic model to dict for database operations
     complaint_data = complaint_data.model_dump(by_alias=False)
@@ -116,8 +110,6 @@ def get_action_history_by_ticket(db: Session, ticket_no: str) -> List[ActionHist
 def batch_create_or_update_districts(db: Session, districts_data: List[DistrictSchema]) -> List[District]:
     """Batch create or update multiple districts."""
     logger.info(f"Batch creating or updating {len(districts_data)} districts")
-    if not all(isinstance(district, DistrictSchema) for district in districts_data):
-        raise ValueError("All items in districts_data must be DistrictSchema instances")
     
     districts = []
     for district_data in districts_data:
@@ -132,8 +124,6 @@ def batch_create_or_update_districts(db: Session, districts_data: List[DistrictS
 def batch_create_or_update_complaints(db: Session, complaints_data: List[ComplaintSchema]) -> List[ComplaintModel]:
     """Batch create or update multiple complaints."""
     logger.info(f"Batch creating or updating {len(complaints_data)} complaints")
-    if not all(isinstance(complaint, ComplaintSchema) for complaint in complaints_data):
-        raise ValueError("All items in complaints_data must be ComplaintSchema instances")
 
     complaints = []
     for complaint_data in complaints_data:
@@ -148,8 +138,6 @@ def batch_create_or_update_complaints(db: Session, complaints_data: List[Complai
 def batch_create_action_history(db: Session, actions_data: List[ActionHistorySchema]) -> List[ActionHistoryModel]:
     """Batch create multiple action history records."""
     logger.info(f"Batch creating or updating {len(actions_data)} action history records")
-    if not all(isinstance(action, ActionHistorySchema) for action in actions_data):
-        raise ValueError("All items in actions_data must be ActionHistorySchema instances")
 
     actions = []
     for action_data in actions_data:

@@ -123,7 +123,7 @@ class JanasunaniAPIClient:
 
         
         logger.info(
-                f"Fetching complaints for year: {year}, district ID: {distId}, status: {STATUS[status]}, office: {OFFICE[office]}\n"
+                f"Fetching complaints for year: {year}, district ID: {distId}, status: {STATUS[status]}, office: {OFFICE[office]}"
             )
         url = f"{self.base_url}/getGrievanceDetails"
         params = {"year": year, "distId": distId, "status": status, "office": office}

@@ -11,8 +11,8 @@ class District(BaseModel):
     Pydantic model representing a district with its name and unique identifier.
 
     Attributes:
-        distName (str): The name of the district.
-        distId (int): The unique identifier for the district.
+        dist_name (str): The name of the district.
+        dist_id (int): The unique identifier for the district.
     """
     dist_name: str = Field(..., alias="distName")
     dist_id: int = Field(..., alias="distId")

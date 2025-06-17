@@ -159,7 +159,11 @@ if __name__ == "__main__":
         complaints_validated = validate(complaints, Complaint)
 
         # Get action history
-        ticket_no = complaints_validated[0].ticket_no
+        try:
+            ticket_no = complaints_validated[0].ticket_no
+        except AttributeError as e:
+            ticket_no = complaints_validated[0]['ticket_no']
+        
         action_history = client.get_action_history(ticket_no)
         action_history = validate_action_history(action_history, ticket_no)
         print(action_history)

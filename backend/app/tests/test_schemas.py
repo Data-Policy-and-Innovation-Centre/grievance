@@ -52,8 +52,8 @@ def valid_complaint_dict(**overrides):
 
 def test_district_model():
     d = District(distName="District X", distId=1)
-    assert d.distName == "District X"
-    assert d.distId == 1
+    assert d.dist_name == "District X"
+    assert d.dist_id == 1
 
 def test_complaint_valid_data():
     data = valid_complaint_dict()
@@ -110,14 +110,19 @@ def test_complaint_datetime_invalid():
 
 def test_validate_function_success(monkeypatch):
     # Patch logger to avoid actual logging
-    monkeypatch.setattr("app.ingestion.schemas.logger", SimpleNamespace(debug=lambda *a, **k: None, error=lambda *a, **k: None))
+    monkeypatch.setattr("app.ingestion.schemas.logger", SimpleNamespace(info=lambda *a, **k: None, debug=lambda *a, **k: None, error=lambda *a, **k: None))
     items = [valid_complaint_dict()]
-    validated = validate(items, Complaint)
+    validated = validate(items, Complaint, dict_mode=False)
     assert len(validated) == 1
     assert isinstance(validated[0], Complaint)
 
+    validated_dict = validate(items, Complaint, dict_mode=True)
+    assert len(validated_dict) == 1
+    assert isinstance(validated_dict[0], dict)
+    assert validated_dict[0]['ticket_no'] == "T123"
+
 def test_validate_function_with_errors(monkeypatch):
-    monkeypatch.setattr("app.ingestion.schemas.logger", SimpleNamespace(debug=lambda *a, **k: None, error=lambda *a, **k: None))
+    monkeypatch.setattr("app.ingestion.schemas.logger", SimpleNamespace(info=lambda *a, **k: None, debug=lambda *a, **k: None, error=lambda *a, **k: None))
     items = [valid_complaint_dict(), valid_complaint_dict(officeNAme="Unknown Office")]
     validated = validate(items, Complaint)
     assert len(validated) == 1  # Only the valid one is returned

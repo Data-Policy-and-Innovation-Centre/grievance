@@ -44,11 +44,7 @@ class IngestionOrchestrator:
             districts = self.client.get_districts()
             districts_validated = validate(districts, District, dict_mode=False)
             
-            # Store raw data in S3
-            if settings.ENV == 'prod':
-                self._store_in_s3(districts.model_dump(by_alias=False), 'districts')
-            
-            # Store processed data in database using CRUD operations
+            # Store data in database using CRUD operations
             stored_districts = batch_create_or_update_districts(self.db, districts_validated)
             logger.info(f"Successfully stored {len(stored_districts)} districts in database")
             
@@ -63,11 +59,7 @@ class IngestionOrchestrator:
             complaints = self.client.get_complaints(year, distId, status, office)
             complaints_validated = validate(complaints, Complaint, dict_mode=False)
             
-            # Store raw data in S3
-            if settings.ENV == 'prod':
-                self._store_in_s3(complaints, 'complaints')
-            
-            # Store processed data in database using CRUD operations
+            # Store data in database using CRUD operations
             stored_complaints = batch_create_or_update_complaints(self.db, complaints_validated)
             logger.info(f"Successfully stored {len(stored_complaints)} complaints in database")
             
@@ -82,11 +74,8 @@ class IngestionOrchestrator:
             action_history = self.client.get_action_history(ticket_no)
             action_history_validated = validate_action_history(action_history)
 
-            # Store raw data in S3
-            if settings.ENV == "prod":
-                self._store_in_s3(action_history, 'action_history')
             
-            # Store processed data in database using CRUD operations
+            # Store data in database using CRUD operations
             stored_action_history = batch_create_action_history(self.db, action_history_validated)
             logger.info(f"Successfully stored {len(stored_action_history)} action history in database")
 
@@ -96,7 +85,7 @@ class IngestionOrchestrator:
             raise
             
 
-def lambda_handler(event: dict = None, context: dict = None):
+def run_ingestion_service():
     """AWS Lambda handler function."""
     try:
         db = next(get_db())
@@ -146,4 +135,4 @@ def lambda_handler(event: dict = None, context: dict = None):
         db.close()
     
 if __name__ == "__main__":
-    lambda_handler()
+    run_ingestion_service()

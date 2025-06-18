@@ -123,4 +123,6 @@ class ActionHistory(Base):
     action_taken_remark = Column(String, nullable=True)
     complaint_status_with_authority = Column(String, nullable=False)
 
+    __table_args__ = (UniqueConstraint('ticket_no', 'action_taken_date', name='ticket_no_action_taken_date_uniq'),)
+
     

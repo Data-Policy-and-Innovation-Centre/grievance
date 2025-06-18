@@ -105,20 +105,31 @@ def lambda_handler(event: dict = None, context: dict = None):
         # Ingest districts
         districts = orchestrator.ingest_districts()
         
-        # Ingest complaints for each district
+        # Ingest complaints for each district, status and office
+        complaints = []
+        
         for year in range(2021, datetime.now().year ):
             for district in districts:
                 for status in STATUS.keys():
                     for office in OFFICE.keys():
                         try:
-                            orchestrator.ingest_complaints(
+                            complaints_param = orchestrator.ingest_complaints(
                                 year=year,
                                 distId=district.dist_id,
                                 status=status,
                                 office=office
                             )
+                            complaints.append(complaints_param)
                         except JanasunaniAPIError as e:
                             continue
+
+        # Ingest action history for each complaint
+        flattened_complaints = [complaint for sublist in complaints for complaint in sublist]
+        for complaint in flattened_complaints:
+            try:
+                orchestrator.ingest_action_history(complaint.ticket_no)
+            except JanasunaniAPIError as e:
+                continue
         
         return {
             'statusCode': 200,

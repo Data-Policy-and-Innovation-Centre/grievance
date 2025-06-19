@@ -147,7 +147,7 @@ class ActionHistory(BaseModel):
             return datetime.fromisoformat(v)
         except (ValueError, TypeError):
             try:
-                return datetime.strptime(v, "%d-%b-%Y %I:%M %p")
+                return datetime.strptime(v, '%d-%b-%Y %H:%M %p')
             except (ValueError, TypeError):
                 return None
         

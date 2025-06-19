@@ -132,7 +132,7 @@ class ActionHistory(BaseModel):
     """
     ticket_no: str = Field(..., alias="ticketNumber")
     action_taken_by: str
-    action_taken_date: Optional[datetime]
+    action_taken_date: datetime
     action_taken_remark: str
     action_status: str
     complaint_status_with_authority: str

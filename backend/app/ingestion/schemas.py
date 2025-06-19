@@ -147,11 +147,10 @@ class ActionHistory(BaseModel):
             return datetime.fromisoformat(v)
         except (ValueError, TypeError):
             try:
-                return datetime.strptime(v, "%Y-%m-%dT%H:%M:%S")
+                return datetime.strptime(v, "%d-%b-%Y %I:%M %p")
             except (ValueError, TypeError):
                 return None
         
-
 def validate(items: list[dict], model: BaseModel, dict_mode: bool = True) -> list[dict] | list[BaseModel]:
     """
     Validates data against a Pydantic model.

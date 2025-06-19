@@ -148,6 +148,7 @@ class ActionHistory(BaseModel):
         except (ValueError, TypeError):
             try:
                 return datetime.strptime(v, '%d-%b-%Y %H:%M %p')
+            
             except (ValueError, TypeError):
                 return None
         

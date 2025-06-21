@@ -9,7 +9,7 @@ CHANNEL_MAP = {
     'Joint Hearing': 'offline', 'Physical': 'offline', 'CM Weekly Grievance': 'offline',
     'Letter': 'freetext', 'Email': 'freetext'
 }
-
+   
 # Change the path to the directory where your JSON files are located
 
 def load_grievances_data():

@@ -117,12 +117,12 @@ class ActionHistory(Base):
     id = Column(Integer, primary_key=True)
     ticket_no = Column(String, ForeignKey('complaints.ticket_no'))
     complaint = relationship('Complaint', backref='action_history')
-    action_taken_date = Column(DateTime, nullable=False)
+    action_taken_date = Column(DateTime, nullable=True)
     action_taken_by = Column(String, nullable=False)
     action_status = Column(String, nullable=False)
     action_taken_remark = Column(String, nullable=True)
     complaint_status_with_authority = Column(String, nullable=False)
 
-    __table_args__ = (UniqueConstraint('ticket_no', 'action_taken_date', name='ticket_no_action_taken_date_uniq'),)
+    # TODO: Add unique constraint
 
     

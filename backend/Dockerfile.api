@@ -1,27 +1,26 @@
-# Use an official lightweight Python image
-FROM python:3.11-slim
+# Use micromamba for faster package management
+FROM mambaorg/micromamba:1.5.8
 
 # Set environment variables for security and performance
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # Set working directory inside the container
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Copy environment file first for better caching
+COPY environment.yml .
+
+# Install dependencies using micromamba
+RUN micromamba install -y -n base -f environment.yml && \
+    micromamba clean -a -y
 
 # Copy backend code into container
 COPY . .
 
-# Install Python dependencies
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
-
 # Expose port
 EXPOSE 8000
 
-# Run the FastAPI app with Uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the FastAPI app with Uvicorn using micromamba
+CMD ["micromamba", "run", "-n", "base", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

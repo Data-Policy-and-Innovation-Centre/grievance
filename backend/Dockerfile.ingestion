@@ -1,23 +1,22 @@
-FROM python:3.11-slim
+FROM mambaorg/micromamba:1.5.8
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Copy environment file
+COPY environment.yml .
 
-# Copy requirements first for better caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies using micromamba
+RUN micromamba install -y -n base -f environment.yml && \
+    micromamba clean -a -y
 
 # Copy application code
 COPY . .
 
-# Run the ingestion script
-CMD ["python", "-m", "app.ingestion.orchestrator"]
+# Activate the environment and run the ingestion script
+CMD ["micromamba", "run", "-n", "base", "python", "-m", "app.ingestion.orchestrator"]

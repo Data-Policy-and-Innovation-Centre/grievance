@@ -61,8 +61,6 @@ def get_status2_stats(data):
     df_status2 = data[data["status_id"] == 2].copy()
     df_status2['created_on'] = pd.to_datetime(df_status2['created_on'], errors='coerce')
     df_status2['days_to_dispose'] = (df_status2['resolved_on'] - df_status2['created_on']).dt.days
-    avg_days_per_benefit_status = df_status2.groupby('benefitted')['days_to_dispose'].mean().reset_index()
-    avg_days_per_benefit_status.round(0)
     df_status2['benefitted_bool'] = df_status2['benefitted'].map({'Yes': True, 'No': False})
     office_avg = df_status2.groupby('office')['days_to_dispose'].mean().round(0).reset_index()
     office_summary = (df_status2.groupby('office')['benefitted_bool'].agg(total_complaints='count',
@@ -87,6 +85,62 @@ def get_status2_stats(data):
     final_merged = pd.merge(merged1, avg_days_per_office_benefitted, on='office', how='outer').fillna(0).round(1)
 
     return final_merged
+
+def get_avg_time_metrics(data):
+    df0 = data[data["status_id"] == 0].copy()
+    df1 = data[data["status_id"] == 1].copy()
+    df2 = data[data["status_id"] == 2].copy()
+
+    today = pd.Timestamp('today').normalize()
+
+    df0['created_on'] = pd.to_datetime(df0['created_on'], errors='coerce')
+    df0['days_without_assignment'] = (today - df0['created_on'].dt.normalize()).dt.days
+    df0_summary = df0.groupby('office')['days_without_assignment'].mean().reset_index()
+
+    df1['created_on'] = pd.to_datetime(df1['created_on'], errors='coerce')
+    df1['days_open_without_disposal'] = (today - df1['created_on'].dt.normalize()).dt.days
+    df1_summary = df1.groupby('office')['days_open_without_disposal'].mean().reset_index()
+
+    df2['created_on'] = pd.to_datetime(df2['created_on'], errors='coerce')
+    df2['days_to_dispose'] = (df2['resolved_on'] - df2['created_on']).dt.days
+    df2_avg = df2.groupby('office')['days_to_dispose'].mean().reset_index()
+
+    df2_benefitted = df2[df2['benefitted'] == 'Yes']
+    df2_benefit_avg = df2_benefitted.groupby('office')['days_to_dispose'].mean().reset_index()
+    df2_benefit_avg = df2_benefit_avg.rename(columns={'days_to_dispose': 'days_to_benefit'})
+
+    # Rename for clarity
+    def prefix_avg(df, key='office'):
+        return df.rename(columns={col: f'avg_{col}' for col in df.columns if col != key})
+
+    dfs = [df2_avg, df2_benefit_avg, df1_summary, df0_summary]
+    dfs = [prefix_avg(df) for df in dfs]
+
+    merged = reduce(lambda l, r: pd.merge(l, r, on='office', how='left'), dfs)
+    return merged.fillna(0).round(0)
+
+
+def response_time_across_offices(data):
+    df_status2 = data[data["status_id"] == 2].copy()
+    df_status2['created_on'] = pd.to_datetime(df_status2['created_on'], errors='coerce')
+    df_status2['days_to_dispose'] = (df_status2['resolved_on'] - df_status2['created_on']).dt.days
+    avg_days_per_benefit_status = df_status2.groupby('benefitted')['days_to_dispose'].mean().reset_index()
+    avg_days_per_benefit_status.round(0)
+    df_status2['benefitted_bool'] = df_status2['benefitted'].map({'Yes': True, 'No': False})
+    office_avg = df_status2.groupby('office')['days_to_dispose'].mean().round(0).reset_index()
+    office_summary = (df_status2.groupby('office')['benefitted_bool'].agg(total_complaints='count',
+                                                                          disposed_and_benefitted='sum').reset_index())
+    # Calculate not-benefitted count
+    office_summary['disposed_without_benefit'] = office_summary['total_complaints'] - office_summary['disposed_and_benefitted']
+
+    # Compute percentages (rounded to 1 decimal)
+    office_summary['percent_benefitted'] = (office_summary['disposed_and_benefitted'] / office_summary['total_complaints'] * 100).round(1)
+    office_summary['percent_not_benefitted'] = (office_summary['disposed_without_benefit'] / office_summary['total_complaints'] * 100).round(1)
+
+    # Sort by percent_benefitted 
+    office_summary = office_summary.sort_values(by='percent_benefitted', ascending=False)
+
+
 
 def category_investigation(data):
     data['category'] = data['category'].replace(
@@ -304,6 +358,8 @@ if __name__ == "__main__":
     print("Resolution Times:")
     resolution_output = resolution_times(data)
     print(resolution_output)
+    resolution_offices = get_avg_time_metrics(data)
+    print(resolution_offices)
     print("Channel Response Times:")
     channel_response_times_table = mode_summary_table(data)
     print(channel_response_times_table)

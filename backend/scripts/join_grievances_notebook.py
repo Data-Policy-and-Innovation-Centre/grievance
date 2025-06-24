@@ -25,7 +25,7 @@ from pathlib import Path
 import pandas as pd
 from app.ingestion.client import JanasunaniAPIClient
 from app.ingestion.schemas import validate, District, Complaint, validate_action_history
-from skimpy import skim
+#from skimpy import skim
 from app.ingestion.client import JanasunaniAPIError
 import pandas as pd
 
@@ -35,7 +35,7 @@ client = JanasunaniAPIClient()
 df_complaints = pd.DataFrame()
 
 for status in range(0,3):
-    df_status = pd.read_json(f'scripts/grievances2025_{status}.json')
+    df_status = pd.read_json(f'data/raw/grievances2025_{status}.json')
     if status == 0:
         df_status.columns = ['ticket_no', 'petitioner_name', 'petitioner_mobile', 'petitioner_email',
        'grievance', 'office', 'received_by', 'district', 'block', 'address',
@@ -210,11 +210,16 @@ df_status2['created_on'] = pd.to_datetime(df_status2['created_on'], errors='coer
 df_status2['days_to_dispose'] = (df_status2['resolved_on'] - df_status2['created_on']).dt.days
 df_status2[['ticket_no','grievance','created_on', 'resolved_on', 'benefitted','days_to_dispose']]
 avg_days_per_benefit_status = df_status2.groupby('benefitted')['days_to_dispose'].mean().reset_index()
-avg_days_per_benefit_status.round(0)
+avg_days_per_benefit_status.round(2)
+
+# %%
+df_status2['days_to_dispose'].mean()
 
 # %%
 # Calculating Averages Across Offices for Disposal
 office_avg = df_status2.groupby('office')['days_to_dispose'].mean().round(0).reset_index()
+office_avg = office_avg.rename(columns={'days_to_dispose': 'avg_days_to_dispose'})
+office_avg = office_avg.sort_values(by='avg_days_to_dispose')
 office_avg
 
 # %%
@@ -222,8 +227,8 @@ office_avg
 
 df_benefitted = df_status2[df_status2['benefitted'] == 'Yes']
 avg_days_per_office_benefitted = df_benefitted.groupby('office')['days_to_dispose'].mean().round(0).reset_index()
-avg_days_per_office_benefitted = avg_days_per_office_benefitted.rename(columns={'days_to_dispose': 'days_to_benefit'})
-avg_days_per_office_benefitted = avg_days_per_office_benefitted.sort_values(by='days_to_benefit')
+avg_days_per_office_benefitted = avg_days_per_office_benefitted.rename(columns={'days_to_dispose': 'avg_days_to_benefit'})
+avg_days_per_office_benefitted = avg_days_per_office_benefitted.sort_values(by='avg_days_to_benefit')
 avg_days_per_office_benefitted
 
 # %%
@@ -297,16 +302,19 @@ final_merged.round(1)
 # ### 3.2. Analyzing Pending & Unassigned Complaints
 
 # %%
+fixed_yesterday = pd.Timestamp('2025-06-22').normalize()
+
+# %%
 df_status1['created_on'] = pd.to_datetime(df_status1['created_on'], errors='coerce')
-df_status1['days_open_without_disposal'] = (pd.Timestamp('today').normalize()- df_status1['created_on'].dt.normalize()).dt.days
+df_status1['days_open_without_disposal'] = (fixed_yesterday- df_status1['created_on'].dt.normalize()).dt.days
 days_open = df_status1.groupby('office')['days_open_without_disposal'].mean().reset_index()
-days_open.round(0)
+# days_open.round(0)
 
 # %%
 df_status0['created_on'] = pd.to_datetime(df_status0['created_on'], errors='coerce')
-df_status0['days_without_assignment'] = (pd.Timestamp('today').normalize() - df_status0['created_on'].dt.normalize()).dt.days
+df_status0['days_without_assignment'] = (fixed_yesterday - df_status0['created_on'].dt.normalize()).dt.days
 days_open_0 = df_status0.groupby('office')['days_without_assignment'].mean().reset_index()
-days_open_0.round(0)
+days_open_0
 
 # %% [markdown]
 # #### Response Times Across Offices
@@ -345,7 +353,7 @@ import numpy as np
 # Ensure dates are datetime type
 df_online['created_on'] = pd.to_datetime(df_online['created_on'])
 df_online['resolved_on'] = pd.to_datetime(df_online['resolved_on'])
-today = pd.to_datetime('today').floor('D')
+today = fixed_yesterday.floor('D')
 
 # Calculate days open: resolved – created, else today – created
 df_online['days_open_online'] = np.where(
@@ -354,7 +362,6 @@ df_online['days_open_online'] = np.where(
     (today - df_online['created_on']).dt.days
 )
 online_resolution = df_online.groupby('office')['days_open_online'].mean().reset_index()
-online_resolution.round(0)
 
 
 # %%
@@ -403,7 +410,7 @@ df_offline['created_on'] = pd.to_datetime(df_offline['created_on'])
 df_offline['resolved_on'] = pd.to_datetime(df_offline['resolved_on'])
 
 # Use today’s date floored to the day
-today = pd.to_datetime('today').floor('D')
+today = fixed_yesterday.floor('D')
 
 # Calculate days open: resolved – created, else today – created
 df_offline['days_open_offline'] = np.where(
@@ -412,7 +419,6 @@ df_offline['days_open_offline'] = np.where(
     (today - df_offline['created_on']).dt.days
 )
 offline_resolution = df_offline.groupby('office')['days_open_offline'].mean().reset_index()
-offline_resolution.round(0)
 
 
 # %%
@@ -426,7 +432,7 @@ offline_benefitted_avg = (
     .agg(avg_days_to_benefit_offline=('days_open_offline', 'mean'))
 )
 
-offline_benefitted_avg.round(0)
+offline_benefitted_avg
 
 # %%
 office_counts = df_offline['office'].value_counts()
@@ -464,7 +470,7 @@ df_freetext['created_on'] = pd.to_datetime(df_freetext['created_on'])
 df_freetext['resolved_on'] = pd.to_datetime(df_freetext['resolved_on'])
 
 # Use today’s date floored to the day
-today = pd.to_datetime('today').floor('D')
+today = fixed_yesterday .floor('D')
 
 # Calculate days open: resolved – created, else today – created
 df_freetext['days_open_text'] = np.where(
@@ -474,7 +480,6 @@ df_freetext['days_open_text'] = np.where(
 )
 
 text_resolution = df_freetext.groupby('office')['days_open_text'].mean().reset_index()
-text_resolution.round(0)
 
 # %%
 # Filter only records where benefitted is True
@@ -577,5 +582,38 @@ counts['total_benefitted'] = counts.sum(axis=1)
 perc = counts.div(counts['total_benefitted'], axis=0).mul(100).round(1)
 perc = perc[['online', 'offline', 'freetext']].add_suffix('_benefitted_pct').reset_index()
 perc
+
+# %%
+df_offline['grievance'].value_counts()
+
+# %%
+df_unique[df_unique['category'] == 'General & Misc']
+
+# %%
+df_unique['grievance'].value_counts()
+
+# %%
+df_unique[df_unique['category']=='General & Misc']['dept'].value_counts()
+
+# %%
+df_english[(df_english['grievance_category']=='Ration Card')&(df_english['subcategory']!='Ration Card Issue')]
+
+# %%
+df_english['subcategory'].value_counts()
+
+# %%
+df_english[(df_english['grievance_category']=='Ration Card')&(df_english['dept']=='Panchayati Raj & Drinking Water')]['mode'].value_counts()
+
+# %%
+df_english[df_english['grievance_category']=='Other']['dept'].value_counts()
+
+# %%
+len(df_english[(df_english['grievance_category']=='Other')&(df_english['dept']=="Revenue & Disaster Management")&(df_english['grievance'].str.lower().str.contains('land'))])
+
+# %%
+df_status2[df_status2['days_to_dispose'] > 50]
+
+# %%
+# client.get_action_history("CMO20241051399")
 
 

@@ -86,7 +86,6 @@ backend/
    ```bash
    micromamba create -f environment.yml
    micromamba activate grievance-analytics
-   pip install -e .
    ```
 
 2. **Run tests**:

@@ -16,7 +16,7 @@ def load_grievances_data():
     df_complaints = pd.DataFrame()
 
     for status in range(0,3):
-        df_status = pd.read_json(f'grievances2025_{status}.json')
+        df_status = pd.read_json(f'data/raw/grievances2025_{status}.json')
         if status == 0:
             df_status.columns = ['ticket_no', 'petitioner_name', 'petitioner_mobile', 'petitioner_email',
         'grievance', 'office', 'received_by', 'district', 'block', 'address',
@@ -91,7 +91,7 @@ def get_avg_time_metrics(data):
     df1 = data[data["status_id"] == 1].copy()
     df2 = data[data["status_id"] == 2].copy()
 
-    today = pd.Timestamp('today').normalize()
+    today = pd.Timestamp('2025-06-22').normalize()
 
     df0['created_on'] = pd.to_datetime(df0['created_on'], errors='coerce')
     df0['days_without_assignment'] = (today - df0['created_on'].dt.normalize()).dt.days
@@ -205,7 +205,7 @@ def channel_stats(channel, data):
     df = data[data['mode'].map(CHANNEL_MAP) == channel].copy()
     df['created_on'] = pd.to_datetime(df['created_on'])
     df['resolved_on'] = pd.to_datetime(df['resolved_on'])
-    today = pd.to_datetime('today').floor('D')
+    today = pd.Timestamp('2025-06-22').floor('D')
 
     days_open_col = f'days_open_{channel}'
     avg_open_col = f'avg_days_open_{channel}'
@@ -234,7 +234,7 @@ def mode_summary_table(data):
         'freetext': ['Letter', 'Email']
     }
 
-    today = pd.to_datetime('today').floor('D')
+    today = pd.Timestamp('2025-06-22').floor('D')
     rows = []
 
     for mode, modes_list in mode_map.items():

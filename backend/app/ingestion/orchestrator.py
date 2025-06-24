@@ -119,7 +119,6 @@ def run_ingestion_service():
                 orchestrator.ingest_action_history(complaint.ticket_no)
             except JanasunaniAPIError as e:
                 continue
-        
         return {
             'statusCode': 200,
             'body': json.dumps('Data ingestion completed successfully')

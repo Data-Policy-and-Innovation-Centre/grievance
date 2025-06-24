@@ -8,15 +8,13 @@ ENV PYTHONPATH=/app
 # Set working directory
 WORKDIR /app
 
-# Copy environment file
-COPY environment.yml .
-
-# Install dependencies using micromamba
-RUN micromamba install -y -n base -f environment.yml && \
-    micromamba clean -a -y
-
 # Copy application code
 COPY . .
 
+# Install dependencies using micromamba
+RUN micromamba install -y -n base -f environment.yml 
+
+RUN micromamba clean -a -y
+
 # Activate the environment and run the ingestion script
-CMD ["micromamba", "run", "-n", "base", "python", "-m", "app.ingestion.orchestrator"]
+CMD ["micromamba", "run", "-n", "base", "-e", ".env", "python", "-m", "app.ingestion.orchestrator"]

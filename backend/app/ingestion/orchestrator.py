@@ -111,7 +111,7 @@ def run_ingestion_service():
                             complaints.append(complaints_param)
                         except JanasunaniAPIError as e:
                             continue
-
+        
         # Ingest action history for each complaint
         flattened_complaints = [complaint for sublist in complaints for complaint in sublist]
         for complaint in flattened_complaints:

@@ -11,10 +11,13 @@ WORKDIR /app
 # Copy application code
 COPY . .
 
+# Ensure the data directory exists and has the right permissions
+RUN mkdir -p /app/data
+
 # Install dependencies using micromamba
 RUN micromamba install -y -n base -f environment.yml 
 
 RUN micromamba clean -a -y
 
 # Activate the environment and run the ingestion script
-CMD ["micromamba", "run", "-n", "base", "-e", ".env", "python", "-m", "app.ingestion.orchestrator"]
+CMD ["micromamba", "run", "-n", "base", "python", "-m", "app.ingestion.orchestrator"]

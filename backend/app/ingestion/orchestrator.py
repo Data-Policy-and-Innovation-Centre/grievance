@@ -75,9 +75,8 @@ class IngestionOrchestrator:
         """Ingest action history data."""
         try:
             action_history = self.client.get_action_history(ticket_no)
-            action_history_validated = validate_action_history(action_history)
+            action_history_validated = validate_action_history(action_history, ticket_no=ticket_no, dict_mode=False)
 
-            
             # Store data in database using CRUD operations
             stored_action_history = bulk_load_action_histories(self.db, action_history_validated)
             logger.info(f"Successfully stored {len(stored_action_history)} action history in database")
@@ -100,6 +99,7 @@ def run_ingestion_service():
         # Ingest complaints for each district, status and office
         complaints = []
         
+
         for year in range(2021, datetime.now().year ):
             for district in districts:
                 for status in STATUS.keys():

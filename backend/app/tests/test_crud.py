@@ -16,9 +16,13 @@ from app.db.crud import (
     get_action_history_by_ticket,
     batch_create_or_update_districts,
     batch_create_or_update_complaints,
-    batch_create_action_history
+    batch_create_action_history,
+    bulk_load_districts,
+    bulk_load_complaints,
+    bulk_load_action_histories
 )
 from app.ingestion.schemas import District as DistrictSchema, Complaint as ComplaintSchema, ActionHistory as ActionHistorySchema
+from sqlalchemy.exc import IntegrityError
 
 @pytest.fixture(autouse=True)
 def setup_test_environment():
@@ -273,6 +277,86 @@ def test_batch_create_action_history(db_session, sample_action_history_data):
     assert len(actions) == 3
     assert actions[0].action_taken_remark == "Test action"
     assert actions[1].action_taken_remark == "Second action"
-    assert actions[2].action_taken_remark == "Third action" 
+    assert actions[2].action_taken_remark == "Third action"
+
+def test_bulk_load_districts(db_session):
+    """Test bulk loading districts."""
+    districts_data = [
+        DistrictSchema(distName="Bulk District 1", distId=10),
+        DistrictSchema(distName="Bulk District 2", distId=11),
+        DistrictSchema(distName="Bulk District 3", distId=12)
+    ]
+    count = len(bulk_load_districts(db_session, districts_data))
+    assert count == 3
+    # Check that the districts are in the database
+    all_districts = get_all_districts(db_session)
+    names = [d.dist_name for d in all_districts]
+    assert "Bulk District 1" in names
+    assert "Bulk District 2" in names
+    assert "Bulk District 3" in names
+
+def test_bulk_load_complaints(db_session, sample_complaint_data):
+    """Test bulk loading complaints."""
+    complaints_data = [
+        sample_complaint_data,
+        sample_complaint_data.model_copy(deep=True, update={"ticket_no": "T200"}),
+        sample_complaint_data.model_copy(deep=True, update={"ticket_no": "T201"})
+    ]
+    count = len(bulk_load_complaints(db_session, complaints_data))
+    assert count == 3
+    # Check that the complaints are in the database
+    tickets = [c.ticket_no for c in db_session.query(Complaint).all()]
+    assert "T123" in tickets
+    assert "T200" in tickets
+    assert "T201" in tickets
+
+def test_bulk_load_action_histories(db_session, sample_action_history_data):
+    """Test bulk loading action histories."""
+    actions_data = [
+        sample_action_history_data,
+        sample_action_history_data.model_copy(deep=True, update={"action_taken_remark": "Bulk second action"}),
+        sample_action_history_data.model_copy(deep=True, update={"action_taken_remark": "Bulk third action"})
+    ]
+    count = len(bulk_load_action_histories(db_session, actions_data))
+    assert count == 3
+    # Check that the action histories are in the database
+    remarks = [a.action_taken_remark for a in db_session.query(ActionHistory).all()]
+    assert "Test action" in remarks
+    assert "Bulk second action" in remarks
+    assert "Bulk third action" in remarks
+
+def test_unique_constraint_district_id(db_session, sample_district_data):
+    """Test that duplicate district dist_id raises IntegrityError."""
+    create_or_update_district(db_session, sample_district_data)
+    duplicate = DistrictSchema(distName="Another District", distId=1)
+    with pytest.raises(IntegrityError):
+        # Directly add to session to test constraint
+        db_session.add(District(dist_name="New name", dist_id=duplicate.dist_id))
+        db_session.commit()
+
+def test_unique_constraint_complaint_ticket_no(db_session, sample_complaint_data):
+    """Test that duplicate complaint ticket_no raises IntegrityError."""
+    create_or_update_complaint(db_session, sample_complaint_data)
+    duplicate  = sample_complaint_data.model_copy(deep=True, update={"petitioner_name": "Jane Doe"}).model_dump(by_alias=False)
+    with pytest.raises(IntegrityError):
+        db_session.add(Complaint(
+            **duplicate
+        ))
+        db_session.commit()
+
+def test_unique_constraint_action_history(db_session, sample_action_history_data):
+    """Test that duplicate action history (composite unique) raises IntegrityError."""
+    create_action_history(db_session, sample_action_history_data)
+    duplicate = sample_action_history_data.model_copy(deep=True)
+    with pytest.raises(IntegrityError):
+        db_session.add(ActionHistory(
+            ticket_no=duplicate.ticket_no,
+            action_taken_by=duplicate.action_taken_by,
+            action_status=duplicate.action_status,
+            action_taken_remark=duplicate.action_taken_remark,
+            complaint_status_with_authority=duplicate.complaint_status_with_authority,
+            action_taken_date=duplicate.action_taken_date
+        ))
+        db_session.commit() 
 
     

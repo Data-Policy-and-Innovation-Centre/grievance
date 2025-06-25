@@ -16,13 +16,16 @@ from ..db.crud import (
 from ..db.session import get_db
 from . import OFFICE, STATUS
 from app.config import settings
+import asyncio
+import httpx
 
 class IngestionOrchestrator:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, semaphore_value: int = 10):
         self.client = JanasunaniAPIClient()
         self.s3 = boto3.client('s3')
         self.bucket_name = 'grievance-raw-data'
         self.db = db
+        self.semaphore = asyncio.Semaphore(semaphore_value)
 
     def _store_in_s3(self, data: dict, prefix: str):
         """Store raw data in S3 with timestamp."""
@@ -41,10 +44,10 @@ class IngestionOrchestrator:
             logger.error(f"Error storing data in S3: {e}")
             raise
 
-    def ingest_districts(self):
+    async def ingest_districts(self):
         """Ingest district data."""
         try:
-            districts = self.client.get_districts()
+            districts = await self.client.get_districts()
             districts_validated = validate(districts, District, dict_mode=False)
             
             # Store data in database using CRUD operations
@@ -56,10 +59,10 @@ class IngestionOrchestrator:
             logger.error(f"Error ingesting districts: {e}")
             raise
 
-    def ingest_complaints(self, year: int, distId: int, status: int, office: int) -> list[Complaint]:
+    async def ingest_complaints(self, year: int, distId: int, status: int, office: int) -> list[Complaint]:
         """Ingest complaint data."""
         try:
-            complaints = self.client.get_complaints(year, distId, status, office)
+            complaints = await self.client.get_complaints(year, distId, status, office)
             complaints_validated = validate(complaints, Complaint, dict_mode=False)
             
             # Store data in database using CRUD operations
@@ -68,14 +71,36 @@ class IngestionOrchestrator:
             
             return complaints_validated
         except Exception as e:
-            logger.error(f"Error ingesting complaints: {e}")
+            # logger.error(f"Error ingesting complaints: {e}")
             raise
+    
+    async def limited_ingest_complaints(self, year: int, distId: int, status: int, office: int) -> list[Complaint]:
+        """Ingest complaint data with limited concurrency."""
+        async with self.semaphore:
+            try:
+                return await self.ingest_complaints(year, distId, status, office)
+            except JanasunaniAPIError as e:
+                logger.warning(f"{e}")
+                return []
+            except httpx.HTTPStatusError as e:
+                logger.error(f"HTTP error: {str(e).lower()}")
+                if "too many requests" in str(e).lower():
+                    await asyncio.sleep(10)  # Wait xx seconds before retrying
+                    return await self.ingest_complaints(year, distId, status, office)
+                else:
+                    return []
+            except httpx.RequestError as e:
+                logger.error(f"Request error: {e}")
+                return []
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return []
 
-    def ingest_action_history(self, ticket_no: str) -> list[ActionHistory]:
+    async def ingest_action_history(self, ticket_no: str) -> list[ActionHistory]:
         """Ingest action history data."""
         try:
-            action_history = self.client.get_action_history(ticket_no)
-            action_history_validated = validate_action_history(action_history, ticket_no=ticket_no, dict_mode=False)
+            action_history = await self.client.get_action_history(ticket_no)
+            action_history_validated = validate_action_history(items=action_history, ticket_no=ticket_no, dict_mode=False)
 
             # Store data in database using CRUD operations
             stored_action_history = bulk_load_action_histories(self.db, action_history_validated)
@@ -83,58 +108,77 @@ class IngestionOrchestrator:
 
             return action_history_validated
         except Exception as e:
-            logger.error(f"Error ingesting action history: {e}")
+            # logger.error(f"Error ingesting action history: {e}")
             raise
+
+    async def limited_ingest_action_history(self, ticket_no: str) -> list[ActionHistory]:
+        """Ingest action history data with limited concurrency."""
+        async with self.semaphore:
+            try:
+                return await self.ingest_action_history(ticket_no)
+            except JanasunaniAPIError as e:
+                logger.warning(f"{e}")
+                return []
+            except httpx.HTTPStatusError as e:
+                logger.error(f"HTTP error: {e}")
+                if "too many requests" in str(e).lower():
+                    await asyncio.sleep(10)  # Wait xx seconds before retrying
+                    return await self.ingest_action_history(ticket_no)
+                else: 
+                    return []
+            except httpx.RequestError as e:
+                logger.error(f"Request error: {e}")
+                return []
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return []
             
 
-def run_ingestion_service():
-    """AWS Lambda handler function."""
+async def run_ingestion_service():
+    """Main async ingestion service runner."""
     try:
         db = next(get_db())
-        orchestrator = IngestionOrchestrator(db)
+        orchestrator = IngestionOrchestrator(db,5)
         
         # Ingest districts
-        districts = orchestrator.ingest_districts()
-        
-        # Ingest complaints for each district, status and office
-        complaints = []
-        
+        districts = await orchestrator.ingest_districts()
 
-        for year in range(2021, datetime.now().year ):
-            for district in districts:
-                for status in STATUS.keys():
-                    for office in OFFICE.keys():
-                        try:
-                            complaints_param = orchestrator.ingest_complaints(
-                                year=year,
-                                distId=district.dist_id,
-                                status=status,
-                                office=office
-                            )
-                            complaints.append(complaints_param)
-                        except JanasunaniAPIError as e:
-                            continue
+        # Ingest complaints for each year, district, status and office
+        params = [(year, district.dist_id, status, office) for year in range(2021, datetime.now().year) 
+                  for district in districts for status in STATUS.keys() 
+                  for office in OFFICE.keys()]
+        logger.info(f"Total complaint requests to process: {len(params)}")
+        
+        try:
+            tasks = [orchestrator.limited_ingest_complaints(*param) for param in params]
+            complaints = await asyncio.gather(*tasks, return_exceptions=True)
+            logger.info(f"Completed {len(complaints)} complaint ingestion tasks")
+        except Exception as e:
+            logger.error(f"Error in complaint ingestion: {e}")
         
         # Ingest action history for each complaint
-        flattened_complaints = [complaint for sublist in complaints for complaint in sublist]
-        for complaint in flattened_complaints:
-            try:
-                orchestrator.ingest_action_history(complaint.ticket_no)
-            except JanasunaniAPIError as e:
-                continue
+        try:
+            flattened_complaints = [complaint for sublist in complaints if isinstance(sublist, list) for complaint in sublist]
+            logger.info(f"Processing action history for {len(flattened_complaints)} complaints")
+            tasks = [orchestrator.limited_ingest_action_history(complaint.ticket_no) for complaint in flattened_complaints]
+            await asyncio.gather(*tasks, return_exceptions=True)
+        except Exception as e:
+            logger.error(f"Error in action history ingestion: {e}")
+        
+        logger.info("Data ingestion completed successfully")
         return {
             'statusCode': 200,
             'body': json.dumps('Data ingestion completed successfully')
         }
+        
     except Exception as e:
-        logger.error(f"Error in lambda handler: {e}")
+        logger.error(f"Error in ingestion service: {e}")
         return {
             'statusCode': 500,
             'body': json.dumps(f'Error: {str(e)}')
         }
-        
     finally:
         db.close()
     
 if __name__ == "__main__":
-    run_ingestion_service()
+    asyncio.run(run_ingestion_service())

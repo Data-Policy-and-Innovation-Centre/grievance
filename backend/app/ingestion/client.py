@@ -83,7 +83,7 @@ class JanasunaniAPIClient:
             response = await client.get(url)
             return await self._handle_response(response)
 
-    async def get_complaints(self, year: int, distId: int, status: int, office: int) -> dict:
+    async def get_complaints(self, year: int, distId: int, status: int, office: int) -> list[dict]:
         """
         Retrieves complaints from the grievance system based on the specified filters.
 
@@ -94,7 +94,7 @@ class JanasunaniAPIClient:
             office (int): The office ID to filter complaints.
 
         Returns:
-            dict: The response data containing the filtered complaints.
+            list[dict]: The response data containing the filtered complaints.
 
         Raises:
             JanasunaniAPIError: If the HTTP request fails.
@@ -116,7 +116,7 @@ class JanasunaniAPIClient:
             response = await client.get(url, params=params)
             return await self._handle_response(response)
     
-    async def get_action_history(self, ticket_no: str) -> dict:
+    async def get_action_history(self, ticket_no: str) -> list[dict]:
         """
         Retrieves action history for a given ticket number from the grievance system.
 
@@ -124,7 +124,7 @@ class JanasunaniAPIClient:
             ticket_no (str): The ticket number for which to retrieve the action history.
 
         Returns:
-            dict: The response data containing the action history.
+            list[dict]: The response data containing the action history.
 
         Raises:
             JanasunaniAPIError: If the HTTP request fails.

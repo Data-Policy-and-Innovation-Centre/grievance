@@ -149,6 +149,45 @@ def batch_create_action_history(db: Session, actions_data: List[ActionHistorySch
             continue
     return actions
 
+def bulk_load_districts(db: Session, districts_data: List[DistrictSchema]) -> List[District]:
+    """Bulk load districts for fast ingestion."""
+    try:
+        logger.info(f"Bulk loading {len(districts_data)} districts")
+        district_objs = [District(**district.model_dump(by_alias=False)) for district in districts_data]
+        db.bulk_save_objects(district_objs, return_defaults=True)
+        db.commit()
+        return district_objs
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Bulk load districts failed: {e}")
+        return batch_create_or_update_districts(db, districts_data)
+
+def bulk_load_complaints(db: Session, complaints_data: List[ComplaintSchema]) -> List[ComplaintModel]:
+    """Bulk load complaints for fast ingestion."""
+    try:
+        logger.info(f"Bulk loading {len(complaints_data)} complaints")
+        complaint_objs = [ComplaintModel(**c.model_dump(by_alias=False)) for c in complaints_data]
+        db.bulk_save_objects(complaint_objs, return_defaults=True)
+        db.commit()
+        return complaint_objs
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Bulk load complaints failed: {e}")
+        return batch_create_or_update_complaints(db, complaints_data)
+
+def bulk_load_action_histories(db: Session, actions_data: List[ActionHistorySchema]) -> List[ActionHistoryModel]:
+    """Bulk load action histories for fast ingestion."""
+    try:
+        logger.info(f"Bulk loading {len(actions_data)} action histories")
+        action_objs = [ActionHistoryModel(**a.model_dump(by_alias=False)) for a in actions_data]
+        db.bulk_save_objects(action_objs, return_defaults=True)
+        db.commit()
+        return action_objs
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Bulk load action histories failed: {e}")
+        return batch_create_action_history(db, actions_data)
+
 if __name__ == "__main__":
     db = next(get_db())
     districts = get_all_districts(db)

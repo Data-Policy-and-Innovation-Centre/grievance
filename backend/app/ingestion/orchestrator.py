@@ -8,7 +8,10 @@ from .schemas import validate, Complaint, District, ActionHistory, validate_acti
 from ..db.crud import (
     batch_create_or_update_districts,
     batch_create_or_update_complaints,
-    batch_create_action_history
+    batch_create_action_history,
+    bulk_load_districts,
+    bulk_load_complaints,
+    bulk_load_action_histories
 )
 from ..db.session import get_db
 from . import OFFICE, STATUS
@@ -45,7 +48,7 @@ class IngestionOrchestrator:
             districts_validated = validate(districts, District, dict_mode=False)
             
             # Store data in database using CRUD operations
-            stored_districts = batch_create_or_update_districts(self.db, districts_validated)
+            stored_districts = bulk_load_districts(self.db, districts_validated)
             logger.info(f"Successfully stored {len(stored_districts)} districts in database")
             
             return districts_validated
@@ -60,7 +63,7 @@ class IngestionOrchestrator:
             complaints_validated = validate(complaints, Complaint, dict_mode=False)
             
             # Store data in database using CRUD operations
-            stored_complaints = batch_create_or_update_complaints(self.db, complaints_validated)
+            stored_complaints = bulk_load_complaints(self.db, complaints_validated)
             logger.info(f"Successfully stored {len(stored_complaints)} complaints in database")
             
             return complaints_validated
@@ -76,7 +79,7 @@ class IngestionOrchestrator:
 
             
             # Store data in database using CRUD operations
-            stored_action_history = batch_create_action_history(self.db, action_history_validated)
+            stored_action_history = bulk_load_action_histories(self.db, action_history_validated)
             logger.info(f"Successfully stored {len(stored_action_history)} action history in database")
 
             return action_history_validated

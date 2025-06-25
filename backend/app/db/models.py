@@ -123,6 +123,10 @@ class ActionHistory(Base):
     action_taken_remark = Column(String, nullable=True)
     complaint_status_with_authority = Column(String, nullable=False)
 
-    # TODO: Add unique constraint
+    __table_args__ = (UniqueConstraint('ticket_no', 
+                                       'action_taken_by', 
+                                       'action_status', 
+                                       'action_taken_remark',
+                                       'complaint_status_with_authority', name='action_history_uniq'),)
 
     

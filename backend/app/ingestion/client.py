@@ -1,4 +1,5 @@
-import requests
+import httpx
+import asyncio
 from app.config import settings
 from .schemas import validate, validate_action_history, Complaint, District
 from loguru import logger
@@ -15,24 +16,7 @@ class JanasunaniAPIError(Exception):
 
 class JanasunaniAPIClient:
     """
-    JansunaniAPIClient provides methods to interact with the Jansunani grievance API.
-
-    This client handles authentication, request construction, and response parsing for
-    the Jansunani API endpoints. It provides methods to fetch district information and
-    retrieve complaints based on various filters.
-
-    Attributes:
-        base_url (str): The base URL for the Jansunani API.
-        auth (tuple): A tuple containing the username and password for API authentication.
-
-    Methods:
-        get_districts() -> dict:
-
-        get_complaints(year: int, distId: int, status: int, office: int) -> dict:
-
-        JansunaniAPIError: For API-specific errors or unexpected response formats.
-        requests.RequestException: For network-related errors during HTTP requests.
-        requests.HTTPError: For non-200 HTTP responses.
+    Async client for the Jansunani grievance API using httpx.
     """
 
     def __init__(
@@ -46,7 +30,7 @@ class JanasunaniAPIClient:
         self.base_url = base_url
         self.auth = auth
 
-    def _handle_response(self, response: requests.Response) -> dict:
+    async def _handle_response(self, response: httpx.Response) -> dict:
         """
         Handles the API response from a requests call.
 
@@ -62,16 +46,16 @@ class JanasunaniAPIClient:
             requests.HTTPError: If the HTTP response status code is not 200.
         """
         if response.status_code == 200:
-            response = response.json()
-            message = response.get("message", "")
-            status = response.get("status", "")
+            response_json = response.json()
+            message = response_json.get("message", "")
+            status = response_json.get("status", "")
             if status == 200:
-                if "distRes" in response:
-                    return response["distRes"]
-                elif "Res" in response:
-                    return response["Res"]
-                elif "actionHistory" in response:
-                    return response["actionHistory"]
+                if "distRes" in response_json:
+                    return response_json["distRes"]
+                elif "Res" in response_json:
+                    return response_json["Res"]
+                elif "actionHistory" in response_json:
+                    return response_json["actionHistory"]
                 else:
                     raise JanasunaniAPIError(
                         "Neither 'distRes', 'Res' or 'actionHistory' found in response."
@@ -83,7 +67,7 @@ class JanasunaniAPIClient:
         else:
             response.raise_for_status()
 
-    def get_districts(self) -> dict:
+    async def get_districts(self) -> dict:
         """
         Fetches the list of districts from the remote API.
 
@@ -93,12 +77,13 @@ class JanasunaniAPIClient:
         Raises:
             JanasunaniAPIError: If the HTTP request fails.
         """
-        logger.info("Fetching districts from Jansunani API...")
+        logger.info("Fetching districts from Jansunani API (async)...")
         url = f"{self.base_url}/getDistricts"
-        response = requests.get(url, auth=self.auth)
-        return self._handle_response(response)
+        async with httpx.AsyncClient(auth=self.auth) as client:
+            response = await client.get(url)
+            return await self._handle_response(response)
 
-    def get_complaints(self, year: int, distId: int, status: int, office: int) -> dict:
+    async def get_complaints(self, year: int, distId: int, status: int, office: int) -> dict:
         """
         Retrieves complaints from the grievance system based on the specified filters.
 
@@ -123,14 +108,15 @@ class JanasunaniAPIClient:
 
         
         logger.info(
-                f"Fetching complaints for year: {year}, district ID: {distId}, status: {STATUS[status]}, office: {OFFICE[office]}"
+                f"Fetching complaints for year: {year}, district ID: {distId}, status: {STATUS[status]}, office: {OFFICE[office]} (async)"
             )
         url = f"{self.base_url}/getGrievanceDetails"
         params = {"year": year, "distId": distId, "status": status, "office": office}
-        response = requests.get(url, params=params, auth=self.auth)
-        return self._handle_response(response)
+        async with httpx.AsyncClient(auth=self.auth) as client:
+            response = await client.get(url, params=params)
+            return await self._handle_response(response)
     
-    def get_action_history(self, ticket_no: str) -> dict:
+    async def get_action_history(self, ticket_no: str) -> dict:
         """
         Retrieves action history for a given ticket number from the grievance system.
 
@@ -143,29 +129,34 @@ class JanasunaniAPIClient:
         Raises:
             JanasunaniAPIError: If the HTTP request fails.
         """
-        logger.info(f"Fetching action history for ticket number: {ticket_no}")
+        logger.info(f"Fetching action history for ticket number: {ticket_no} (async)")
         url = f"{self.base_url}/getGrievanceHistory"
         params = {"ticketNumber": ticket_no}
-        response = requests.get(url, params=params, auth=self.auth)
-        return self._handle_response(response)
+        async with httpx.AsyncClient(auth=self.auth) as client:
+            response = await client.get(url, params=params)
+            return await self._handle_response(response)
 
 
-if __name__ == "__main__":
+async def main():
     client = JanasunaniAPIClient()
     try:
-        districts = client.get_districts()
+        districts = await client.get_districts()
         districts_validated = validate(districts, District)
-        complaints = client.get_complaints(2025, status=1, distId=344, office=4)
+        complaints = await client.get_complaints(2025, status=1, distId=344, office=4)
         complaints_validated = validate(complaints, Complaint)
 
         # Get action history
         try:
             ticket_no = complaints_validated[0].ticket_no
-        except AttributeError as e:
+        except AttributeError:
             ticket_no = complaints_validated[0]['ticket_no']
         
-        action_history = client.get_action_history(ticket_no)
+        action_history = await client.get_action_history(ticket_no)
         action_history = validate_action_history(action_history, ticket_no)
         print(action_history)
-    except requests.RequestException as e:
+    except httpx.RequestError as e:
         print(f"An error occurred: {e}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

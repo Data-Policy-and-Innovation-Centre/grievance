@@ -1,0 +1,19 @@
+FROM mambaorg/micromamba:1.5.8
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code and tests
+COPY . .
+
+# Install dependencies using micromamba
+RUN micromamba install -y -n base -f environment.yml && \
+    micromamba clean -a -y
+
+# Run pytest as the default command
+CMD ["micromamba", "run", "-n", "base", "pytest", "app/tests"] 

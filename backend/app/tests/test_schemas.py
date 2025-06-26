@@ -20,6 +20,7 @@ def valid_complaint_dict(**overrides):
         "petitionerMobile": "1234567890",
         "petitionerEmail": "john@example.com",
         "grievanceSubject": "Road issue",
+        "Document": "www.example.com",
         "officeNAme": "Office A",
         "RecievedByOfficerName": "Officer X",
         "districtName": "District 1",

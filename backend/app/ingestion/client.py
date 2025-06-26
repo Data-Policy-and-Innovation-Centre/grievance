@@ -4,7 +4,11 @@ from app.config import settings
 from .schemas import validate, validate_action_history, Complaint, District
 from loguru import logger
 from . import STATUS, OFFICE
-
+from datetime import datetime
+from more_itertools import chunked
+from itertools import product
+import time
+import json
 
 class JanasunaniAPIError(Exception):
     """Custom exception for Jansunani API errors."""
@@ -30,7 +34,7 @@ class JanasunaniAPIClient:
         self.base_url = base_url
         self.auth = auth
 
-    async def _handle_response(self, response: httpx.Response) -> dict:
+    def _handle_response(self, response: httpx.Response) -> dict:
         """
         Handles the API response from a requests call.
 
@@ -60,6 +64,8 @@ class JanasunaniAPIClient:
                     raise JanasunaniAPIError(
                         "Neither 'distRes', 'Res' or 'actionHistory' found in response."
                     )
+            elif status == 204:
+                pass
             else:
                 raise JanasunaniAPIError(
                     f"Jansunani API returned an error: {message} (Status: {status})"
@@ -67,7 +73,7 @@ class JanasunaniAPIClient:
         else:
             response.raise_for_status()
 
-    async def get_districts(self) -> dict:
+    def get_districts(self) -> dict:
         """
         Fetches the list of districts from the remote API.
 
@@ -79,11 +85,11 @@ class JanasunaniAPIClient:
         """
         logger.info("Fetching districts from Jansunani API (async)...")
         url = f"{self.base_url}/getDistricts"
-        async with httpx.AsyncClient(auth=self.auth) as client:
-            response = await client.get(url)
-            return await self._handle_response(response)
+        with httpx.Client(auth=self.auth) as client:
+            response = client.get(url)
+            return self._handle_response(response)
 
-    async def get_complaints(self, year: int, distId: int, status: int, office: int) -> list[dict]:
+    async def get_complaints(self, year: int, distId: int, status: int, office: int, semaphore: asyncio.Semaphore) -> list[dict]:
         """
         Retrieves complaints from the grievance system based on the specified filters.
 
@@ -112,11 +118,19 @@ class JanasunaniAPIClient:
             )
         url = f"{self.base_url}/getGrievanceDetails"
         params = {"year": year, "distId": distId, "status": status, "office": office}
-        async with httpx.AsyncClient(auth=self.auth) as client:
-            response = await client.get(url, params=params)
-            return await self._handle_response(response)
-    
-    async def get_action_history(self, ticket_no: str) -> list[dict]:
+        async with semaphore:
+            await asyncio.sleep(0.5)
+            timeout = httpx.Timeout(
+                connect=15.0,  # time to establish connection
+                read=60.0,     # max time to wait for server response **after** connection
+                write=15.0,    # max time to send request
+                pool=120.0     # max time to wait for a connection from pool
+                )
+            async with httpx.AsyncClient(auth=self.auth, timeout=timeout) as client:
+                response = await client.get(url, params=params)
+                return self._handle_response(response)
+
+    async def get_action_history(self, ticket_no: str, semaphore: asyncio.Semaphore) -> list[dict]:
         """
         Retrieves action history for a given ticket number from the grievance system.
 
@@ -132,31 +146,40 @@ class JanasunaniAPIClient:
         logger.info(f"Fetching action history for ticket number: {ticket_no} (async)")
         url = f"{self.base_url}/getGrievanceHistory"
         params = {"ticketNumber": ticket_no}
-        async with httpx.AsyncClient(auth=self.auth) as client:
-            response = await client.get(url, params=params)
-            return await self._handle_response(response)
+        async with semaphore:
+            await asyncio.sleep(0.05)
+            timeout = httpx.Timeout(15.0)
+            async with httpx.AsyncClient(auth=self.auth, timeout=timeout) as client:
+                response = await client.get(url, params=params)
+                return self._handle_response(response)
 
 
 async def main():
     client = JanasunaniAPIClient()
-    try:
-        districts = await client.get_districts()
-        districts_validated = validate(districts, District)
-        complaints = await client.get_complaints(2025, status=1, distId=344, office=4)
-        complaints_validated = validate(complaints, Complaint)
+    districts = client.get_districts()
+    districts_validated = validate(districts, District)
 
-        # Get action history
-        try:
-            ticket_no = complaints_validated[0].ticket_no
-        except AttributeError:
-            ticket_no = complaints_validated[0]['ticket_no']
-        
-        action_history = await client.get_action_history(ticket_no)
-        action_history = validate_action_history(action_history, ticket_no)
-        print(action_history)
-    except httpx.RequestError as e:
-        print(f"An error occurred: {e}")
+    semaphore = asyncio.Semaphore(3)
+    year_lst = range(2024, datetime.now().year + 1)
+    dist_list = [dist['dist_id'] for dist in districts_validated]
+    tasks_complaints = [client.get_complaints(year,dist,status,office, semaphore) 
+                        for year, dist, status, office in product(year_lst, dist_list, STATUS.keys(), OFFICE.keys())]
+    
+    complaints = await asyncio.gather(*tasks_complaints)
+    
+    flatten_complaints = [complaint for sublist in complaints if isinstance(sublist, list) for complaint in sublist]
+    complaints_validated = validate(flatten_complaints, Complaint, dict_mode=False)
 
+    ticket_nos = [complaint.ticket_no for complaint in complaints_validated]
+    
+    semaphore = asyncio.Semaphore(5)
+    tasks = [client.get_action_history(ticket, semaphore) for ticket in ticket_nos]
+    action_history = []
+    for subtask in chunked(tasks, 5):
+        result = await asyncio.gather(*subtask)
+        action_history.extend(result)
+
+    action_history_validated = [validate_action_history(action_history, ticket_actions[0]['ticket_no']) for ticket_actions in action_history]
 
 if __name__ == "__main__":
     asyncio.run(main())

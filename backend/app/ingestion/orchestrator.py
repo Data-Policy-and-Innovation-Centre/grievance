@@ -83,9 +83,9 @@ class IngestionOrchestrator:
                 logger.warning(f"{e}")
                 return []
             except httpx.HTTPStatusError as e:
-                logger.error(f"HTTP error: {str(e).lower()}")
-                if "too many requests" in str(e).lower():
-                    await asyncio.sleep(10)  # Wait xx seconds before retrying
+                logger.error(f"HTTP error: {e}")
+                if "Too Many Requests" in str(e).lower():
+                    await asyncio.sleep(1)  # Wait xx seconds before retrying
                     return await self.ingest_complaints(year, distId, status, office)
                 else:
                     return []

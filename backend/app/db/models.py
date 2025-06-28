@@ -106,22 +106,23 @@ class ActionHistory(Base):
         id (int): A unique identifier for each action history record
         complaint_id (int): The ID of the complaint associated with this action history
         action_type (str): The type of action taken (e.g., "Assigned", "Resolved", etc.)
-        action_date (datetime): The date and time when the action was taken
-        action_by (str): The name or identifier of the person who took the action
-        action_to (str): The name or identifier of the person or entity to whom the action was taken
+        action_taken_date (datetime): The date and time when the action was taken
+        action_taken_by (str): The name or identifier of the person who took the action
         action_status (str): The status of the action (e.g., "Pending", "Completed", etc.)
-        remarks (str): Additional remarks or comments about the action
+        action_taken_remark (str): Additional remarks or comments about the action
+        complaint_status_with_authority (str): The status of the complaint with the authority
     """
     __tablename__ = 'action_history'
 
     id = Column(Integer, primary_key=True)
     ticket_no = Column(String, ForeignKey('complaints.ticket_no'))
     complaint = relationship('Complaint', backref='action_history')
-    action_type = Column(String, nullable=False)
-    action_date = Column(DateTime, nullable=False)
-    action_by = Column(String, nullable=False)
-    action_to = Column(String, nullable=False)
+    action_taken_date = Column(DateTime, nullable=False)
+    action_taken_by = Column(String, nullable=False)
     action_status = Column(String, nullable=False)
-    remarks = Column(String, nullable=True)
+    action_taken_remark = Column(String, nullable=True)
+    complaint_status_with_authority = Column(String, nullable=False)
+
+    __table_args__ = (UniqueConstraint('ticket_no', 'action_taken_date', name='ticket_no_action_taken_date_uniq'),)
 
     

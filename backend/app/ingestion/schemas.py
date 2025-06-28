@@ -11,8 +11,8 @@ class District(BaseModel):
     Pydantic model representing a district with its name and unique identifier.
 
     Attributes:
-        distName (str): The name of the district.
-        distId (int): The unique identifier for the district.
+        dist_name (str): The name of the district.
+        dist_id (int): The unique identifier for the district.
     """
     dist_name: str = Field(..., alias="distName")
     dist_id: int = Field(..., alias="distId")
@@ -147,11 +147,11 @@ class ActionHistory(BaseModel):
             return datetime.fromisoformat(v)
         except (ValueError, TypeError):
             try:
-                return datetime.strptime(v, "%Y-%m-%dT%H:%M:%S")
+                return datetime.strptime(v, '%d-%b-%Y %H:%M %p')
+            
             except (ValueError, TypeError):
                 return None
         
-
 def validate(items: list[dict], model: BaseModel, dict_mode: bool = True) -> list[dict] | list[BaseModel]:
     """
     Validates data against a Pydantic model.

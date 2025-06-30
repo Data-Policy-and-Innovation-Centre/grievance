@@ -1,5 +1,6 @@
 import os
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from pathlib import Path
 from loguru import logger
 from tqdm import tqdm
@@ -22,6 +23,7 @@ class Directories:
     RAW_DATA = DATA / "raw"
     PROCESSED_DATA = DATA / "processed"
     LOGS = ROOT_DIR / "logs"
+    DOCUMENTS = RAW_DATA / "documents"
 
     def __init__(self):
         for dir in [self.DATA, self.RAW_DATA, self.PROCESSED_DATA, self.LOGS]:
@@ -56,9 +58,9 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "None")
     AWS_REGION: str = os.getenv("AWS_REGION", "ap-south-1")
     AWS_S3_BUCKET_NAME: str = os.getenv("AWS_S3_BUCKET_NAME", "janasunani-data")
+    AWS_S3_DOCUMENTS: str = os.getenv("AWS_S3_DOCUMENTS", "janasunani-documents")
 
-    class Config:
-        env_file = directories.ROOT_DIR / ".env"
+    model_config = ConfigDict(env_file=directories.ROOT_DIR / ".env")
 
 settings = Settings()
 

@@ -270,11 +270,12 @@ def test_batch_create_action_history(db_session, sample_action_history_data):
     """Test batch creating action history records."""
     actions_data = [
         sample_action_history_data,
-        sample_action_history_data.model_copy(deep=True,update={"action_taken_remark": "Second action"}),
+        sample_action_history_data.model_copy(deep=True, update={"action_taken_remark": "Second action"}),
         sample_action_history_data.model_copy(deep=True, update={"action_taken_remark": "Third action"})
     ]
-    
+    print(actions_data)
     actions = batch_create_action_history(db_session, actions_data)
+    print(actions)
     assert len(actions) == 3
     assert actions[0].action_taken_remark == "Test action"
     assert actions[1].action_taken_remark == "Second action"

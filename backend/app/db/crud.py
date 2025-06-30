@@ -91,13 +91,11 @@ def create_action_history(db: Session, action_data: ActionHistorySchema) -> Acti
     """Create a new action history record."""
     try:
         logger.info(f"Creating action history: {action_data.ticket_no}")
-        actions_in_db = get_action_history_by_ticket(db, action_data.ticket_no)
-        if not actions_in_db:
-            action_data = action_data.model_dump(by_alias=False)
-            action = ActionHistoryModel(**action_data)
-            db.add(action)
-            db.commit()
-            db.refresh(action)
+        action_data = action_data.model_dump(by_alias=False)
+        action = ActionHistoryModel(**action_data)
+        db.add(action)
+        db.commit()
+        db.refresh(action)
         return action
     except IntegrityError as e:
         db.rollback()

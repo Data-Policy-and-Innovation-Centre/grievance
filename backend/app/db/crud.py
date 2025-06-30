@@ -91,11 +91,13 @@ def create_action_history(db: Session, action_data: ActionHistorySchema) -> Acti
     """Create a new action history record."""
     try:
         logger.info(f"Creating action history: {action_data.ticket_no}")
-        action_data = action_data.model_dump(by_alias=False)
-        action = ActionHistoryModel(**action_data)
-        db.add(action)
-        db.commit()
-        db.refresh(action)
+        actions_in_db = get_action_history_by_ticket(db, action_data.ticket_no)
+        if not actions_in_db:
+            action_data = action_data.model_dump(by_alias=False)
+            action = ActionHistoryModel(**action_data)
+            db.add(action)
+            db.commit()
+            db.refresh(action)
         return action
     except IntegrityError as e:
         db.rollback()
@@ -153,9 +155,15 @@ def bulk_load_districts(db: Session, districts_data: List[DistrictSchema]) -> Li
     """Bulk load districts for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(districts_data)} districts")
-        district_objs = [District(**district.model_dump(by_alias=False)) for district in districts_data]
-        db.bulk_save_objects(district_objs, return_defaults=True)
-        db.commit()
+        existing_dist = {d.dist_id for d in get_all_districts(db)}
+        district_objs = [District(**district.model_dump(by_alias=False)) for district in districts_data if district.dist_id not in existing_dist]
+
+        if district_objs: 
+            db.bulk_save_objects(district_objs, return_defaults=True)
+            db.commit()
+        else:
+            logger.info("No new districts to insert")
+
         return district_objs
     except Exception as e:
         db.rollback()
@@ -166,10 +174,38 @@ def bulk_load_complaints(db: Session, complaints_data: List[ComplaintSchema]) ->
     """Bulk load complaints for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(complaints_data)} complaints")
-        complaint_objs = [ComplaintModel(**c.model_dump(by_alias=False)) for c in complaints_data]
-        db.bulk_save_objects(complaint_objs, return_defaults=True)
+        existing_tickets = {
+            c.ticket_no: c
+            for c in db.query(ComplaintModel).filter(
+                ComplaintModel.ticket_no.in_([c.ticket_no for c in complaints_data])
+            ).all()
+        }
+        to_insert = []
+        to_update = []
+
+        for c in complaints_data:
+            c_dict = c.model_dump(by_alias = False)
+            existing_obj = existing_tickets.get(c.ticket_no)
+
+            if existing_obj is None:
+                to_insert.append(ComplaintModel(**c_dict))
+            else:
+                updated = False
+                for field, value in c_dict.items():
+                    if getattr(existing_obj, field) != value:
+                        setattr(existing_obj, field, value)
+                        updated = True
+                if updated:
+                    to_update.append(existing_obj)
+            
+        if to_insert:
+            db.bulk_save_objects(to_insert, return_defaults=True)
+        if to_update:
+            db.add_all(to_update)
+
         db.commit()
-        return complaint_objs
+        logger.info(f"{len(to_insert)} new, {len(to_update)} updated complaints")
+        return to_insert + to_update
     except Exception as e:
         db.rollback()
         logger.error(f"Bulk load complaints failed: {e}")
@@ -179,10 +215,40 @@ def bulk_load_action_histories(db: Session, actions_data: List[ActionHistorySche
     """Bulk load action histories for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(actions_data)} action histories")
-        action_objs = [ActionHistoryModel(**a.model_dump(by_alias=False)) for a in actions_data]
-        db.bulk_save_objects(action_objs, return_defaults=True)
+
+        existing_actions_map = {
+            (a.ticket_no, a.action_taken_date): a
+            for a in get_action_history_by_ticket(db, actions_data[0].ticket_no)
+            }
+
+        to_insert = []
+        to_update = []
+
+        for action in actions_data:
+            a_dict = action.model_dump(by_alias=False)
+            key = (action.ticket_no, action.action_taken_date)
+            exist_action = existing_actions_map.get(key)
+
+            if exist_action is None:
+                to_insert.append(ActionHistoryModel(**a_dict))
+            else:
+                updated = False
+                for field, value in a_dict.items():
+                    if getattr(exist_action, field) != value:
+                        setattr(exist_action, field, value)
+                        updated = True
+                if updated:
+                    to_update.append(exist_action)
+
+        if to_insert:
+            db.bulk_save_objects(to_insert, return_defaults=True)
+        if to_update:
+            db.add_all(to_update)
+        
         db.commit()
-        return action_objs
+        logger.info(f"{len(to_insert)} new, {len(to_update)} updated action history")
+        return to_insert + to_update
+            
     except Exception as e:
         db.rollback()
         logger.error(f"Bulk load action histories failed: {e}")

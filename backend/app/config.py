@@ -26,7 +26,11 @@ class Directories:
     DOCUMENTS = RAW_DATA / "documents"
 
     def __init__(self):
-        for dir in [self.DATA, self.RAW_DATA, self.PROCESSED_DATA, self.LOGS]:
+        for dir in [self.DATA, 
+                    self.RAW_DATA, 
+                    self.PROCESSED_DATA, 
+                    self.LOGS, 
+                    self.DOCUMENTS]:
             dir.mkdir(exist_ok=True)
 
 

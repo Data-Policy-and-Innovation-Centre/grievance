@@ -1,6 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
 
@@ -34,6 +33,7 @@ class Complaint(Base):
         petitioner_mobile (str): The mobile number of the petitioner
         petitioner_email (str): The email address of the petitioner
         grievance (str): A description of the complaint
+        document_url (str): Url to access the pdf document related to the complaint.
         office (str): The office where the complaint was received
         received_by (str): The name or identifier of the person who received the complaint
         district (str): The district associated with the complaint
@@ -69,6 +69,7 @@ class Complaint(Base):
     petitioner_mobile = Column(String, nullable=True)
     petitioner_email = Column(String, nullable=True)
     grievance = Column(String, nullable=False)
+    document_url = Column(String, nullable=True)
     office = Column(String, nullable=False)
     received_by = Column(String, nullable=False)
     district = Column(String, nullable=False)

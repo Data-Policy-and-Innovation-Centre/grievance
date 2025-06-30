@@ -10,7 +10,7 @@ authors = [
     {name = "Your Name", email = "you@example.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "annotated-types==0.7.0",
     "anyio==4.9.0",
@@ -67,7 +67,8 @@ dependencies = [
     "psycopg2-binary",
     "boto3",
     "schedule",
-    "tqdm"
+    "tqdm",
+    "more-itertools>=10.7.0",
 ]
 
 [tool.setuptools.packages.find]

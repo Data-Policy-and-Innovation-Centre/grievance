@@ -27,6 +27,7 @@ class Complaint(BaseModel):
         petitioner_mobile (Optional[str]): Mobile number of the petitioner.
         petitioner_email (Optional[str]): Email address of the petitioner.
         grievance: (str): Description of the grievance or complaint.
+        document_url: (str): Url to access the pdf document related to the complaint.
         office (str): Office where the complaint was received.
         received_by (str): Name or identifier of the person who received the complaint.
         district (str): District associated with the complaint.
@@ -59,6 +60,7 @@ class Complaint(BaseModel):
     petitioner_mobile: Optional[str] = Field(..., alias="petitionerMobile")
     petitioner_email: Optional[str] = Field(..., alias="petitionerEmail")
     grievance: str = Field(..., alias="grievanceSubject")
+    document_url: str = Field(..., alias="Document")
     office: str = Field(..., alias="officeNAme")
     received_by: str = Field(..., alias="RecievedByOfficerName")
     district: str = Field(..., alias="districtName")

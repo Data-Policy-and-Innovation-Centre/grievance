@@ -1,0 +1,175 @@
+import pytest
+import asyncio
+from unittest.mock import patch, MagicMock, AsyncMock
+import httpx
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.ingestion.schemas import Complaint as ComplaintSchema
+from app.db.models import Base, Complaint as ComplaintModel
+from app.ingestion.document_ingestion import DocumentService
+from datetime import datetime
+
+# Test database setup
+@pytest.fixture(scope="function")
+def db_session():
+    """Create a fresh database for each test."""
+    # Create in-memory SQLite database for testing
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    
+    # Create a new session for the test
+    TestingSessionLocal = sessionmaker(bind=engine)
+    session = TestingSessionLocal()
+    
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(engine)
+
+@pytest.fixture
+def sample_complaint_data(db_session):
+    complaint = ComplaintModel(
+        ticket_no="T123",
+        petitioner_name="John Doe",
+        petitioner_mobile="1234567890",
+        petitioner_email="john@example.com",
+        grievance="Test Grievance",
+        document_url="example~pdf",
+        office="Cheif Minister",
+        received_by="Officer X",
+        district="Test District",
+        block="Test Block",
+        address="123 Test St",
+        mode="Online",
+        disability=None,
+        status="Pending",
+        govt_ticket=True,
+        created_on=datetime(2024, 3, 20, 10, 0),
+        assigned_on=datetime(2024, 3, 20, 10, 0),
+        category="Test Category",
+        dept="Test Dept",
+        subcategory="Test Subcategory",
+        state="Test State",
+        petitioner_gender="Male",
+        transfer_status="None",
+        urgent="No",
+    )
+    db_session.add(complaint)
+    db_session.commit()
+    return complaint
+
+@pytest.fixture(autouse=True)
+def setup_test_environment():
+    """
+    Set up the test environment for CRUD tests.
+    This ensures we use the real OFFICE constant for these tests.
+    """
+    import sys
+    from app.ingestion import schemas
+    from app.ingestion import OFFICE as REAL_OFFICE
+    
+    # Store the original OFFICE if it exists
+    original_office = getattr(schemas, 'OFFICE', None)
+    
+    # Set the real OFFICE constant
+    sys.modules["app.ingestion.schemas"].OFFICE = REAL_OFFICE
+    
+    yield
+    
+    # Restore the original OFFICE if it existed
+    if original_office is not None:
+        sys.modules["app.ingestion.schemas"].OFFICE = original_office
+    elif hasattr(schemas, 'OFFICE'):
+        delattr(schemas, 'OFFICE')
+
+@pytest.fixture
+def doc_service(db_session):
+    return DocumentService(db=db_session)
+
+
+# Test
+def test_get_document_path(doc_service, sample_complaint_data):
+    fixed_now = datetime(2025, 7, 1, 15, 15, 0)
+
+    with patch("app.ingestion.document_ingestion.datetime") as mock_datetime:
+        mock_datetime.now.return_value = fixed_now
+        mock_datetime.strftime = datetime.strftime  # opcional, por seguridad
+        mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+
+        doc_path = doc_service.get_document_path(sample_complaint_data.ticket_no, "complaint")
+
+        expected_name = f"T123_complaint_{fixed_now.strftime('%Y%m%d_%H%M%S')}.pdf"
+
+        assert doc_path.endswith(expected_name)
+
+def test_get_document_path_ticket_no(doc_service):
+    assert doc_service.get_document_path("NO_TICKET", "compliant") is None
+
+def test_document_exists_returns_true(doc_service, tmp_path):
+    file_path = tmp_path / "file.pdf"
+    file_path.write_text("test")
+    
+    with patch.object(doc_service, "get_document_path", return_value=str(file_path)):
+        assert doc_service.document_exists("T123", "complaint") is True
+
+def test_document_exists_returns_false(doc_service, tmp_path):
+    file_path = tmp_path / "file.pdf"
+    with patch.object(doc_service, "get_document_path", return_value=str(file_path)), patch("os.path.exists", return_value=False):
+        assert doc_service.document_exists("T123", "complaint") is False
+
+@pytest.mark.asyncio
+async def test_download_document_success(doc_service, tmp_path):
+    test_path = tmp_path / "file.pdf"
+    
+    # Mock the file handler object
+    mock_file = AsyncMock()
+
+    # Mock aiofiles.open to return a context manager that yields mock_file
+    mock_open_ctx = AsyncMock()
+    mock_open_ctx.__aenter__.return_value = mock_file
+
+    with patch.object(doc_service, "get_document_path", return_value=str(test_path)), \
+         patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get, \
+         patch("aiofiles.open", return_value=mock_open_ctx):
+
+        # Mock httpx response
+        mock_get.return_value.status_code = 200
+        mock_get.return_value.content = b"PDF_CONTENT"
+        mock_get.return_value.raise_for_status = MagicMock()
+
+        path = await doc_service.download_document("http://example.com/file.pdf", "T123", "complaint")
+
+        assert path == str(test_path)
+        mock_file.write.assert_called_once_with(b"PDF_CONTENT")
+
+
+@pytest.mark.asyncio
+async def test_batch_download_documents_success(doc_service):
+    doc_service
+    
+    # Mock complaint
+    complaint = ComplaintModel(ticket_no="T123", document_url="http://example.com/file~pdf")
+    
+    # Mock db context manager
+    mock_db = MagicMock()
+    mock_db_context = AsyncMock()
+    mock_db_context.__aenter__.return_value = mock_db
+    doc_service.db = mock_db_context
+
+    # Mock download and update
+    with patch.object(doc_service, "download_document", new_callable=AsyncMock) as mock_download, \
+         patch("app.ingestion.document_ingestion.update_document_status") as mock_update:
+
+        mock_download.return_value = "/mocked/path/file.pdf"
+
+        results = await doc_service.batch_download_documents([complaint])
+
+        assert results == {"T123": "success"}
+        mock_download.assert_called_once_with("http://example.com/file~pdf", "T123")
+        mock_update.assert_called_once_with(
+            mock_db,
+            "T123",
+            local_path="/mocked/path/file.pdf",
+            success=True
+        )

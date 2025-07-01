@@ -252,6 +252,27 @@ def bulk_load_action_histories(db: Session, actions_data: List[ActionHistorySche
         logger.error(f"Bulk load action histories failed: {e}")
         return batch_create_action_history(db, actions_data)
 
+def update_document_status(db: Session, ticket_no: str, local_path: str, success: bool, error: str = None):
+    complaint = get_complaint_by_ticket(db, ticket_no = ticket_no)
+    if complaint:
+        complaint.local_document_path = local_path
+        complaint.document_downloaded = success
+        complaint.document_download_date = datetime.now()
+        complaint.document_download_error = error
+        db.commit()
+        db.refresh(complaint)
+    return complaint
+
+def get_complaints_without_documents(db: Session) -> list[ComplaintModel]:
+    return db.query(ComplaintModel).filter(
+        ComplaintModel.document_url.isnot(None),
+        ComplaintModel.document_downloaded == False
+    ).all()
+
+
+def get_complaints_with_document_urls(db: Session) -> list[ComplaintModel]:
+    return db.query(ComplaintModel).filter(ComplaintModel.document_url.isnot(None)).all()
+
 if __name__ == "__main__":
     db = next(get_db())
     districts = get_all_districts(db)

@@ -69,6 +69,8 @@ dependencies = [
     "schedule",
     "tqdm",
     "more-itertools>=10.7.0",
+    "aiofiles>=24.1.0",
+    "ipython>=8.37.0",
 ]
 
 [tool.setuptools.packages.find]

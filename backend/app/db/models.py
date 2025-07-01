@@ -60,6 +60,10 @@ class Complaint(Base):
         self_assign (str): Indicates if the complaint was self-assigned
         resolved_on (datetime): The date and time when the complaint was resolved
         benefitted (str): Indicates if the petitioner benefitted from the complaint resolution
+        local_document_path (str): Local path where the document is storage
+        document_downloaded (bool): Indicates if the document has been downloaded
+        document_download_date (datetime): Indicates the date in which the document has been downloaded
+        document_download_error (str): Captures the error obtained when failing to download the document 
     """
     __tablename__ = 'complaints'
 
@@ -96,6 +100,10 @@ class Complaint(Base):
     self_assign = Column(String, nullable=True)
     resolved_on = Column(DateTime, nullable=True)
     benefitted = Column(String, nullable=True)
+    local_document_path = Column(String, nullable = True)
+    document_downloaded = Column(Boolean, default = False)
+    document_download_date = Column(DateTime, nullable = True)
+    document_download_error = Column(String, nullable = True)
 
     __table_args__ = (UniqueConstraint('ticket_no', name='ticket_no_uniq'),)
 

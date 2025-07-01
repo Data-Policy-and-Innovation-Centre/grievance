@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     JANASUNANI_API_USERNAME: str = os.getenv("JANASUNANI_API_USERNAME")
     JANASUNANI_API_PASSWORD: str = os.getenv("JANASUNANI_API_PASSWORD")
     DB_URL: str = os.getenv("DB_URL", f"sqlite:///{directories.RAW_DATA.as_posix()}/grievance.db")
+    LOCAL_STORAGE_PATH: str = str(directories.DOCUMENTS)
     AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "None")
     AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "None")
     AWS_REGION: str = os.getenv("AWS_REGION", "ap-south-1")

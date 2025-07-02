@@ -7,6 +7,11 @@ from . import STATUS, OFFICE
 from datetime import datetime
 from more_itertools import chunked
 from itertools import product
+import json
+import functools
+
+RETRY_BACKOFF = 5
+MAX_RETRIES = 10
 
 class JanasunaniAPIError(Exception):
     """Custom exception for Jansunani API errors."""
@@ -15,6 +20,29 @@ class JanasunaniAPIError(Exception):
         super().__init__(message)
         self.message = message
 
+def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF):
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            label = kwargs.pop("label", func.__name__)
+            for attempt in range(max_retries):
+                try:
+                    return await func(*args, **kwargs)
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 429:
+                        retry_after = int(e.response.headers.get("Retry-After", backoff))
+                        logger.warning(f"[429] {label}: retrying in {retry_after}s...")
+                        await asyncio.sleep(retry_after)
+                    else:
+                        logger.error(f"[{label}] HTTP error: {e}")
+                        break
+                except Exception as e:
+                    logger.error(f"[{label}] Other error: {e}")
+                    break
+            logger.error(f"[{label}] Failed after {max_retries} retries.")
+            return None
+        return wrapper
+    return decorator
 
 class JanasunaniAPIClient:
     """
@@ -87,6 +115,7 @@ class JanasunaniAPIClient:
             response = client.get(url)
             return self._handle_response(response)
 
+    @with_retry()
     async def get_complaints(self, year: int, distId: int, status: int, office: int, semaphore: asyncio.Semaphore) -> list[dict]:
         """
         Retrieves complaints from the grievance system based on the specified filters.
@@ -128,6 +157,7 @@ class JanasunaniAPIClient:
                 response = await client.get(url, params=params)
                 return self._handle_response(response)
 
+    @with_retry()
     async def get_action_history(self, ticket_no: str, semaphore: asyncio.Semaphore) -> list[dict]:
         """
         Retrieves action history for a given ticket number from the grievance system.
@@ -145,41 +175,61 @@ class JanasunaniAPIClient:
         url = f"{self.base_url}/getGrievanceHistory"
         params = {"ticketNumber": ticket_no}
         async with semaphore:
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.5)
             timeout = httpx.Timeout(15.0)
             async with httpx.AsyncClient(auth=self.auth, timeout=timeout) as client:
                 response = await client.get(url, params=params)
                 return self._handle_response(response)
-
 
 async def main():
     client = JanasunaniAPIClient()
     districts = client.get_districts()
     districts_validated = validate(districts, District)
 
-    semaphore = asyncio.Semaphore(3)
+    semaphore = asyncio.Semaphore(10)
     year_lst = range(2021, datetime.now().year + 1)
     dist_list = [dist['dist_id'] for dist in districts_validated]
-    tasks_complaints = [client.get_complaints(year,dist,status,office, semaphore) 
-                        for year, dist, status, office in product(year_lst, dist_list, STATUS.keys(), OFFICE.keys())]
-    
-    complaints = await asyncio.gather(*tasks_complaints)
+    # dist_list = [dist['dist_id'] for dist in districts_validated[-11:-7]] # NEXT Running
+    complaint_params = list(product(year_lst, dist_list, STATUS.keys(), OFFICE.keys()))
+    tasks_complaints = [
+        client.get_complaints(year, dist, status, office, semaphore, label=f"complaints-{year}-{dist}-{status}-{office}")
+        for year, dist, status, office in complaint_params
+        ]    
+
+    complaints = []
+    for subtask_complaint in chunked(tasks_complaints, 10):
+        await asyncio.sleep(5)
+        result = await asyncio.gather(*subtask_complaint)
+        complaints.extend(r for r in result if r is not None)
     
     flatten_complaints = [complaint for sublist in complaints if isinstance(sublist, list) for complaint in sublist]
     complaints_validated = validate(flatten_complaints, Complaint, dict_mode=False)
 
+    # path_complaint = f"./data/raw/flatten_complaints_{dist_list[0]}.json"
+    # with open(path_complaint, 'w') as f:
+    #     json.dump(flatten_complaints, f)
+
     ticket_nos = [complaint.ticket_no for complaint in complaints_validated]
     
-    semaphore = asyncio.Semaphore(5)
-    tasks = [client.get_action_history(ticket, semaphore) for ticket in ticket_nos]
-    action_history = []
-    for subtask in chunked(tasks, 5):
-        result = await asyncio.gather(*subtask)
-        action_history.extend(result)
+    semaphore = asyncio.Semaphore(10)
+    tasks = [
+        client.get_action_history(ticket, semaphore, label=f"action-{ticket}")
+        for ticket in ticket_nos
+        ]
 
-    action_history_validated = []
-    for ix, ticket_no in enumerate(ticket_nos):
-        action_history_validated.extend(validate_action_history(action_history[ix], ticket_no))
+    # path_actions = f"./data/raw/actions_{dist_list[0]}.json"
+    # with open(path_actions, 'w') as f:
+    #     json.dump(action_history, f)
+
+    action_history = []
+    for subtask in chunked(tasks, 30):
+        await asyncio.sleep(5)
+        result = await asyncio.gather(*subtask)
+        action_history.extend(r for r in result if r is not None)
+
+    # action_history_validated = []
+    # for ix, ticket_no in enumerate(ticket_nos):
+    #     action_history_validated.extend(validate_action_history(action_history[ix], ticket_no))
 
 if __name__ == "__main__":
     asyncio.run(main())

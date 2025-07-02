@@ -135,7 +135,7 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
         logger.info(f"Total complaint requests to process: {len(params)}")
 
         try:
-            tasks = [orchestrator.limited_ingest_complaints(*param) for param in params]
+            tasks = [orchestrator.ingest_complaints(*param) for param in params]
             complaints = await asyncio.gather(*tasks, return_exceptions=True)            
             flattened_complaints = []
             for result, (year, dist_id, status, office) in zip(complaints, params):

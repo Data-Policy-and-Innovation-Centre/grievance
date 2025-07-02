@@ -10,6 +10,7 @@ dependencies:
   - uvicorn
   - requests
   - psycopg2
+  - aiofiles
   - boto3
   - python-dotenv
   - loguru

@@ -119,7 +119,7 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
 
         # Generate initial set of all possible combinations
         params = [(year, district.dist_id, status, office) 
-                       for year in range(2021, datetime.now().year) 
+                       for year in [2025] # TODO: change to range(2021, datetime.now().year)
                        for district in districts 
                        for status in STATUS.keys() 
                        for office in OFFICE.keys()]

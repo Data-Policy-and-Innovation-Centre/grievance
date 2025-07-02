@@ -257,6 +257,8 @@ def bulk_load_action_histories(db: Session, actions_data: List[ActionHistorySche
 def record_api_request_success(db: Session, year: int, dist_id: int, status: int, office: int, record_count: int) -> APIRequestTracking:
     """Record a successful API request in db and its results."""
     try:
+        time_zone = pytz.timezone('Asia/Kolkata') 
+        now = datetime.now(time_zone)
         tracking = db.query(APIRequestTracking).filter(
             APIRequestTracking.year == year,
             APIRequestTracking.dist_id == dist_id,
@@ -265,8 +267,8 @@ def record_api_request_success(db: Session, year: int, dist_id: int, status: int
         ).first()
 
         if tracking:
-            time_zone = pytz.timezone('Asia/Kolkata') # not sure what time zone to use here.
-            tracking.last_successful_fetch = datetime.now(time_zone).strftime('%Y-%m-%d %H:%M:%S %Z%z')
+            #time_zone = pytz.timezone('Asia/Kolkata') # not sure what time zone to use here.
+            tracking.last_successful_fetch = now
             tracking.records_count = record_count
             tracking.failure_count = 0
         else:
@@ -276,6 +278,7 @@ def record_api_request_success(db: Session, year: int, dist_id: int, status: int
                 status=status,
                 office=office,
                 records_count=record_count,
+                last_successful_fetch=now,
                 failure_count=0
             )
             db.add(tracking)
@@ -283,7 +286,6 @@ def record_api_request_success(db: Session, year: int, dist_id: int, status: int
         db.commit()
         db.refresh(tracking)
         return tracking
-    
     except Exception as e:
         db.rollback()
         logger.error(f"Error recording API request success: {e}")
@@ -291,7 +293,7 @@ def record_api_request_success(db: Session, year: int, dist_id: int, status: int
 
 def filter_api_request(db: Session, year: int, dist_id: int, status: int, office: int, days_threshold: int = 7, failure_threshold: int = 3) -> bool:
     """Check if an API request combination was successfully processed or has failed too many times recently."""
-    time_zone = pytz.timezone('Asia/Kolkata') # not sure what time zone to use here.
+    time_zone = pytz.timezone('Asia/Kolkata')
     cutoff_date = datetime.now(time_zone) - timedelta(days=days_threshold)
     
     try:
@@ -299,15 +301,20 @@ def filter_api_request(db: Session, year: int, dist_id: int, status: int, office
             APIRequestTracking.year == year,
             APIRequestTracking.dist_id == dist_id,
             APIRequestTracking.status == status,
-            APIRequestTracking.office == office,
-            or_(
-                APIRequestTracking.last_successful_fetch >= cutoff_date,
-                APIRequestTracking.failure_count > failure_threshold
-            )
+            APIRequestTracking.office == office
         ).first()
         
-        return tracking is not None
+        if tracking is None:
+            return False
+        
+        # Only check last_successful_fetch if it is not None
+        recent_success = False
+        if tracking.last_successful_fetch is not None:
+            if tracking.last_successful_fetch.tzinfo is None:
+                tracking.last_successful_fetch = time_zone.localize(tracking.last_successful_fetch)
+            recent_success = tracking.last_successful_fetch >= cutoff_date
 
+        return (recent_success or tracking.failure_count > failure_threshold)
     except Exception as e:
         logger.error(f"Error checking if API request was recently processed: {e}")
         return False

@@ -15,6 +15,9 @@ from app.ingestion.schemas import Complaint
 from app.ingestion.client import with_retry
 
 class DocumentService:
+    """
+    Async client for Document download service
+    """
     def __init__(self, storage_type: str = "local", s3_bucket: str = settings.AWS_S3_BUCKET_NAME, db: Session = None):
         self.storage_type = storage_type
         self.s3 = s3_bucket
@@ -24,10 +27,24 @@ class DocumentService:
             self.__create_local_folder()
     
     def __create_local_folder(self):
+        """
+        Private function that creates a local folder if not exists
+        """
         if not os.path.exists(settings.LOCAL_STORAGE_PATH):
             os.mkdir(settings.LOCAL_STORAGE_PATH)
 
     def get_document_path(self, ticket_no: str, document_type: str) -> str:
+        """
+        Generates a local file path to store a document related to a complaint.
+
+        Args:
+        ticket_no (str): The unique identifier of the complaint.
+        document_type (str): A string label indicating the type of document 
+
+        Returns:
+            str: The full local file path where the document should be saved, or 
+                None if the complaint does not exist or an error occurs.
+        """
         type_file_pattern = re.compile(r'~([a-zA-Z]*)$') 
         complaint = get_complaint_by_ticket(self.db, ticket_no)
         if complaint is None:
@@ -44,12 +61,41 @@ class DocumentService:
             return None
 
     def document_already_downloaded(self, ticket_no: str, document_type: str, extension: str) -> bool:
+        """
+        Checks whether a document with the given ticket number, document type, 
+        and file extension has already been downloaded. Regardless of the timestamp
+        of the date when it was downloaded
+
+        Args:
+            ticket_no (str): The unique identifier of the complaint.
+            document_type (str): The type of document (e.g., "complaint", "resolution").
+            extension (str): The file extension to look for (e.g., "pdf", "docx").
+
+        Returns:
+            bool: True if a matching document file already existe, False otherwise
+        """
         base_pattern = f"{ticket_no}_{document_type}_*.{extension.lower()}"
         full_pattern = os.path.join(settings.LOCAL_STORAGE_PATH, base_pattern)
         return len(glob.glob(full_pattern)) > 0
 
     @with_retry()
     async def download_document(self, complaint: Complaint, document_type: str = "complaint") -> str:
+        """
+        Asynchronously downloads the document associated with a complaint, if not already downloaded.
+        This method performs the following:
+        - Validates the URL of the document
+        - Constructs the expected local file path
+        - Cheks if the document has already been dowloaded
+        - Downloads and saves the document using an async HTTP Client
+        
+        Args:
+            complaint (Complaint): The complaint object containing the document URL and ticket number.
+            document_type (str, optional): Label to distinguish types of documents. Defaults to "complaint".
+
+        Returns:
+            str: The full local file path where the document was saved, or None if the document was already downloaded 
+                or an error occurred during path generation or validation.
+        """
         url, ticket_no = complaint.document_url, complaint.ticket_no
 
         if not url or not url.lower().startswith(("http://", "https://")):
@@ -81,6 +127,18 @@ class DocumentService:
             raise
 
     async def batch_download_documents(self, complaints: List[Complaint]) -> Dict[str, str]:
+        """
+        Asynchronously downloads documents for a batch of complaints and updates their status in the database.
+    
+        Args:
+            complaints (List[Complaint]): A list of Complaint objects to process.
+
+        Returns:
+            Dict: A dictionary mapping each complaint's ticket number to its processing status:
+                    - "success" if the document was downloaded and saved,
+                    - "skipped" if the document was already present or not valid,
+                    - "failed" if an error occurred during download.
+        """
         results = {}
         for complaint in complaints:
             try:

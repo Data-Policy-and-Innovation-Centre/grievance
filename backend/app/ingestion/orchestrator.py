@@ -121,7 +121,7 @@ async def run_ingestion_service():
         except Exception as e:
             logger.error(f"Error in complaint ingestion: {e}")
         
-        # Ingest action history for each complaint
+        # Ingest documents and action history for each complaint
         try:
             flattened_complaints = [complaint for sublist in complaints if isinstance(sublist, list) for complaint in sublist]
 

@@ -35,7 +35,7 @@ def sample_complaint_data(db_session):
         petitioner_mobile="1234567890",
         petitioner_email="john@example.com",
         grievance="Test Grievance",
-        document_url="example~pdf",
+        document_url="www.example~pdf",
         office="Cheif Minister",
         received_by="Officer X",
         district="Test District",
@@ -106,17 +106,22 @@ def test_get_document_path(doc_service, sample_complaint_data):
 def test_get_document_path_ticket_no(doc_service):
     assert doc_service.get_document_path("NO_TICKET", "compliant") is None
 
-def test_document_exists_returns_true(doc_service, tmp_path):
-    file_path = tmp_path / "file.pdf"
+def test_document_exists_returns_true(doc_service, tmp_path, monkeypatch):
+    file_path = tmp_path / "T123_complaint_20240702_123456.pdf"
     file_path.write_text("test")
     
-    with patch.object(doc_service, "get_document_path", return_value=str(file_path)):
-        assert doc_service.document_exists("T123", "complaint") is True
+    monkeypatch.setattr("app.ingestion.document_ingestion.settings.LOCAL_STORAGE_PATH", str(tmp_path))
 
-def test_document_exists_returns_false(doc_service, tmp_path):
-    file_path = tmp_path / "file.pdf"
+    with patch.object(doc_service, "get_document_path", return_value=str(file_path)):
+        assert doc_service.document_already_downloaded("T123", "complaint", "pdf") is True
+
+def test_document_exists_returns_false(doc_service, tmp_path, monkeypatch):
+    file_path = tmp_path / "T123_complaint_20240702_123456.pdf"
+
+    monkeypatch.setattr("app.ingestion.document_ingestion.settings.LOCAL_STORAGE_PATH", str(tmp_path))
+
     with patch.object(doc_service, "get_document_path", return_value=str(file_path)), patch("os.path.exists", return_value=False):
-        assert doc_service.document_exists("T123", "complaint") is False
+        assert doc_service.document_already_downloaded("T123", "complaint", "pdf") is False
 
 @pytest.mark.asyncio
 async def test_download_document_success(doc_service, tmp_path):
@@ -128,6 +133,7 @@ async def test_download_document_success(doc_service, tmp_path):
     # Mock aiofiles.open to return a context manager that yields mock_file
     mock_open_ctx = AsyncMock()
     mock_open_ctx.__aenter__.return_value = mock_file
+    complaint = ComplaintModel(ticket_no="T123", document_url="http://example.com/file~pdf")
 
     with patch.object(doc_service, "get_document_path", return_value=str(test_path)), \
          patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get, \
@@ -138,7 +144,7 @@ async def test_download_document_success(doc_service, tmp_path):
         mock_get.return_value.content = b"PDF_CONTENT"
         mock_get.return_value.raise_for_status = MagicMock()
 
-        path = await doc_service.download_document("http://example.com/file.pdf", "T123", "complaint")
+        path = await doc_service.download_document(complaint, "complaint")
 
         assert path == str(test_path)
         mock_file.write.assert_called_once_with(b"PDF_CONTENT")
@@ -153,9 +159,9 @@ async def test_batch_download_documents_success(doc_service):
     
     # Mock db context manager
     mock_db = MagicMock()
+    doc_service.db = mock_db
     mock_db_context = AsyncMock()
     mock_db_context.__aenter__.return_value = mock_db
-    doc_service.db = mock_db_context
 
     # Mock download and update
     with patch.object(doc_service, "download_document", new_callable=AsyncMock) as mock_download, \
@@ -166,7 +172,7 @@ async def test_batch_download_documents_success(doc_service):
         results = await doc_service.batch_download_documents([complaint])
 
         assert results == {"T123": "success"}
-        mock_download.assert_called_once_with("http://example.com/file~pdf", "T123")
+        mock_download.assert_called_once_with(complaint)
         mock_update.assert_called_once_with(
             mock_db,
             "T123",

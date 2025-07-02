@@ -1,5 +1,3 @@
-
-
 # Grievance Analytics
 
 An analytics platform for Odisha Janasunani grievance redressal data, featuring robust data ingestion, processing, and API services.
@@ -35,17 +33,24 @@ cd grievance
 Create a `.env` file in the `backend/` directory. Example:
 
 ```env
-DB_NAME=grievance_db
-DB_USER=postgres
-DB_PASSWORD=your_password
-DB_HOST=db
-DB_PORT=5432
+# Environment and Debug
+ENV=dev
+DEBUG=True
 
+# Janasunani API Configuration
+JANASUNANI_API_BASE_URL=https://janasunani.odisha.gov.in/api/DataServices
+JANASUNANI_API_USERNAME=your_username
+JANASUNANI_API_PASSWORD=your_password
+
+# Database Configuration
+DB_URL=sqlite:///data/raw/grievance.db
+
+# AWS Configuration
 AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key
 AWS_REGION=ap-south-1
-
-ENV=prod
+AWS_S3_BUCKET_NAME=janasunani-data
+AWS_S3_DOCUMENTS=janasunani-documents
 ```
 
 ### Build and Run with Docker Compose
@@ -73,27 +78,34 @@ backend/
     services/      # Business logic/services
     config.py      # Configuration and settings
     main.py        # FastAPI entrypoint
-  requirements.txt
-  environment.yml
+  pyproject.toml   # Project dependencies and metadata
+  uv.lock         # Locked dependency versions
   Dockerfile.api
   Dockerfile.ingestion
+  Dockerfile.test
   docker-compose.yml
 ```
 
 ### Install for Local Development
 
-1. **Install dependencies** (using [micromamba](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html) or [conda](https://docs.conda.io/en/latest/)):
+1. **Install dependencies** (using [uv](https://docs.astral.sh/uv/)):
    ```bash
-   micromamba create -f environment.yml
-   micromamba activate grievance-analytics
+   # Install uv if you haven't already
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # Install dependencies
+   uv sync
+   
+   # Activate the environment
+   source .venv/bin/activate  # On Unix/macOS
+   # or
+   .venv\Scripts\activate     # On Windows
    ```
 
 2. **Run tests**:
    ```bash
-   pytest
+   uv run pytest
    ```
-
-
 
 ### Contributing
 

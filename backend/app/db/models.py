@@ -140,7 +140,7 @@ class APIRequestTracking(Base):
     dist_id = Column(Integer, nullable=False)
     status = Column(Integer, nullable=False)
     office = Column(Integer, nullable=False)
-    last_successful_fetch = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_successful_fetch = Column(DateTime, nullable=True)
     records_count = Column(Integer, nullable=True)
     failure_count = Column(Integer, nullable=False, default=0)
     

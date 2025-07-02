@@ -28,6 +28,8 @@ def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF):
             for attempt in range(max_retries):
                 try:
                     return await func(*args, **kwargs)
+                except ValueError:
+                    raise
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code == 429:
                         retry_after = int(e.response.headers.get("Retry-After", backoff))

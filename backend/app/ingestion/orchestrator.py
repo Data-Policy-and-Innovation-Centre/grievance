@@ -6,9 +6,6 @@ from sqlalchemy.orm import Session
 from .client import JanasunaniAPIClient, JanasunaniAPIError
 from .schemas import validate, Complaint, District, ActionHistory, validate_action_history
 from ..db.crud import (
-    batch_create_or_update_districts,
-    batch_create_or_update_complaints,
-    batch_create_action_history,
     bulk_load_districts,
     bulk_load_complaints,
     bulk_load_action_histories,
@@ -22,9 +19,10 @@ from app.config import settings
 import asyncio
 import httpx
 from typing import List, Tuple
+from more_itertools import chunked
 
 class IngestionOrchestrator:
-    def __init__(self, db: Session, semaphore_value: int = 10):
+    def __init__(self, db: Session, semaphore_value: int = 5):
         self.client = JanasunaniAPIClient()
         self.s3 = boto3.client('s3')
         self.bucket_name = 'grievance-raw-data'
@@ -48,10 +46,10 @@ class IngestionOrchestrator:
             logger.error(f"Error storing data in S3: {e}")
             raise
 
-    async def ingest_districts(self):
+    def ingest_districts(self):
         """Ingest district data."""
         try:
-            districts = await self.client.get_districts()
+            districts = self.client.get_districts()
             districts_validated = validate(districts, District, dict_mode=False)
             
             # Store data in database using CRUD operations
@@ -66,7 +64,7 @@ class IngestionOrchestrator:
     async def ingest_complaints(self, year: int, distId: int, status: int, office: int) -> list[Complaint]:
         """Ingest complaint data."""
         try:
-            complaints = await self.client.get_complaints(year, distId, status, office)
+            complaints = await self.client.get_complaints(year, distId, status, office, self.semaphore)
             complaints_validated = validate(complaints, Complaint, dict_mode=False)
             
             # Store data in database using CRUD operations
@@ -103,7 +101,7 @@ class IngestionOrchestrator:
     async def ingest_action_history(self, ticket_no: str) -> list[ActionHistory]:
         """Ingest action history data."""
         try:
-            action_history = await self.client.get_action_history(ticket_no)
+            action_history = await self.client.get_action_history(ticket_no, self.semaphore)
             action_history_validated = validate_action_history(items=action_history, ticket_no=ticket_no, dict_mode=False)
 
             # Store data in database using CRUD operations
@@ -185,8 +183,9 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
         # Ingest action history for each complaint
         try:
             logger.info(f"Processing action history for {len(flattened_complaints)} complaints")
-            tasks = [orchestrator.limited_ingest_action_history(complaint.ticket_no) for complaint in flattened_complaints]
-            await asyncio.gather(*tasks, return_exceptions=True)
+            for chunk in chunked(flattened_complaints, 5):
+                tasks = [orchestrator.ingest_action_history(complaint.ticket_no) for complaint in chunk]
+                await asyncio.gather(*tasks, return_exceptions=True)
         except Exception as e:
             logger.error(f"Error in action history ingestion: {e}")
         

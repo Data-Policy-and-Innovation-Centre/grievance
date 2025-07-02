@@ -7,8 +7,6 @@ from . import STATUS, OFFICE
 from datetime import datetime
 from more_itertools import chunked
 from itertools import product
-import time
-import json
 
 class JanasunaniAPIError(Exception):
     """Custom exception for Jansunani API errors."""
@@ -160,7 +158,7 @@ async def main():
     districts_validated = validate(districts, District)
 
     semaphore = asyncio.Semaphore(3)
-    year_lst = range(2024, datetime.now().year + 1)
+    year_lst = range(2021, datetime.now().year + 1)
     dist_list = [dist['dist_id'] for dist in districts_validated]
     tasks_complaints = [client.get_complaints(year,dist,status,office, semaphore) 
                         for year, dist, status, office in product(year_lst, dist_list, STATUS.keys(), OFFICE.keys())]
@@ -179,7 +177,9 @@ async def main():
         result = await asyncio.gather(*subtask)
         action_history.extend(result)
 
-    action_history_validated = [validate_action_history(action_history, ticket_actions[0]['ticket_no']) for ticket_actions in action_history]
+    action_history_validated = []
+    for ix, ticket_no in enumerate(ticket_nos):
+        action_history_validated.extend(validate_action_history(action_history[ix], ticket_no))
 
 if __name__ == "__main__":
     asyncio.run(main())

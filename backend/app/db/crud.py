@@ -1,9 +1,11 @@
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from typing import List, Optional, Dict, Any, Tuple
+from datetime import datetime, timedelta
+import pytz
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import or_
 from loguru import logger
-from .models import District, Complaint as ComplaintModel, ActionHistory as ActionHistoryModel
+from .models import District, Complaint as ComplaintModel, ActionHistory as ActionHistoryModel, APIRequestTracking
 from app.ingestion.schemas import Complaint as ComplaintSchema, ActionHistory as ActionHistorySchema, District as DistrictSchema
 from .session import get_db
 from app.config import settings
@@ -272,6 +274,103 @@ def get_complaints_without_documents(db: Session) -> list[ComplaintModel]:
 
 def get_complaints_with_document_urls(db: Session) -> list[ComplaintModel]:
     return db.query(ComplaintModel).filter(ComplaintModel.document_url.isnot(None)).all()
+
+def record_api_request_success(db: Session, year: int, dist_id: int, status: int, office: int, record_count: int) -> APIRequestTracking:
+    """Record a successful API request in db and its results."""
+    try:
+        time_zone = pytz.timezone('Asia/Kolkata') 
+        now = datetime.now(time_zone)
+        tracking = db.query(APIRequestTracking).filter(
+            APIRequestTracking.year == year,
+            APIRequestTracking.dist_id == dist_id,
+            APIRequestTracking.status == status,
+            APIRequestTracking.office == office
+        ).first()
+
+        if tracking:
+            #time_zone = pytz.timezone('Asia/Kolkata') # not sure what time zone to use here.
+            tracking.last_successful_fetch = now
+            tracking.records_count = record_count
+            tracking.failure_count = 0
+        else:
+            tracking = APIRequestTracking(
+                year=year,
+                dist_id=dist_id,
+                status=status,
+                office=office,
+                records_count=record_count,
+                last_successful_fetch=now,
+                failure_count=0
+            )
+            db.add(tracking)
+
+        db.commit()
+        db.refresh(tracking)
+        return tracking
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error recording API request success: {e}")
+        raise
+
+def filter_api_request(db: Session, year: int, dist_id: int, status: int, office: int, days_threshold: int = 7, failure_threshold: int = 3) -> bool:
+    """Check if an API request combination was successfully processed or has failed too many times recently."""
+    time_zone = pytz.timezone('Asia/Kolkata')
+    cutoff_date = datetime.now(time_zone) - timedelta(days=days_threshold)
+    
+    try:
+        tracking = db.query(APIRequestTracking).filter(
+            APIRequestTracking.year == year,
+            APIRequestTracking.dist_id == dist_id,
+            APIRequestTracking.status == status,
+            APIRequestTracking.office == office
+        ).first()
+        
+        if tracking is None:
+            return False
+        
+        # Only check last_successful_fetch if it is not None
+        recent_success = False
+        if tracking.last_successful_fetch is not None:
+            if tracking.last_successful_fetch.tzinfo is None:
+                tracking.last_successful_fetch = time_zone.localize(tracking.last_successful_fetch)
+            recent_success = tracking.last_successful_fetch >= cutoff_date
+
+        return (recent_success or tracking.failure_count > failure_threshold)
+    except Exception as e:
+        logger.error(f"Error checking if API request was recently processed: {e}")
+        return False
+
+
+def mark_api_request_failed(db: Session, year: int, dist_id: int, status: int, office: int) -> None:
+    """Record a failed API request attempt."""
+    try:
+        tracking = db.query(APIRequestTracking).filter(
+            APIRequestTracking.year == year,
+            APIRequestTracking.dist_id == dist_id,
+            APIRequestTracking.status == status,
+            APIRequestTracking.office == office
+        ).first()
+
+        if tracking:
+            tracking.failure_count += 1
+        else:
+            tracking = APIRequestTracking(
+                year=year,
+                dist_id=dist_id,
+                status=status,
+                office=office,
+                failure_count=1
+            )
+            db.add(tracking)
+
+        db.commit()
+        db.refresh(tracking)
+        return tracking
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error recording API request failure: {e}")
+        raise
+
 
 if __name__ == "__main__":
     db = next(get_db())

@@ -1,5 +1,5 @@
-# Use micromamba for faster package management
-FROM mambaorg/micromamba:1.5.8
+# Use Python slim image as base
+FROM python:3.11-slim
 
 # Set environment variables for security and performance
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -9,12 +9,18 @@ ENV PYTHONPATH=/app
 # Set working directory inside the container
 WORKDIR /app
 
-# Copy environment file first for better caching
-COPY environment.yml .
+# Install curl for uv installation
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install dependencies using micromamba
-RUN micromamba install -y -n base -f environment.yml && \
-    micromamba clean -a -y
+# Copy dependency files first for better caching
+COPY pyproject.toml uv.lock ./
+
+# Install uv and dependencies
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    /root/.local/bin/uv --version && \
+    /root/.local/bin/uv sync
 
 # Copy backend code into container
 COPY . .
@@ -22,5 +28,5 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Run the FastAPI app with Uvicorn using micromamba
-CMD ["micromamba", "run", "-n", "base", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the FastAPI app with Uvicorn using uv
+CMD ["/root/.local/bin/uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

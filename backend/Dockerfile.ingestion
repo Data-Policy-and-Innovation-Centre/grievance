@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:1.5.8
+FROM python:3.10-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -8,16 +8,24 @@ ENV PYTHONPATH=/app
 # Set working directory
 WORKDIR /app
 
+# Install curl + build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files early for cache efficiency
+COPY pyproject.toml uv.lock ./
+
+# Install uv (Astral's ultra-fast dependency manager)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    /root/.local/bin/uv --version && \
+    /root/.local/bin/uv sync
+
 # Copy application code
 COPY . .
 
 # Ensure the data directory exists and has the right permissions
 RUN mkdir -p /app/data
 
-# Install dependencies using micromamba
-RUN micromamba install -y -n base -f environment.yml 
-
-RUN micromamba clean -a -y
-
 # Activate the environment and run the ingestion script
-CMD ["micromamba", "run", "-n", "base", "python", "-m", "app.ingestion.orchestrator"]
+CMD ["/root/.local/bin/uv", "run", "-m", "app.ingestion.orchestrator"]

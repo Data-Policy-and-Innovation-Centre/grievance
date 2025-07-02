@@ -5,16 +5,21 @@ from loguru import logger
 from sqlalchemy.orm import Session
 from .client import JanasunaniAPIClient, JanasunaniAPIError
 from .schemas import validate, Complaint, District, ActionHistory, validate_action_history
+from ..db.models import District as DistrictModel
 from ..db.crud import (
     bulk_load_districts,
     bulk_load_complaints,
-    bulk_load_action_histories
+    bulk_load_action_histories,
+    filter_api_request,
+    record_api_request_success,
+    mark_api_request_failed,
 )
 from ..db.session import get_db
 from . import OFFICE, STATUS
 from app.config import settings
 import asyncio
 import httpx
+from typing import List, Tuple
 from more_itertools import chunked
 
 class IngestionOrchestrator:
@@ -132,31 +137,54 @@ class IngestionOrchestrator:
                 return []
             
 
-async def run_ingestion_service():
+async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = None):
     """Main async ingestion service runner."""
+    days_threshold = 7
+    max_retries = 3
     try:
         db = next(get_db())
         orchestrator = IngestionOrchestrator(db,5)
         
-        # Ingest districts
-        districts = orchestrator.ingest_districts()
+        # Load districts from database if exists or ingest
+        districts = db.query(DistrictModel).all()
+        if not districts:
+            districts = orchestrator.ingest_districts() # does this get all districts?
 
-        # Ingest complaints for each year, district, status and office
-        params = [(year, district.dist_id, status, office) for year in range(2021, datetime.now().year + 1) 
-                  for district in districts for status in STATUS.keys() 
-                  for office in OFFICE.keys()]
-        logger.info(f"Total complaint requests to process: {len(params)}")
+        # Generate initial set of all possible combinations
+        params = [(year, district.dist_id, status, office) 
+                       for year in range(2021, datetime.now().year) 
+                       for district in districts 
+                       for status in STATUS.keys() 
+                       for office in OFFICE.keys()]
+    
+
+        for param in params:
+            if filter_api_request(db, *param, days_threshold=days_threshold):
+                params.remove(param)
         
+        if force_params:
+            params.extend(force_params)
+
+        logger.info(f"Total complaint requests to process: {len(params)}")
+
         try:
-            tasks = [orchestrator.ingest_complaints(*param) for param in params]
-            complaints = await asyncio.gather(*tasks, return_exceptions=True)
+            tasks = [orchestrator.limited_ingest_complaints(*param) for param in params]
+            complaints = await asyncio.gather(*tasks, return_exceptions=True)            
+            flattened_complaints = []
+            for result, (year, dist_id, status, office) in zip(complaints, params):
+                if isinstance(result, list):
+                    flattened_complaints.extend(result)
+                    record_api_request_success(db, year, dist_id, status, office, len(result))
+                elif isinstance(result, Exception):
+                    logger.error(f"Failed to process year={year}, dist={dist_id}, status={status}, office={office}: {result}")
+                    mark_api_request_failed(db, year, dist_id, status, office, str(result)) # anywhere else to log this?
+            
             logger.info(f"Completed {len(complaints)} complaint ingestion tasks")
         except Exception as e:
             logger.error(f"Error in complaint ingestion: {e}")
         
         # Ingest action history for each complaint
         try:
-            flattened_complaints = [complaint for sublist in complaints if isinstance(sublist, list) for complaint in sublist]
             logger.info(f"Processing action history for {len(flattened_complaints)} complaints")
             for chunk in chunked(flattened_complaints, 5):
                 tasks = [orchestrator.ingest_action_history(complaint.ticket_no) for complaint in chunk]

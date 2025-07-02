@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, UniqueConstraint
+from datetime import datetime
 from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
@@ -130,4 +131,19 @@ class ActionHistory(Base):
                                        'action_taken_remark',
                                        'complaint_status_with_authority', name='action_history_uniq'),)
 
+class APIRequestTracking(Base):
+    """Track which API request combinations have been successfully processed."""
+    __tablename__ = 'api_request_tracking'
+
+    id = Column(Integer, primary_key=True)
+    year = Column(Integer, nullable=False)
+    dist_id = Column(Integer, nullable=False)
+    status = Column(Integer, nullable=False)
+    office = Column(Integer, nullable=False)
+    last_successful_fetch = Column(DateTime, nullable=True)
+    records_count = Column(Integer, nullable=True)
+    failure_count = Column(Integer, nullable=False, default=0)
     
+    __table_args__ = (
+        UniqueConstraint('year', 'dist_id', 'status', 'office', name='api_request_uniq'),
+    )

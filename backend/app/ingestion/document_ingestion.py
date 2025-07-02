@@ -18,12 +18,11 @@ class DocumentService:
     """
     Async client for Document download service
     """
-    def __init__(self, storage_type: str = "local", s3_bucket: str = settings.AWS_S3_BUCKET_NAME, db: Session = None):
-        self.storage_type = storage_type
+    def __init__(self, s3_bucket: str = settings.AWS_S3_BUCKET_NAME, db: Session = None):
         self.s3 = s3_bucket
         self.semaphore = asyncio.Semaphore(5)
         self.db = db or next(get_db())
-        if storage_type == "local":
+        if settings.ENV == "dev":
             self.__create_local_folder()
     
     def __create_local_folder(self):

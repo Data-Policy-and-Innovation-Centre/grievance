@@ -30,7 +30,7 @@ class IngestionOrchestrator:
         self.bucket_name = 'grievance-raw-data'
         self.db = db
         self.semaphore = asyncio.Semaphore(semaphore_value)
-        self.doc_service = DocumentService(storage_type = "local", db = self.db)
+        self.doc_service = DocumentService(db=self.db)
 
     def _store_in_s3(self, data: dict, prefix: str):
         """Store raw data in S3 with timestamp."""
@@ -110,12 +110,12 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
     try:
         db = next(get_db())
         orchestrator = IngestionOrchestrator(db,5)
-        doc_service = DocumentService(storage_type="local", db = db)
+        doc_service = DocumentService(db=db)
         
         # Load districts from database if exists or ingest
         districts = db.query(DistrictModel).all()
         if not districts:
-            districts = orchestrator.ingest_districts() # does this get all districts?
+            districts = orchestrator.ingest_districts() 
 
         # Generate initial set of all possible combinations
         params = [(year, district.dist_id, status, office) 

@@ -189,7 +189,6 @@ async def main():
     semaphore = asyncio.Semaphore(10)
     year_lst = range(2021, datetime.now().year + 1)
     dist_list = [dist['dist_id'] for dist in districts_validated]
-    # dist_list = [dist['dist_id'] for dist in districts_validated[-11:-7]] # NEXT Running
     complaint_params = list(product(year_lst, dist_list, STATUS.keys(), OFFICE.keys()))
     tasks_complaints = [
         client.get_complaints(year, dist, status, office, semaphore, label=f"complaints-{year}-{dist}-{status}-{office}")
@@ -205,10 +204,6 @@ async def main():
     flatten_complaints = [complaint for sublist in complaints if isinstance(sublist, list) for complaint in sublist]
     complaints_validated = validate(flatten_complaints, Complaint, dict_mode=False)
 
-    # path_complaint = f"./data/raw/flatten_complaints_{dist_list[0]}.json"
-    # with open(path_complaint, 'w') as f:
-    #     json.dump(flatten_complaints, f)
-
     ticket_nos = [complaint.ticket_no for complaint in complaints_validated]
     
     semaphore = asyncio.Semaphore(10)
@@ -217,19 +212,17 @@ async def main():
         for ticket in ticket_nos
         ]
 
-    # path_actions = f"./data/raw/actions_{dist_list[0]}.json"
-    # with open(path_actions, 'w') as f:
-    #     json.dump(action_history, f)
-
     action_history = []
     for subtask in chunked(tasks, 30):
         await asyncio.sleep(5)
         result = await asyncio.gather(*subtask)
         action_history.extend(r for r in result if r is not None)
 
-    # action_history_validated = []
-    # for ix, ticket_no in enumerate(ticket_nos):
-    #     action_history_validated.extend(validate_action_history(action_history[ix], ticket_no))
+    flatten_actions = [complaint for sublist in action_history if isinstance(sublist, list) for complaint in sublist]
+
+    action_history_validated = []
+    for ix, ticket_no in enumerate(ticket_nos):
+        action_history_validated.extend(validate_action_history(flatten_actions[ix], ticket_no, dict_mode = False))
 
 if __name__ == "__main__":
     asyncio.run(main())

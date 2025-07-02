@@ -98,7 +98,7 @@ class DocumentService:
         url, ticket_no = complaint.document_url, complaint.ticket_no
 
         if not url or not url.lower().startswith(("http://", "https://")):
-            logger.info(f"Complaint {ticket_no} does not have a valid document URL.")
+            logger.warning(f"Complaint {ticket_no} does not have a valid document URL.")
             return None
         
         path = self.get_document_path(ticket_no, document_type)

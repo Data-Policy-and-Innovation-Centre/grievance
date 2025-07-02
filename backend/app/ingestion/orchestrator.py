@@ -5,6 +5,7 @@ from loguru import logger
 from sqlalchemy.orm import Session
 from .client import JanasunaniAPIClient, JanasunaniAPIError
 from .schemas import validate, Complaint, District, ActionHistory, validate_action_history
+from ..db.models import District as DistrictModel
 from ..db.crud import (
     bulk_load_districts,
     bulk_load_complaints,
@@ -144,8 +145,10 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
         db = next(get_db())
         orchestrator = IngestionOrchestrator(db,5)
         
-        # Ingest districts
-        districts = await orchestrator.ingest_districts() # does this get all districts?
+        # Load districts from database if exists or ingest
+        districts = db.query(DistrictModel).all()
+        if not districts:
+            districts = orchestrator.ingest_districts() # does this get all districts?
 
         # Generate initial set of all possible combinations
         params = [(year, district.dist_id, status, office) 

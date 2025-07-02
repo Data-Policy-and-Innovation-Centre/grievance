@@ -22,7 +22,7 @@ class DocumentService:
         self.storage_type = storage_type
         self.s3 = s3_bucket
         self.semaphore = asyncio.Semaphore(5)
-        self.db = db or (next(get_db()) if storage_type == "local" else None)
+        self.db = db or next(get_db())
         if storage_type == "local":
             self.__create_local_folder()
     

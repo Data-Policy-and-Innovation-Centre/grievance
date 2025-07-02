@@ -574,20 +574,20 @@ def test_api_request_tracking_different_combinations(db_session):
 def test_api_request_tracking_error_handling(db_session):
     """Test error handling in API request tracking functions."""
     from app.db.crud import record_api_request_success, filter_api_request, mark_api_request_failed
-    from sqlalchemy.exc import ResourceClosedError
+    from sqlalchemy.exc import OperationalError
     
     # Test with invalid database session (closed session)
-    db_session.close()
+    db_session.bind.dispose()
     
     # These should raise exceptions with closed session
-    with pytest.raises(ResourceClosedError):
+    with pytest.raises(OperationalError):
         record_api_request_success(db_session, year=2024, dist_id=1, status=1, office=1, record_count=50)
-    
+
     # filter_api_request should return False on error
     result = filter_api_request(db_session, year=2024, dist_id=1, status=1, office=1)
     assert result is False
     
-    with pytest.raises(Exception):
+    with pytest.raises(OperationalError):
         mark_api_request_failed(db_session, year=2024, dist_id=1, status=1, office=1)
 
     

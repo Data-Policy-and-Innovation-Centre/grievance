@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     The settings are used to configure the application, such as setting up the database connection.
     """
 
-    ENV: str = os.getenv("ENV", "dev")
+    ENV: str = os.getenv("ENV", "local")
     DEBUG: bool = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
     JANASUNANI_API_BASE_URL: str = os.getenv(
         "JANASUNANI_API_BASE_URL", "https://janasunani.odisha.gov.in/api/DataServices"

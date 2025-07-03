@@ -205,8 +205,8 @@ async def test_batch_download_documents_success(doc_service):
 
 def test_document_service_uses_env_setting(db_session, monkeypatch):
     """Test that DocumentService uses settings.ENV for local folder creation."""
-    # Mock settings.ENV to be "dev"
-    monkeypatch.setattr("app.ingestion.document_ingestion.settings.ENV", "dev")
+    # Mock settings.ENV to be "local"
+    monkeypatch.setattr("app.ingestion.document_ingestion.settings.ENV", "local")
     
     # Mock os.mkdir to verify it's called
     with patch("os.mkdir") as mock_mkdir, \
@@ -214,8 +214,8 @@ def test_document_service_uses_env_setting(db_session, monkeypatch):
         doc_service = DocumentService(db=db_session)
         mock_mkdir.assert_called_once()
 
-def test_document_service_skips_local_folder_when_not_dev(db_session, monkeypatch):
-    """Test that DocumentService skips local folder creation when ENV is not 'dev'."""
+def test_document_service_skips_local_folder_when_not_local(db_session, monkeypatch):
+    """Test that DocumentService skips local folder creation when ENV is not 'local'."""
     # Mock settings.ENV to be "prod"
     monkeypatch.setattr("app.ingestion.document_ingestion.settings.ENV", "prod")
     

@@ -22,7 +22,7 @@ class DocumentService:
         self.s3 = s3_bucket
         self.semaphore = asyncio.Semaphore(5)
         self.db = db or next(get_db())
-        if settings.ENV == "dev":
+        if settings.ENV == "local":
             self.__create_local_folder()
     
     def __create_local_folder(self):

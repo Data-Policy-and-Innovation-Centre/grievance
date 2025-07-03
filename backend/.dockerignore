@@ -33,3 +33,7 @@ LICENSE
 README.md
 grievance_analytics.egg-info/
 *.db
+data/
+data/raw/
+data/processed/
+data/logs/

@@ -109,29 +109,28 @@ backend/
 
 ### Contributing
 
-1. Fork the repository and create your branch:
+1. Clone repository and create your branch:
    ```bash
-   git checkout -b feature/your-feature
+   git checkout -b feature
    ```
 2. Make your changes and add tests.
 3. Run tests and ensure all pass.
 4. Commit and push your branch.
-5. Open a Pull Request with a clear description.
+5. Open a Pull Request to branch `dev` with a clear description.
 
 ---
 
 ## ☁️ Cloud Deployment
 
-- **ECS/Fargate**: Build and push Docker images to ECR, then deploy using ECS task definitions and services.
-- **Prefect Cloud**: Register and schedule flows for robust workflow orchestration.
+For detailed deployment instructions and infrastructure setup, please refer to the comprehensive guide in [terraform/README.md](terraform/README.md).
 
 ---
 
-## 📄 License
+<!-- ## 📄 License
 
 [MIT License](LICENSE)
 
----
+--- -->
 
 ## 🙋‍♂️ Support
 

@@ -122,8 +122,10 @@ class DocumentService:
             logger.info(f"Downloaded document for complaint {ticket_no} to {path}")
             return path
         except Exception as e:
-            logger.error(f"Error downloading document for {ticket_no}: {e}")
-            raise
+            error_msg = str(e)
+            logger.error(f"Error downloading document for {ticket_no}: {error_msg}")
+            update_document_status(self.db, ticket_no, local_path="", success=False, error=f"Error: {error_msg}")
+            return "Error"
 
     async def batch_download_documents(self, complaints: List[Complaint]) -> Dict[str, str]:
         """

@@ -202,6 +202,8 @@ backend/join_grievance2025.ipynb
 data/
 *.ipynb
 *.tfstate
+*.tfstate.backup
 terraform/tfplan
 terraform/.terraform/*
 terraform/.terraform*
+

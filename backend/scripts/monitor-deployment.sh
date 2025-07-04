@@ -110,7 +110,9 @@ check_cloudwatch_logs() {
             LATEST_STREAM=$(echo "$LOG_STREAMS" | head -1)
             if [ ! -z "$LATEST_STREAM" ]; then
                 print_status "Recent logs from $LATEST_STREAM:"
-                aws logs get-log-events --log-group-name $LOG_GROUP --log-stream-name "$LATEST_STREAM" --region $AWS_REGION --start-time $(date -d '1 hour ago' +%s)000 --query 'events[].{Timestamp:timestamp,Message:message}' --output table 2>/dev/null || print_warning "No recent logs found"
+                # Calculate timestamp for 1 hour ago (cross-platform compatible)
+                ONE_HOUR_AGO=$(($(date +%s) - 3600))000
+                aws logs get-log-events --log-group-name $LOG_GROUP --log-stream-name "$LATEST_STREAM" --region $AWS_REGION --start-time $ONE_HOUR_AGO --query 'events[].{Timestamp:timestamp,Message:message}' --output table 2>/dev/null || print_warning "No recent logs found"
             fi
         else
             print_warning "No log streams found"
@@ -162,6 +164,32 @@ check_ecr_repository() {
     fi
 }
 
+# Function to check S3 bucket status
+check_s3_bucket() {
+    print_status "Checking S3 Bucket Status..."
+    
+    BUCKET_NAME="janasunani-documents-$ENVIRONMENT"
+    
+    # Check if bucket exists
+    BUCKET_EXISTS=$(aws s3api head-bucket --bucket $BUCKET_NAME --region $AWS_REGION 2>/dev/null && echo "EXISTS" || echo "NOT_FOUND")
+    
+    if [ "$BUCKET_EXISTS" = "EXISTS" ]; then
+        print_success "S3 Bucket $BUCKET_NAME exists"
+        
+        # Get bucket details
+        aws s3api get-bucket-versioning --bucket $BUCKET_NAME --region $AWS_REGION --query '{Status:Status}' --output table 2>/dev/null || print_warning "Versioning not configured"
+        
+        # Get bucket encryption
+        aws s3api get-bucket-encryption --bucket $BUCKET_NAME --region $AWS_REGION --query 'ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm' --output text 2>/dev/null || print_warning "Encryption not configured"
+        
+        # Get bucket size (approximate)
+        print_status "Bucket size (approximate):"
+        aws s3 ls s3://$BUCKET_NAME --recursive --human-readable --summarize --region $AWS_REGION 2>/dev/null | tail -2 || print_warning "Could not get bucket size"
+    else
+        print_error "S3 Bucket $BUCKET_NAME not found"
+    fi
+}
+
 # Function to check overall deployment health
 check_deployment_health() {
     print_status "=== Deployment Health Check ==="
@@ -176,6 +204,8 @@ check_deployment_health() {
     check_eventbridge_rules
     echo ""
     check_cloudwatch_logs
+    echo ""
+    check_s3_bucket
     echo ""
     
     print_status "=== Health Check Summary ==="
@@ -206,6 +236,7 @@ show_help() {
     echo "  cloudwatch  - Check CloudWatch logs only"
     echo "  eventbridge - Check EventBridge rules only"
     echo "  ecr         - Check ECR repository only"
+    echo "  s3          - Check S3 bucket only"
     echo "  help        - Show this help message"
     echo ""
     echo "Examples:"
@@ -239,6 +270,9 @@ main() {
             ;;
         "ecr")
             check_ecr_repository
+            ;;
+        "s3")
+            check_s3_bucket
             ;;
         "help")
             show_help

@@ -63,8 +63,8 @@ class Settings(BaseSettings):
     AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "None")
     AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "None")
     AWS_REGION: str = os.getenv("AWS_REGION", "ap-south-1")
-    AWS_S3_BUCKET_NAME: str = os.getenv("AWS_S3_BUCKET_NAME", "janasunani-data")
-    AWS_S3_DOCUMENTS: str = os.getenv("AWS_S3_DOCUMENTS", "janasunani-documents")
+    AWS_S3_BUCKET_NAME: str = os.getenv("AWS_S3_BUCKET_NAME", "janasunani-data-main")
+    AWS_S3_DOCUMENTS: str = os.getenv("AWS_S3_DOCUMENTS", "janasunani-documents-main")
 
     model_config = ConfigDict(env_file=directories.ROOT_DIR / ".env")
 

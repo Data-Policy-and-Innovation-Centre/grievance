@@ -18,10 +18,29 @@ This guide explains how to deploy the grievance analytics application to AWS usi
    aws configure
    ```
 
-2. **Set Database Password**:
-   ```bash
-   export DB_PASSWORD='your_secure_password'
-   ```
+2. **Set Environment**:
+Create a `.env` file in the `backend/` directory:
+
+```env
+# Environment and Debug
+ENV=dev
+DEBUG=True
+
+# Janasunani API Configuration
+JANASUNANI_API_BASE_URL=https://janasunani.odisha.gov.in/api/DataServices
+JANASUNANI_API_USERNAME=your_username
+JANASUNANI_API_PASSWORD=your_password
+
+# Database Configuration
+DB_PASSWORD=your_db_password
+
+# AWS Configuration (optional for local development)
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=ap-south-1
+AWS_S3_BUCKET_NAME=janasunani-data
+AWS_S3_DOCUMENTS=janasunani-documents
+```
 
 3. **Deploy to Main Environment**:
    ```bash
@@ -66,9 +85,10 @@ This guide explains how to deploy the grievance analytics application to AWS usi
 2. **RDS PostgreSQL** database
 3. **ECS Cluster** (Fargate - serverless)
 4. **ECR Repository** for Docker images
-5. **EventBridge Rule** for scheduled ingestion
-6. **CloudWatch Log Group** for monitoring
-7. **IAM Roles** and policies
+5. **S3 Bucket** for document storage
+6. **EventBridge Rule** for scheduled ingestion
+7. **CloudWatch Log Group** for monitoring
+8. **IAM Roles** and policies
 
 ### Application Components
 
@@ -110,6 +130,18 @@ aws ecs describe-tasks --cluster grievance-cluster-main --tasks <task-arn>
 aws rds describe-db-instances --db-instance-identifier grievance-postgres-main
 ```
 
+### S3 Monitoring
+```bash
+# Check S3 bucket status
+aws s3api head-bucket --bucket janasunani-documents-main
+
+# List objects in bucket
+aws s3 ls s3://janasunani-documents-main
+
+# Get bucket size
+aws s3 ls s3://janasunani-documents-main --recursive --human-readable --summarize
+```
+
 ## 🔐 Security Considerations
 
 ### Database Security
@@ -129,12 +161,13 @@ The deployment creates minimal IAM roles:
 ## 💰 Cost Optimization
 
 ### Main Environment
-- **RDS t3.small**: ~$30/month
-- **ECS Fargate**: ~$10/month (weekly runs)
-- **ECR**: ~$2/month
+- **RDS t3.micro**: ~$15/month
+- **ECS Fargate**: ~$5/month (weekly runs)
+- **ECR**: ~$1/month
+- **S3**: ~$2/month (document storage)
 - **EventBridge**: ~$1/month
-- **CloudWatch**: ~$2/month
-- **Total**: ~$45/month
+- **CloudWatch**: ~$1/month
+- **Total**: ~$25/month
 
 ### Cost Reduction Tips
 1. **Stop unused resources**: Use `destroy` command when not needed
@@ -163,8 +196,19 @@ export DB_PASSWORD='your_secure_password'
 # Check Docker is running
 docker ps
 
-# Build manually to see errors
-docker build -f Dockerfile.ingestion -t test .
+# Build manually to see errors (specify platform for ECS Fargate)
+docker build --platform linux/amd64 -f Dockerfile.ingestion -t test .
+```
+
+#### 4. ECS Cannot Pull Container Error
+If you see "image Manifest does not contain descriptor matching platform 'linux/amd64'":
+```bash
+# Rebuild image with correct platform
+docker build --platform linux/amd64 -f Dockerfile.ingestion -t grievance-ingestion-main:latest .
+
+# Push to ECR
+docker tag grievance-ingestion-main:latest $AWS_ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/grievance-ingestion-main:latest
+docker push $AWS_ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/grievance-ingestion-main:latest
 ```
 
 #### 4. ECR Login Fails
@@ -192,6 +236,12 @@ aws logs tail /ecs/grievance-ingestion-main --since 1h
 
 # Check ECS task status
 aws ecs describe-tasks --cluster grievance-cluster-main --tasks $(aws ecs list-tasks --cluster grievance-cluster-main --query 'taskArns[0]' --output text)
+
+# Check S3 bucket
+aws s3 ls s3://janasunani-documents-main
+
+# Check S3 bucket permissions
+aws s3api get-bucket-policy --bucket janasunani-documents-main
 ```
 
 ## 🔄 CI/CD Integration

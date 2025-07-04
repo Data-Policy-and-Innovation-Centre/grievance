@@ -89,7 +89,8 @@ build_and_push_images() {
     print_status "Building ingestion image..."
     # Change to backend directory for Docker build
     cd $HOME_DIR
-    docker build -f Dockerfile.ingestion -t grievance-ingestion-$ENVIRONMENT:latest .
+    # Build for linux/amd64 platform (required for ECS Fargate)
+    docker build --platform linux/amd64 -f Dockerfile.ingestion -t grievance-ingestion-$ENVIRONMENT:latest .
     
     print_status "Tagging ingestion image..."
     docker tag grievance-ingestion-$ENVIRONMENT:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/grievance-ingestion-$ENVIRONMENT:latest
@@ -170,6 +171,10 @@ get_outputs() {
     # Get EventBridge rule name
     EVENTBRIDGE_RULE=$(terraform output -raw eventbridge_rule_name)
     print_status "EventBridge Rule: $EVENTBRIDGE_RULE"
+    
+    # Get S3 bucket name
+    S3_BUCKET_NAME=$(terraform output -raw documents_s3_bucket_name)
+    print_status "S3 Documents Bucket: $S3_BUCKET_NAME"
     
     print_success "Deployment outputs retrieved!"
 }

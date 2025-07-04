@@ -42,12 +42,17 @@ jobs:
             -out=tfplan.binary
           terraform show -json tfplan.binary > plan.json
 
-      - name: Run Infracost diff and post GitHub PR comment
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate Infracost cost estimate
         run: |
           infracost diff \
             --path=plan.json \
-            --format=github-comment \
+            --format=json \
             --show-skipped \
-            --github-token=$GITHUB_TOKEN
+            --out-file=/tmp/infracost.json
+
+      - name: Post Infracost comment
+        uses: infracost/actions/comment@v1
+        with:
+          path: /tmp/infracost.json
+          behavior: update
+          github-token: ${{ secrets.GITHUB_TOKEN }}

@@ -16,11 +16,11 @@ from ..db.crud import (
 )
 from ..db.session import get_db
 from . import OFFICE, STATUS
-from app.config import directories
+from app.config import directories, stop_logging_to_console, resume_logging_to_console
 import asyncio
 from more_itertools import chunked
 from .document_ingestion import DocumentService
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Coroutine
 from tqdm.asyncio import tqdm
 
 class IngestionOrchestrator:
@@ -102,16 +102,13 @@ class IngestionOrchestrator:
         results = await doc_service.batch_download_documents(complaints)
         return results
 
-logger.remove()  # Remove default stderr sink
-logger.add(directories.LOGS / "orchestrator_log.txt", level="INFO")
-
 # Wrap each task to update the tqdm bar when done
-async def track_with_progress(coros, desc="Processing"):
+async def track_with_progress(coros: List[Coroutine], desc: str = "Processing", position: int = 0):
     results = []
     total = len(coros)
 
     # tqdm.asyncio is smart about async display updates
-    with tqdm(total=total, desc=desc, ncols=100) as pbar:
+    with tqdm(total=total, desc=desc, ncols=100, position=position) as pbar:
         async def wrapped(coro):
             try:
                 result = await coro
@@ -141,10 +138,12 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
 
         # Generate initial set of all possible combinations
         params = [(year, district.dist_id, status, office) 
-                       for year in [2024] # TODO: change to range(2021, datetime.now().year)
-                       for district in districts[-1:] 
-                       for status in [2] 
-                       for office in [2]]
+                       for year in [2025] # TODO: change to range(2021, datetime.now().year)
+                       for district in districts 
+                       for status in STATUS.keys() 
+                       for office in OFFICE.keys()]
+        
+        logger.debug(f"Num. Params: {len(params)}")
     
 
         for param in params:
@@ -155,6 +154,8 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
             params.extend(force_params)
 
         logger.info(f"Total complaint requests to process: {len(params)}")
+
+        stop_logging_to_console()
 
         try:
             tasks = [orchestrator.ingest_complaints(*param) for param in params]
@@ -167,7 +168,7 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
                 elif isinstance(result, Exception):
                     logger.error(f"Failed to process year={year}, dist={dist_id}, status={status}, office={office}: {result}")
                     mark_api_request_failed(db, year, dist_id, status, office, str(result)) # anywhere else to log this?
-            
+            resume_logging_to_console()
             logger.info(f"Completed {len(complaints)} complaint ingestion tasks")
         except Exception as e:
             logger.error(f"Error in complaint ingestion: {e}")
@@ -178,11 +179,13 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
             flattened_complaints = [complaint for sublist in complaints if isinstance(sublist, list) for complaint in sublist]
             
             logger.info(f"Processing documents for {len(flattened_complaints)} complaints")
+            stop_logging_to_console()
             doc_tasks = [
                 orchestrator.ingest_documents(chunk, doc_service)
                 for chunk in chunked(flattened_complaints, 10)
             ]
             doc_results = await track_with_progress(doc_tasks, desc="Ingesting documents")
+            resume_logging_to_console()
             logger.info(f"Completed {len(doc_results)} document ingestion tasks")
 
 
@@ -191,7 +194,9 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
                 orchestrator.ingest_action_history(complaint.ticket_no)
                 for complaint in flattened_complaints
             ]
+            stop_logging_to_console()
             action_result = await track_with_progress(action_tasks, desc="Ingesting actions")
+            resume_logging_to_console()
             logger.info(f"Completed {len(action_result)} action ingestion tasks")
         except Exception as e:
             logger.error(f"Error in action history ingestion: {e}")

@@ -145,7 +145,7 @@ resource "aws_db_instance" "postgres" {
   identifier = "grievance-postgres-${var.environment}"
 
   engine         = "postgres"
-  engine_version = "15.4"
+  engine_version = "15.13"
   instance_class = var.db_instance_class
 
   allocated_storage     = var.db_allocated_storage
@@ -186,7 +186,7 @@ resource "aws_ecs_cluster" "main" {
 # ECR Repository for ingestion
 resource "aws_ecr_repository" "ingestion" {
   name = "grievance-ingestion-${var.environment}"
-
+  force_delete = true
   tags = {
     Name        = "grievance-ingestion-${var.environment}"
     Environment = var.environment
@@ -215,6 +215,18 @@ resource "aws_ecs_task_definition" "ingestion" {
         {
           name  = "DB_URL"
           value = "postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.postgres.endpoint}:5432/${var.db_name}"
+        },
+        {
+          name  = "JANASUNANI_API_USERNAME"
+          value = var.janasunani_api_username
+        },
+        {
+          name  = "JANASUNANI_API_PASSWORD"
+          value = var.janasunani_api_password
+        },
+        {
+          name  = "JANASUNANI_API_BASE_URL"
+          value = var.janasunani_api_base_url
         }
       ]
 

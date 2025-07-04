@@ -50,4 +50,22 @@ variable "db_backup_retention_period" {
   description = "RDS backup retention period in days"
   type        = number
   default     = 7
+}
+
+variable "janasunani_api_username" {
+  description = "Janasunani API username"
+  type        = string
+  sensitive   = true
+}
+
+variable "janasunani_api_password" {
+  description = "Janasunani API password"
+  type        = string
+  sensitive   = true
+}
+
+variable "janasunani_api_base_url" {
+  description = "Janasunani API base URL"
+  type        = string
+  default     = "https://janasunani.odisha.gov.in/api/DataServices"
 } 

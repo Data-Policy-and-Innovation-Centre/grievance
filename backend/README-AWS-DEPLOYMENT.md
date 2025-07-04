@@ -23,7 +23,7 @@ Create a `.env` file in the `backend/` directory:
 
 ```env
 # Environment and Debug
-ENV=dev
+ENV=main
 DEBUG=True
 
 # Janasunani API Configuration

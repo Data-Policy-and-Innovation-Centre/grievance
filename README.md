@@ -29,7 +29,6 @@ cd grievance
 ```
 
 ### Environment Variables
-
 Create a `.env` file in the `backend/` directory:
 
 ```env
@@ -42,8 +41,8 @@ JANASUNANI_API_BASE_URL=https://janasunani.odisha.gov.in/api/DataServices
 JANASUNANI_API_USERNAME=your_username
 JANASUNANI_API_PASSWORD=your_password
 
-# Database Configuration (uses Docker volumes, not local files)
-DB_URL=sqlite:///data/raw/grievance.db
+# Database Configuration
+DB_PASSWORD=your_db_password
 
 # AWS Configuration (optional for local development)
 AWS_ACCESS_KEY_ID=your_access_key

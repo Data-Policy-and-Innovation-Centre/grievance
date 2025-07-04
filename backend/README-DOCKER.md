@@ -23,7 +23,7 @@ JANASUNANI_API_USERNAME=your_username
 JANASUNANI_API_PASSWORD=your_password
 
 # Database Configuration
-DB_URL=sqlite:///data/raw/grievance.db
+DB_PASSWORD=your_db_password
 
 # AWS Configuration (optional for local development)
 AWS_ACCESS_KEY_ID=your_access_key

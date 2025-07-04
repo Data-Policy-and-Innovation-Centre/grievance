@@ -2,6 +2,8 @@ name: 'Terraform Security'
 
 on:
   pull_request:
+    branches:
+      - main
     paths:
       - 'terraform/**'
       - '.github/workflows/terraform-security.yml'

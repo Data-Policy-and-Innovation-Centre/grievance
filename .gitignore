@@ -194,6 +194,8 @@ cython_debug/
 .cursorindexingignore
 /.vscode
 .DS_Store
+
+# Others
 backend/JanaSunani_API_document_2.pdf
 backend/data/
 backend/testing.ipynb
@@ -201,3 +203,4 @@ backend/join_grievance2025.ipynb
 /backend/notebooks
 data/
 *.ipynb
+*logs/

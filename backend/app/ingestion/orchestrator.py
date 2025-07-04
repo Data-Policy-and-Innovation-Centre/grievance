@@ -3,7 +3,7 @@ import boto3
 from datetime import datetime
 from loguru import logger
 from sqlalchemy.orm import Session
-from .client import JanasunaniAPIClient, JanasunaniAPIError
+from .client import JanasunaniAPIClient
 from .schemas import validate, Complaint, District, ActionHistory, validate_action_history
 from ..db.models import District as DistrictModel
 from ..db.crud import (
@@ -16,12 +16,12 @@ from ..db.crud import (
 )
 from ..db.session import get_db
 from . import OFFICE, STATUS
-from app.config import settings
+from app.config import directories
 import asyncio
-import httpx
 from more_itertools import chunked
 from .document_ingestion import DocumentService
 from typing import List, Dict, Tuple
+from tqdm.asyncio import tqdm
 
 class IngestionOrchestrator:
     def __init__(self, db: Session, semaphore_value: int = 5):
@@ -101,13 +101,35 @@ class IngestionOrchestrator:
         '''Ingest documents data'''
         results = await doc_service.batch_download_documents(complaints)
         return results
-            
+
+logger.remove()  # Remove default stderr sink
+logger.add(directories.LOGS / "orchestrator_log.txt", level="INFO")
+
+# Wrap each task to update the tqdm bar when done
+async def track_with_progress(coros, desc="Processing"):
+    results = []
+    total = len(coros)
+
+    # tqdm.asyncio is smart about async display updates
+    with tqdm(total=total, desc=desc, ncols=100) as pbar:
+        async def wrapped(coro):
+            try:
+                result = await coro
+                return result
+            finally:
+                pbar.update(1)
+
+        tasks = [wrapped(coro) for coro in coros]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    return results
 
 async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = None):
     """Main async ingestion service runner."""
     days_threshold = 7
     max_retries = 3
-    try:
+    try:                
+
         db = next(get_db())
         orchestrator = IngestionOrchestrator(db,5)
         doc_service = DocumentService(db=db)
@@ -119,10 +141,10 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
 
         # Generate initial set of all possible combinations
         params = [(year, district.dist_id, status, office) 
-                       for year in [2025] # TODO: change to range(2021, datetime.now().year)
-                       for district in districts 
-                       for status in STATUS.keys() 
-                       for office in OFFICE.keys()]
+                       for year in [2024] # TODO: change to range(2021, datetime.now().year)
+                       for district in districts[-1:] 
+                       for status in [2] 
+                       for office in [2]]
     
 
         for param in params:
@@ -136,7 +158,7 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
 
         try:
             tasks = [orchestrator.ingest_complaints(*param) for param in params]
-            complaints = await asyncio.gather(*tasks, return_exceptions=True)            
+            complaints = await track_with_progress(tasks, desc="Ingesting complaints")
             flattened_complaints = []
             for result, (year, dist_id, status, office) in zip(complaints, params):
                 if isinstance(result, list):
@@ -149,22 +171,28 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
             logger.info(f"Completed {len(complaints)} complaint ingestion tasks")
         except Exception as e:
             logger.error(f"Error in complaint ingestion: {e}")
-        
+
+
         # Ingest documents and action history for each complaint
         try:
             flattened_complaints = [complaint for sublist in complaints if isinstance(sublist, list) for complaint in sublist]
-
+            
             logger.info(f"Processing documents for {len(flattened_complaints)} complaints")
-            for chunk in chunked(flattened_complaints, 10):
-                tasks = [orchestrator.ingest_documents(chunk, doc_service)]
-                doc_results = await asyncio.gather(*tasks, return_exceptions=True)
-                logger.info(f"Completed {len(doc_results)} document ingestion tasks")
+            doc_tasks = [
+                orchestrator.ingest_documents(chunk, doc_service)
+                for chunk in chunked(flattened_complaints, 10)
+            ]
+            doc_results = await track_with_progress(doc_tasks, desc="Ingesting documents")
+            logger.info(f"Completed {len(doc_results)} document ingestion tasks")
 
 
             logger.info(f"Processing action history for {len(flattened_complaints)} complaints")
-            for chunk in chunked(flattened_complaints, 5):
-                tasks = [orchestrator.ingest_action_history(complaint.ticket_no) for complaint in chunk]
-                await asyncio.gather(*tasks, return_exceptions=True)
+            action_tasks = [
+                orchestrator.ingest_action_history(complaint.ticket_no)
+                for complaint in flattened_complaints
+            ]
+            action_result = await track_with_progress(action_tasks, desc="Ingesting actions")
+            logger.info(f"Completed {len(action_result)} action ingestion tasks")
         except Exception as e:
             logger.error(f"Error in action history ingestion: {e}")
         
@@ -173,7 +201,7 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
             'statusCode': 200,
             'body': json.dumps('Data ingestion completed successfully')
         }
-        
+            
     except Exception as e:
         logger.error(f"Error in ingestion service: {e}")
         return {

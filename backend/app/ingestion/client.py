@@ -1,6 +1,6 @@
 import httpx
 import asyncio
-from app.config import settings
+from app.config import settings, directories
 from .schemas import validate, validate_action_history, Complaint, District
 from loguru import logger
 from . import STATUS, OFFICE
@@ -183,13 +183,36 @@ class JanasunaniAPIClient:
                 response = await client.get(url, params=params)
                 return self._handle_response(response)
 
+logger.remove()  # Remove default stderr sink
+logger.add(directories.LOGS / "client_log.txt", level="INFO")
+
+from tqdm.asyncio import tqdm
+# Wrap each task to update the tqdm bar when done
+async def track_with_progress(coros, desc="Processing"):
+    results = []
+    total = len(coros)
+
+    # tqdm.asyncio is smart about async display updates
+    with tqdm(total=total, desc=desc, ncols=100) as pbar:
+        async def wrapped(coro):
+            try:
+                result = await coro
+                return result
+            finally:
+                pbar.update(1)
+
+        tasks = [wrapped(coro) for coro in coros]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    return results
+
 async def main():
     client = JanasunaniAPIClient()
     districts = client.get_districts()
     districts_validated = validate(districts, District)
 
     semaphore = asyncio.Semaphore(10)
-    year_lst = range(2021, datetime.now().year + 1)
+    year_lst = range(2025, datetime.now().year + 1) # TODO: change to range(2021, datetime.now().year + 1)
     dist_list = [dist['dist_id'] for dist in districts_validated]
     complaint_params = list(product(year_lst, dist_list, STATUS.keys(), OFFICE.keys()))
     tasks_complaints = [
@@ -200,11 +223,16 @@ async def main():
     complaints = []
     for subtask_complaint in chunked(tasks_complaints, 10):
         await asyncio.sleep(5)
-        result = await asyncio.gather(*subtask_complaint)
+        result = await track_with_progress(subtask_complaint, desc="Ingesting complaints")
         complaints.extend(r for r in result if r is not None)
     
     flatten_complaints = [complaint for sublist in complaints if isinstance(sublist, list) for complaint in sublist]
     complaints_validated = validate(flatten_complaints, Complaint, dict_mode=False)
+
+    # path_complaint = f"./data/raw/flatten_complaints_{dist_list[0]}.json"
+    # with open(path_complaint, 'w') as f:
+    #     json.dump(flatten_complaints, f)
+
 
     ticket_nos = [complaint.ticket_no for complaint in complaints_validated]
     
@@ -217,14 +245,16 @@ async def main():
     action_history = []
     for subtask in chunked(tasks, 30):
         await asyncio.sleep(5)
-        result = await asyncio.gather(*subtask)
+        result = await track_with_progress(subtask, desc="Ingesting actions")
         action_history.extend(r for r in result if r is not None)
 
-    flatten_actions = [complaint for sublist in action_history if isinstance(sublist, list) for complaint in sublist]
+    # path_actions = f"./data/raw/actions_{dist_list[0]}.json"
+    # with open(path_actions, 'w') as f:
+    #     json.dump(action_history, f)
 
-    action_history_validated = []
-    for ix, ticket_no in enumerate(ticket_nos):
-        action_history_validated.extend(validate_action_history(flatten_actions[ix], ticket_no, dict_mode = False))
+    # action_history_validated = []
+    # for ix, ticket_no in enumerate(ticket_nos):
+    #     action_history_validated.extend(validate_action_history(action_history[ix], ticket_no, dict_mode = False))
 
 if __name__ == "__main__":
     asyncio.run(main())

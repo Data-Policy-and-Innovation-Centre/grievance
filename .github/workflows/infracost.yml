@@ -1,0 +1,61 @@
+
+name: Infracost CI
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**.tf'
+      - 'terraform/**.tfvars'
+
+jobs:
+  infracost:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7  # Update to your version
+
+      - name: Set up Infracost
+        uses: infracost/actions/setup@v2
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate Terraform plan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        run: |
+          terraform init
+          terraform plan \
+            -var="db_password=${{ secrets.DB_PASSWORD }}" \
+            -var="janasunani_api_username=${{ secrets.JANASUNANI_API_USERNAME }}" \
+            -var="janasunani_api_password=${{ secrets.JANASUNANI_API_PASSWORD }}" \
+            -out=tfplan.binary
+          terraform show -json tfplan.binary > plan.json
+
+      - name: Generate Infracost cost estimate
+        run: |
+          infracost diff \
+            --path=plan.json \
+            --format=json \
+            --show-skipped \
+            --out-file=/tmp/infracost.json
+
+      - name: Post Infracost comment
+        uses: infracost/actions/comment@v1
+        with:
+          path: /tmp/infracost.json
+          behavior: update
+          github-token: ${{ secrets.GITHUB_TOKEN }}

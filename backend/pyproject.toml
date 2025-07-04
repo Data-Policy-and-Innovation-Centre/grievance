@@ -74,6 +74,7 @@ dependencies = [
     "ipykernel>=6.29.5",
     "pip>=25.1.1",
     "dask>=2025.5.1",
+    "colorama>=0.4.6",
 ]
 
 [tool.setuptools.packages.find]

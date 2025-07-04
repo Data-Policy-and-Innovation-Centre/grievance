@@ -194,6 +194,8 @@ cython_debug/
 .cursorindexingignore
 /.vscode
 .DS_Store
+
+# Others
 backend/JanaSunani_API_document_2.pdf
 backend/data/
 backend/testing.ipynb
@@ -208,3 +210,4 @@ terraform/.terraform/*
 terraform/.terraform*
 
 /backend/logs
+*logs/

@@ -1,6 +1,6 @@
 import httpx
 import asyncio
-from app.config import settings
+from app.config import settings, directories
 from .schemas import validate, validate_action_history, Complaint, District
 from loguru import logger
 from . import STATUS, OFFICE
@@ -183,48 +183,9 @@ class JanasunaniAPIClient:
                 response = await client.get(url, params=params)
                 return self._handle_response(response)
 
+
 async def main():
-    client = JanasunaniAPIClient()
-    districts = client.get_districts()
-    districts_validated = validate(districts, District)
-
-    semaphore = asyncio.Semaphore(10)
-    year_lst = range(2021, datetime.now().year + 1)
-    dist_list = [dist['dist_id'] for dist in districts_validated]
-    complaint_params = list(product(year_lst, dist_list, STATUS.keys(), OFFICE.keys()))
-    tasks_complaints = [
-        client.get_complaints(year, dist, status, office, semaphore, label=f"complaints-{year}-{dist}-{status}-{office}")
-        for year, dist, status, office in complaint_params
-        ]    
-
-    complaints = []
-    for subtask_complaint in chunked(tasks_complaints, 10):
-        await asyncio.sleep(5)
-        result = await asyncio.gather(*subtask_complaint)
-        complaints.extend(r for r in result if r is not None)
-    
-    flatten_complaints = [complaint for sublist in complaints if isinstance(sublist, list) for complaint in sublist]
-    complaints_validated = validate(flatten_complaints, Complaint, dict_mode=False)
-
-    ticket_nos = [complaint.ticket_no for complaint in complaints_validated]
-    
-    semaphore = asyncio.Semaphore(10)
-    tasks = [
-        client.get_action_history(ticket, semaphore, label=f"action-{ticket}")
-        for ticket in ticket_nos
-        ]
-
-    action_history = []
-    for subtask in chunked(tasks, 30):
-        await asyncio.sleep(5)
-        result = await asyncio.gather(*subtask)
-        action_history.extend(r for r in result if r is not None)
-
-    flatten_actions = [complaint for sublist in action_history if isinstance(sublist, list) for complaint in sublist]
-
-    action_history_validated = []
-    for ix, ticket_no in enumerate(ticket_nos):
-        action_history_validated.extend(validate_action_history(flatten_actions[ix], ticket_no, dict_mode = False))
+    pass
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -1,0 +1,45 @@
+
+name: Infracost CI
+
+on:
+  pull_request:
+    paths:
+      - 'terraform/**.tf'
+      - 'terraform/**.tfvars'
+
+jobs:
+  infracost:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7  # Update to your version
+
+      - name: Set up Infracost
+        uses: infracost/actions/setup@v2
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate Terraform plan
+        run: |
+          terraform init
+          terraform plan -out=tfplan.binary
+          terraform show -json tfplan.binary > plan.json
+
+      - name: Run Infracost diff and post GitHub PR comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          infracost diff \
+            --path=plan.json \
+            --format=github-comment \
+            --show-skipped \
+            --github-token=$GITHUB_TOKEN

@@ -183,28 +183,7 @@ class JanasunaniAPIClient:
                 response = await client.get(url, params=params)
                 return self._handle_response(response)
 
-logger.remove()  # Remove default stderr sink
-logger.add(directories.LOGS / "client_log.txt", level="INFO")
-
-from tqdm.asyncio import tqdm
-# Wrap each task to update the tqdm bar when done
-async def track_with_progress(coros, desc="Processing"):
-    results = []
-    total = len(coros)
-
-    # tqdm.asyncio is smart about async display updates
-    with tqdm(total=total, desc=desc, ncols=100) as pbar:
-        async def wrapped(coro):
-            try:
-                result = await coro
-                return result
-            finally:
-                pbar.update(1)
-
-        tasks = [wrapped(coro) for coro in coros]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    return results
+from app.ingestion.orchestrator import track_with_progress
 
 async def main():
     client = JanasunaniAPIClient()

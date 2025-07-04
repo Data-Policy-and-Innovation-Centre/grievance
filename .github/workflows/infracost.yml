@@ -30,26 +30,21 @@ jobs:
 
       - name: Generate Terraform plan
         env:
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          JANASUNANI_API_USERNAME: ${{ secrets.JANASUNANI_API_USERNAME }}
-          JANASUNANI_API_PASSWORD: ${{ secrets.JANASUNANI_API_PASSWORD }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         run: |
           terraform init
-          terraform plan -out=tfplan.binary
+          terraform plan \
+            -var="db_password=${{ secrets.DB_PASSWORD }}" \
+            -var="janasunani_api_username=${{ secrets.JANASUNANI_API_USERNAME }}" \
+            -var="janasunani_api_password=${{ secrets.JANASUNANI_API_PASSWORD }}" \
+            -out=tfplan.binary
           terraform show -json tfplan.binary > plan.json
 
       - name: Run Infracost diff and post GitHub PR comment
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          JANASUNANI_API_USERNAME: ${{ secrets.JANASUNANI_API_USERNAME }}
-          JANASUNANI_API_PASSWORD: ${{ secrets.JANASUNANI_API_PASSWORD }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
         run: |
           infracost diff \
             --path=plan.json \

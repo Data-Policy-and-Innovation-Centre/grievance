@@ -149,6 +149,29 @@ async def test_download_document_success(doc_service, tmp_path):
         assert path == str(test_path)
         mock_file.write.assert_called_once_with(b"PDF_CONTENT")
 
+@pytest.mark.asyncio
+async def test_download_document_error_updates_db(doc_service, tmp_path, caplog):
+    test_path = tmp_path / "file.pdf"
+    complaint = ComplaintModel(ticket_no="T123", document_url="http://example.com/file~pdf")
+
+    with patch.object(doc_service, "get_document_path", return_value=str(test_path)), \
+         patch.object(doc_service, "document_already_downloaded", return_value=False), \
+         patch("httpx.AsyncClient.get", side_effect=Exception("Simulated error")), \
+         patch("app.ingestion.document_ingestion.update_document_status") as mock_update_status, \
+         patch("app.ingestion.document_ingestion.logger.error") as mock_log_error:
+
+        result = await doc_service.download_document(complaint, "complaint")
+
+        assert result == "Error"
+        mock_update_status.assert_called_once_with(
+            doc_service.db,
+            "T123",
+            local_path="",
+            success=False,
+            error="Error: Simulated error"
+        )
+        mock_log_error.assert_any_call("Error downloading document for T123: Simulated error")
+
 
 @pytest.mark.asyncio
 async def test_batch_download_documents_success(doc_service):

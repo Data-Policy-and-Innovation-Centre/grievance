@@ -208,6 +208,6 @@ data/
 terraform/tfplan
 terraform/.terraform/*
 terraform/.terraform*
-
+tfplan*
 /backend/logs
 *logs/

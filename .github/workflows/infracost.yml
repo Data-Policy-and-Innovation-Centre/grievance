@@ -41,6 +41,7 @@ jobs:
         run: |
           terraform init
           terraform plan \
+            -var-file="terraform.main.tfvars" \
             -var="db_password=${{ secrets.DB_PASSWORD }}" \
             -var="janasunani_api_username=${{ secrets.JANASUNANI_API_USERNAME }}" \
             -var="janasunani_api_password=${{ secrets.JANASUNANI_API_PASSWORD }}" \

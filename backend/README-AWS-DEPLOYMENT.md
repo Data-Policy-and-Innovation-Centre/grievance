@@ -23,9 +23,9 @@ This guide explains how to deploy the grievance analytics application to AWS usi
    export DB_PASSWORD='your_secure_password'
    ```
 
-3. **Deploy to Development**:
+3. **Deploy to Main Environment**:
    ```bash
-   ./scripts/deploy-aws.sh dev deploy
+   ./scripts/deploy-aws.sh deploy
    ```
 
 ## 📋 Deployment Script Usage
@@ -34,34 +34,29 @@ This guide explains how to deploy the grievance analytics application to AWS usi
 
 ```bash
 # Full deployment (build, push, deploy)
-./scripts/deploy-aws.sh dev deploy
+./scripts/deploy-aws.sh deploy
 
 # Build and push Docker images only
-./scripts/deploy-aws.sh dev build
+./scripts/deploy-aws.sh build
 
 # Plan Terraform deployment
-./scripts/deploy-aws.sh dev plan
+./scripts/deploy-aws.sh plan
 
 # Apply Terraform deployment
-./scripts/deploy-aws.sh dev apply
+./scripts/deploy-aws.sh apply
 
 # Check deployment status
-./scripts/deploy-aws.sh dev status
+./scripts/deploy-aws.sh status
 
 # Test deployment
-./scripts/deploy-aws.sh dev test
+./scripts/deploy-aws.sh test
 
 # Destroy infrastructure
-./scripts/deploy-aws.sh dev destroy
+./scripts/deploy-aws.sh destroy
 
 # Show help
 ./scripts/deploy-aws.sh help
 ```
-
-### Environment Options
-
-- **`dev`** - Development environment (default)
-- **`prod`** - Production environment
 
 ## 🏗️ What Gets Deployed
 
@@ -81,26 +76,20 @@ This guide explains how to deploy the grievance analytics application to AWS usi
 2. **ECS Task Definition** - Runs the ingestion service
 3. **Scheduled Execution** - Weekly data ingestion
 
-## 🔧 Environment Configurations
+## 🔧 Environment Configuration
 
-### Development (`terraform.dev.tfvars`)
+### Main Environment (`terraform.main.tfvars`)
 - **Database**: t3.micro (1 vCPU, 1 GB RAM)
-- **Storage**: 20 GB (max 100 GB)
-- **Backup**: 7 days retention
-- **Cost**: ~$23/month
-
-### Production (`terraform.prod.tfvars`)
-- **Database**: t3.small (2 vCPU, 2 GB RAM)
-- **Storage**: 50 GB (max 200 GB)
+- **Storage**: 20 GB (max 200 GB)
 - **Backup**: 30 days retention
-- **Cost**: ~$45/month
+- **Cost**: See infracost estimates in pull requests
 
 ## 📊 Monitoring and Logs
 
 ### CloudWatch Logs
 ```bash
 # View logs
-aws logs tail /ecs/grievance-ingestion-dev --follow
+aws logs tail /ecs/grievance-ingestion-main --follow
 
 # List log groups
 aws logs describe-log-groups --log-group-name-prefix "/ecs/grievance-ingestion"
@@ -109,16 +98,16 @@ aws logs describe-log-groups --log-group-name-prefix "/ecs/grievance-ingestion"
 ### ECS Monitoring
 ```bash
 # List tasks
-aws ecs list-tasks --cluster grievance-cluster-dev
+aws ecs list-tasks --cluster grievance-cluster-main
 
 # Describe task
-aws ecs describe-tasks --cluster grievance-cluster-dev --tasks <task-arn>
+aws ecs describe-tasks --cluster grievance-cluster-main --tasks <task-arn>
 ```
 
 ### RDS Monitoring
 ```bash
 # Check database status
-aws rds describe-db-instances --db-instance-identifier grievance-postgres-dev
+aws rds describe-db-instances --db-instance-identifier grievance-postgres-main
 ```
 
 ## 🔐 Security Considerations
@@ -139,17 +128,9 @@ The deployment creates minimal IAM roles:
 
 ## 💰 Cost Optimization
 
-### Development Environment
-- **RDS t3.micro**: ~$15/month
-- **ECS Fargate**: ~$5/month (weekly runs)
-- **ECR**: ~$1/month
-- **EventBridge**: ~$1/month
-- **CloudWatch**: ~$1/month
-- **Total**: ~$23/month
-
-### Production Environment
+### Main Environment
 - **RDS t3.small**: ~$30/month
-- **ECS Fargate**: ~$10/month
+- **ECS Fargate**: ~$10/month (weekly runs)
 - **ECR**: ~$2/month
 - **EventBridge**: ~$1/month
 - **CloudWatch**: ~$2/month
@@ -159,7 +140,7 @@ The deployment creates minimal IAM roles:
 1. **Stop unused resources**: Use `destroy` command when not needed
 2. **Optimize scheduling**: Adjust EventBridge frequency
 3. **Monitor usage**: Use AWS Cost Explorer
-4. **Use reserved instances**: For production RDS
+4. **Use reserved instances**: For RDS
 
 ## 🛠️ Troubleshooting
 
@@ -204,13 +185,13 @@ terraform plan
 
 ```bash
 # Check deployment status
-./scripts/deploy-aws.sh dev status
+./scripts/deploy-aws.sh status
 
 # View recent logs
-aws logs tail /ecs/grievance-ingestion-dev --since 1h
+aws logs tail /ecs/grievance-ingestion-main --since 1h
 
 # Check ECS task status
-aws ecs describe-tasks --cluster grievance-cluster-dev --tasks $(aws ecs list-tasks --cluster grievance-cluster-dev --query 'taskArns[0]' --output text)
+aws ecs describe-tasks --cluster grievance-cluster-main --tasks $(aws ecs list-tasks --cluster grievance-cluster-main --query 'taskArns[0]' --output text)
 ```
 
 ## 🔄 CI/CD Integration
@@ -237,7 +218,7 @@ jobs:
         run: |
           cd backend
           export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          ./scripts/deploy-aws.sh prod deploy
+          ./scripts/deploy-aws.sh deploy
 ```
 
 ## 📈 Scaling Considerations
@@ -256,20 +237,17 @@ jobs:
 
 ### Destroy Infrastructure
 ```bash
-# Destroy development environment
-./scripts/deploy-aws.sh dev destroy
-
-# Destroy production environment
-./scripts/deploy-aws.sh prod destroy
+# Destroy main environment
+./scripts/deploy-aws.sh destroy
 ```
 
 ### Manual Cleanup
 ```bash
 # Remove Docker images
-docker rmi grievance-ingestion-dev:latest
+docker rmi grievance-ingestion-main:latest
 
 # Remove ECR images
-aws ecr batch-delete-image --repository-name grievance-ingestion-dev --image-ids imageTag=latest
+aws ecr batch-delete-image --repository-name grievance-ingestion-main --image-ids imageTag=latest
 ```
 
 ## 📞 Support

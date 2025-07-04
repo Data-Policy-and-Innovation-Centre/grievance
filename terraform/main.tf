@@ -164,8 +164,8 @@ resource "aws_db_instance" "postgres" {
   backup_window          = "03:00-04:00"
   maintenance_window     = "sun:04:00-sun:05:00"
 
-  skip_final_snapshot = var.environment != "prod"
-  deletion_protection = var.environment == "prod"
+  skip_final_snapshot = true
+  deletion_protection = false
 
   tags = {
     Name        = "grievance-postgres-${var.environment}"

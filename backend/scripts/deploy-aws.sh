@@ -1,10 +1,13 @@
 #!/bin/bash
 
 # AWS Deployment Script for Grievance Analytics
-# Usage: ./scripts/deploy-aws.sh [environment] [action]
-# Example: ./scripts/deploy-aws.sh dev deploy
+# Usage: ./scripts/deploy-aws.sh [action]
+# Example: ./scripts/deploy-aws.sh deploy
 
 set -e
+set -a
+source .env
+set +a
 
 # Colors for output
 RED='\033[0;31m'
@@ -31,8 +34,8 @@ print_error() {
 }
 
 # Default values
-ENVIRONMENT=${1:-dev}
-ACTION=${2:-deploy}
+ENVIRONMENT="main"
+ACTION=${1:-deploy}
 TERRAFORM_DIR="../terraform"
 HOME_DIR=$(pwd)
 AWS_REGION="ap-south-1"
@@ -129,7 +132,7 @@ plan_terraform() {
     
     # Run terraform plan
     terraform plan \
-        -var-file="terraform.$ENVIRONMENT.tfvars" \
+        -var-file="terraform.main.tfvars" \
         -var="db_password=$DB_PASSWORD" \
         -var="janasunani_api_username=$JANASUNANI_API_USERNAME" \
         -var="janasunani_api_password=$JANASUNANI_API_PASSWORD" \
@@ -201,7 +204,7 @@ destroy_infrastructure() {
         cd $TERRAFORM_DIR
         
         terraform destroy \
-            -var-file="terraform.$ENVIRONMENT.tfvars" \
+            -var-file="terraform.main.tfvars" \
             -var="db_password=$DB_PASSWORD" \
             -var="janasunani_api_username=$JANASUNANI_API_USERNAME" \
             -var="janasunani_api_password=$JANASUNANI_API_PASSWORD" \
@@ -246,11 +249,7 @@ show_status() {
 show_help() {
     echo "AWS Deployment Script for Grievance Analytics"
     echo ""
-    echo "Usage: $0 [environment] [action]"
-    echo ""
-    echo "Environments:"
-    echo "  dev     - Development environment (default)"
-    echo "  prod    - Production environment"
+    echo "Usage: $0 [action]"
     echo ""
     echo "Actions:"
     echo "  deploy      - Full deployment (build, push, deploy)"
@@ -268,10 +267,10 @@ show_help() {
     echo "  JANASUNANI_API_PASSWORD - Janasunani API password (optional)"
     echo ""
     echo "Examples:"
-    echo "  $0 dev deploy     # Deploy to development"
-    echo "  $0 prod plan      # Plan production deployment"
-    echo "  $0 dev status     # Check development status"
-    echo "  $0 dev destroy    # Destroy development infrastructure"
+    echo "  $0 deploy     # Deploy to main environment"
+    echo "  $0 plan      # Plan main deployment"
+    echo "  $0 status     # Check main status"
+    echo "  $0 destroy    # Destroy main infrastructure"
     echo ""
     echo "Prerequisites:"
     echo "  - AWS CLI configured with appropriate permissions"
@@ -282,14 +281,8 @@ show_help() {
 
 # Function to validate environment
 validate_environment() {
-    if [ "$ENVIRONMENT" != "dev" ] && [ "$ENVIRONMENT" != "prod" ]; then
-        print_error "Invalid environment: $ENVIRONMENT. Use 'dev' or 'prod'."
-        exit 1
-    fi
-    
-    # Check if terraform file exists for the environment
-    if [ ! -f "$TERRAFORM_DIR/terraform.$ENVIRONMENT.tfvars" ]; then
-        print_error "Terraform configuration file not found: terraform.$ENVIRONMENT.tfvars"
+    if [ "$ENVIRONMENT" != "main" ]; then
+        print_error "Invalid environment: $ENVIRONMENT. Use 'main'."
         exit 1
     fi
 }
@@ -348,7 +341,7 @@ main() {
     fi
     
     # Handle help command first
-    if [ "$1" = "help" ] || [ "$2" = "help" ]; then
+    if [ "$1" = "help" ]; then
         show_help
         exit 0
     fi

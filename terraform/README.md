@@ -1,6 +1,6 @@
-# Minimal Terraform Setup for Grievance Analytics
+# Terraform Setup for Grievance Analytics
 
-This Terraform configuration creates a minimal AWS infrastructure to run the grievance ingestion container once a week for 6 hours.
+This Terraform configuration creates AWS infrastructure to run the grievance ingestion container once a week for 6 hours.
 
 ## What This Creates
 
@@ -40,10 +40,10 @@ This Terraform configuration creates a minimal AWS infrastructure to run the gri
 terraform init
 
 # Plan the deployment
-terraform plan -var-file="terraform.dev.tfvars" -var="db_password=your_secure_password"
+terraform plan -var-file="terraform.main.tfvars" -var="db_password=your_secure_password"
 
 # Apply the configuration
-terraform apply -var-file="terraform.dev.tfvars" -var="db_password=your_secure_password"
+terraform apply -var-file="terraform.main.tfvars" -var="db_password=your_secure_password"
 ```
 
 ### Build and Push Docker Image
@@ -53,13 +53,13 @@ terraform apply -var-file="terraform.dev.tfvars" -var="db_password=your_secure_p
 aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com
 
 # Build image
-docker build -f backend/Dockerfile.ingestion -t grievance-ingestion-dev:latest backend
+docker build -f backend/Dockerfile.ingestion -t grievance-ingestion-main:latest backend
 
 # Tag image
-docker tag grievance-ingestion-dev:latest $AWS_ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/grievance-ingestion-dev:latest
+docker tag grievance-ingestion-main:latest $AWS_ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/grievance-ingestion-main:latest
 
 # Push image
-docker push $AWS_ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/grievance-ingestion-dev:latest
+docker push $AWS_ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/grievance-ingestion-main:latest
 ```
 
 ### Check Status
@@ -69,7 +69,7 @@ docker push $AWS_ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/grievance-ingestion
 terraform output
 
 # Check ECS cluster
-aws ecs list-tasks --cluster grievance-cluster-dev
+aws ecs list-tasks --cluster grievance-cluster-main
 
 # Check CloudWatch logs
 aws logs describe-log-groups --log-group-name-prefix "/ecs/grievance-ingestion"
@@ -78,22 +78,21 @@ aws logs describe-log-groups --log-group-name-prefix "/ecs/grievance-ingestion"
 ## Environment Variables
 
 The ingestion container receives these environment variables:
-- `ENV`: Environment name (dev/prod)
+- `ENV`: Environment name (main)
 - `DB_URL`: PostgreSQL connection string (auto-generated)
 
 ## Cost Estimation
 
-- **RDS t3.micro**: ~$15/month
-- **ECS Fargate**: ~$5/month (for weekly runs)
-- **ECR**: ~$1/month
+- **RDS t3.small**: ~$30/month
+- **ECS Fargate**: ~$10/month (for weekly runs)
+- **ECR**: ~$2/month
 - **EventBridge**: ~$1/month
-- **CloudWatch**: ~$1/month
+- **CloudWatch**: ~$2/month
 
-**Total**: ~$23/month for development
+**Total**: ~$45/month
 
 ## Next Steps
 
 1. Add S3 buckets for data storage
 2. Add API service for serving data
-3. Add monitoring and alerting
-4. Add production environment configuration 
+3. Add monitoring and alerting 

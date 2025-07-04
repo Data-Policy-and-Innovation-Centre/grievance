@@ -5,9 +5,9 @@ variable "aws_region" {
 }
 
 variable "environment" {
-  description = "Environment name (e.g., dev, staging, prod)"
+  description = "Environment name (e.g., main)"
   type        = string
-  default     = "dev"
+  default     = "main"
 }
 
 variable "db_instance_class" {

@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Monitoring Script for Grievance Analytics AWS Deployment
-# Usage: ./scripts/monitor-deployment.sh [environment]
-# Example: ./scripts/monitor-deployment.sh dev
+# Usage: ./scripts/monitor-deployment.sh [action]
+# Example: ./scripts/monitor-deployment.sh status
 
 set -e
 
@@ -30,7 +30,7 @@ print_error() {
 }
 
 # Default values
-ENVIRONMENT=${1:-dev}
+ENVIRONMENT="main"
 AWS_REGION="ap-south-1"
 
 # Function to check ECS cluster status
@@ -196,11 +196,7 @@ show_realtime_logs() {
 show_help() {
     echo "Monitoring Script for Grievance Analytics AWS Deployment"
     echo ""
-    echo "Usage: $0 [environment] [action]"
-    echo ""
-    echo "Environments:"
-    echo "  dev     - Development environment (default)"
-    echo "  prod    - Production environment"
+    echo "Usage: $0 [action]"
     echo ""
     echo "Actions:"
     echo "  status      - Check deployment status (default)"
@@ -213,14 +209,14 @@ show_help() {
     echo "  help        - Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 dev status      # Check dev deployment status"
-    echo "  $0 prod logs       # Show real-time logs for prod"
-    echo "  $0 dev ecs         # Check only ECS status"
+    echo "  $0 status      # Check main deployment status"
+    echo "  $0 logs        # Show real-time logs for main"
+    echo "  $0 ecs         # Check only ECS status"
 }
 
 # Main script logic
 main() {
-    ACTION=${2:-status}
+    ACTION=${1:-status}
     
     case $ACTION in
         "status")

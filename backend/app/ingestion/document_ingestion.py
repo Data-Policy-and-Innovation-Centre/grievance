@@ -13,6 +13,7 @@ from app.db.crud import get_complaint_by_ticket, update_document_status
 from app.config import settings
 from app.ingestion.schemas import Complaint
 from app.ingestion.client import with_retry
+from tqdm import tqdm
 
 class DocumentService:
     """
@@ -141,16 +142,20 @@ class DocumentService:
                     - "failed" if an error occurred during download.
         """
         results = {}
-        for complaint in complaints:
-            try:
-                path = await self.download_document(complaint)
-                if path:
-                    update_document_status(self.db, complaint.ticket_no, local_path=path, success=True)
-                    results[complaint.ticket_no] = "success"
-                else:
-                    results[complaint.ticket_no] = "skipped"
-            except Exception as e:
-                update_document_status(self.db, complaint.ticket_no, local_path="", success=False, error=str(e))
-                results[complaint.ticket_no] = "failed"
-        self.db.commit()
+        with tqdm(total = len(complaints), desc = "Downloading documents", position = 1, leave = False) as pbar:
+            for complaint in complaints:
+                try:
+                    pbar.set_description(f"Downloading {complaint.ticket_no}")
+                    path = await self.download_document(complaint)
+                    if path:
+                        update_document_status(self.db, complaint.ticket_no, local_path=path, success=True)
+                        results[complaint.ticket_no] = "success"
+                    else:
+                        results[complaint.ticket_no] = "skipped"
+                    pbar.update(1)
+                except Exception as e:
+                    update_document_status(self.db, complaint.ticket_no, local_path="", success=False, error=str(e))
+                    results[complaint.ticket_no] = "failed"
+                    pbar.update(1)
+            self.db.commit()
         return results

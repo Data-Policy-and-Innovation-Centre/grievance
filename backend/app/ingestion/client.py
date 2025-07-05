@@ -25,7 +25,7 @@ def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             label = kwargs.pop("label", func.__name__)
-            for attempt in range(max_retries):
+            for _ in range(max_retries):
                 try:
                     return await func(*args, **kwargs)
                 except ValueError:

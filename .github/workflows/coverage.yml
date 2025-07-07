@@ -5,6 +5,10 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
 
     steps:
     - name: Checkout repo

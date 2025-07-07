@@ -14,19 +14,22 @@ from app.config import settings
 from app.ingestion.schemas import Complaint
 from app.ingestion.client import with_retry
 from tqdm import tqdm
+from botocore.exceptions import ClientError
+from app.s3service import S3Service
 
 class DocumentService:
     """
     Async client for Document download service
     """
-    def __init__(self, s3_bucket: str = settings.AWS_S3_BUCKET_NAME, db: Session = None):
-        self.s3 = s3_bucket
+    def __init__(self, s3_bucket: str = settings.AWS_S3_DOCUMENTS, db: Session = None):
         self.semaphore = asyncio.Semaphore(5)
         self.db = db or next(get_db())
-        if settings.ENV == "local":
-            self.__create_local_folder()
+        if settings.ENV == "dev":
+            self._create_local_folder()
+        else:
+            self.s3_service = S3Service(s3_bucket)
     
-    def __create_local_folder(self):
+    def _create_local_folder(self):
         """
         Private function that creates a local folder if not exists
         """
@@ -55,12 +58,15 @@ class DocumentService:
             file_format = f".{match.group(1).lower()}" if match else ".bin"
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"{ticket_no}_{document_type}_{timestamp}{file_format}"
-            return os.path.join(settings.LOCAL_STORAGE_PATH, filename)
+            if settings.ENV == "dev":
+                return os.path.join(settings.LOCAL_STORAGE_PATH, filename)
+            else:
+                return filename
         except Exception as e:
             logger.error(f"Complaint {ticket_no} failed in get_document_path: {e}")
             return None
-
-    def document_already_downloaded(self, ticket_no: str, document_type: str, extension: str) -> bool:
+        
+    def _document_already_downloaded_local(self, ticket_no: str, document_type: str, extension: str) -> bool:
         """
         Checks whether a document with the given ticket number, document type, 
         and file extension has already been downloaded. Regardless of the timestamp
@@ -75,8 +81,38 @@ class DocumentService:
             bool: True if a matching document file already existe, False otherwise
         """
         base_pattern = f"{ticket_no}_{document_type}_*.{extension.lower()}"
-        full_pattern = os.path.join(settings.LOCAL_STORAGE_PATH, base_pattern)
+        full_pattern = os.path.join(settings.LOCAL_STORAGE_PATH, base_pattern) 
         return len(glob.glob(full_pattern)) > 0
+    
+    def _document_already_downloaded_s3(self, ticket_no: str, document_type: str, extension: str) -> bool:
+        """
+        Checks whether a document with the given ticket number, document type, 
+        and file extension has already been downloaded to S3. Regardless of the timestamp
+        of the date when it was downloaded
+
+        Args:
+            ticket_no (str): The unique identifier of the complaint.
+            document_type (str): The type of document (e.g., "complaint", "resolution").
+            extension (str): The file extension to look for (e.g., "pdf", "docx").
+
+        Returns:
+            bool: True if a matching document file already exists in S3, False otherwise
+        """
+        prefix = f"{ticket_no}_{document_type}_"
+        objects = self.s3_service.list_objects(prefix=prefix)
+        
+        for obj in objects:
+            if obj['Key'].lower().endswith(f".{extension.lower()}"):
+                return True
+        
+        return False
+    
+    def document_already_downloaded(self, ticket_no: str, document_type: str, extension: str) -> bool:
+        if settings.ENV == "dev":
+            return self._document_already_downloaded_local(ticket_no, document_type, extension)
+        
+        return self._document_already_downloaded_s3(ticket_no, document_type, extension)
+    
 
     @with_retry()
     async def download_document(self, complaint: Complaint, document_type: str = "complaint") -> str:
@@ -118,8 +154,11 @@ class DocumentService:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url)
                 response.raise_for_status()
-                async with aiofiles.open(path, 'wb') as f:
-                    await f.write(response.content)
+                if settings.ENV == "dev":
+                    async with aiofiles.open(path, 'wb') as f:
+                        await f.write(response.content)
+                else:
+                    self.s3_service.upload_fileobj(response.content, path)
             logger.info(f"Downloaded document for complaint {ticket_no} to {path}")
             return path
         except Exception as e:

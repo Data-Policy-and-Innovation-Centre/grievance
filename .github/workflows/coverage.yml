@@ -51,10 +51,10 @@ jobs:
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: backend/coverage.xml
+        files: ./backend/coverage.xml
         flags: unittests
         name: codecov-umbrella
+        fail_ci_if_error: false
 
     - name: Comment PR with coverage
       if: github.event_name == 'pull_request'

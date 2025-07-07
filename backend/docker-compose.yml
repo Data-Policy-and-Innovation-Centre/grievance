@@ -45,8 +45,6 @@ services:
       - grievance_logs:/app/logs
     profiles:
       - ingest
-    depends_on:
-      - test
     command: ["/root/.local/bin/uv", "run", "-m", "app.ingestion.orchestrator"]
 
   # FastAPI Application Service - Main application server
@@ -73,8 +71,6 @@ services:
       - grievance_logs:/app/logs
     profiles:
       - serve
-    depends_on:
-      - ingestion
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

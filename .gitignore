@@ -204,3 +204,4 @@ backend/join_grievance2025.ipynb
 data/
 *.ipynb
 *logs/
+backend/coverage.lcov

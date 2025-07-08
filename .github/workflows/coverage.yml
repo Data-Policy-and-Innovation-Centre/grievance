@@ -1,0 +1,62 @@
+name: Test and Coverage with uv
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.13"
+
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Sync environment with uv
+      run: |
+        cd backend
+        uv sync
+
+    - name: Run tests with coverage
+      working-directory: ./backend
+      env:
+        ENV: ${{ secrets.ENV }}
+        DEBUG: ${{ secrets.DEBUG }}
+        JANASUNANI_API_BASE_URL: ${{ secrets.JANASUNANI_API_BASE_URL }}
+        JANASUNANI_API_USERNAME: ${{ secrets.JANASUNANI_API_USERNAME }}
+        JANASUNANI_API_PASSWORD: ${{ secrets.JANASUNANI_API_PASSWORD }}
+        DB_URL: ${{ secrets.DB_TEST_URL }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+        AWS_S3_DOCUMENTS: ${{ secrets.AWS_S3_DOCUMENTS }}
+      run: |
+        uv run coverage run -m pytest
+        uv run coverage report
+        uv run coverage xml
+        uv run coverage lcov
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: Data-Policy-and-Innovation-Centre/grievance
+
+    - name: Comment PR with coverage
+      if: github.event_name == 'pull_request'
+      uses: romeovs/lcov-reporter-action@v0.3.1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        lcov-file: backend/coverage.lcov

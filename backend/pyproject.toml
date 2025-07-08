@@ -74,6 +74,7 @@ dependencies = [
     "ipykernel>=6.29.5",
     "pip>=25.1.1",
     "colorama>=0.4.6",
+    "coverage>=7.9.2",
 ]
 
 [tool.setuptools.packages.find]
@@ -90,5 +91,32 @@ dev = [
     "flake8",
     "isort",
     "pytest",
-    "pytest-asyncio"
+    "pytest-asyncio",
+    "coverage",
+    "pytest-cov"
 ]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == \\.__main__\\.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "pass",
+    "raise ImportError",
+]
+
+[tool.coverage.html]
+directory = "coverage_html"

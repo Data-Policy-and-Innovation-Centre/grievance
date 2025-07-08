@@ -40,12 +40,15 @@ services:
       - AWS_REGION=${AWS_REGION:-ap-south-1}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-janasunani-data}
       - AWS_S3_DOCUMENTS=${AWS_S3_DOCUMENTS:-janasunani-documents}
+      - INGEST_COMPLAINTS=${INGEST_COMPLAINTS:-true}
+      - INGEST_DOCUMENTS=${INGEST_DOCUMENTS:-true}
+      - INGEST_ACTION_HISTORY=${INGEST_ACTION_HISTORY:-true}
+      - FORCE_PARAMS=${FORCE_PARAMS:-false}
     volumes:
       - grievance_data:/app/data
       - grievance_logs:/app/logs
     profiles:
       - ingest
-    command: ["/root/.local/bin/uv", "run", "-m", "app.ingestion.orchestrator"]
 
   # FastAPI Application Service - Main application server
   api:

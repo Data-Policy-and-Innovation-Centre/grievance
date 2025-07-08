@@ -72,6 +72,58 @@ run_tests() {
 # Function to run ingestion
 run_ingestion() {
     print_status "Running data ingestion..."
+    
+    # Parse ingestion arguments
+    local ingest_complaints="true"
+    local ingest_documents="true"
+    local ingest_action_history="true"
+    local force_params="false"
+    
+    # Parse additional arguments
+    shift  # Remove the "ingest" command
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --complaints)
+                ingest_complaints="true"
+                ingest_documents="false"
+                ingest_action_history="false"
+                shift
+                ;;
+            --documents)
+                ingest_complaints="false"
+                ingest_documents="true"
+                ingest_action_history="false"
+                shift
+                ;;
+            --action-history)
+                ingest_complaints="false"
+                ingest_documents="false"
+                ingest_action_history="true"
+                shift
+                ;;
+            --force)
+                force_params="true"
+                shift
+                ;;
+            --all)
+                ingest_complaints="true"
+                ingest_documents="true"
+                ingest_action_history="true"
+                shift
+                ;;
+            *)
+                print_warning "Unknown argument: $1"
+                shift
+                ;;
+        esac
+    done
+    
+    # Set environment variables for the container
+    export INGEST_COMPLAINTS=$ingest_complaints
+    export INGEST_DOCUMENTS=$ingest_documents
+    export INGEST_ACTION_HISTORY=$ingest_action_history
+    export FORCE_PARAMS=$force_params
+    
     docker-compose --profile ingest up ingestion
     if [ $? -eq 0 ]; then
         print_success "Data ingestion completed!"
@@ -111,11 +163,11 @@ run_full() {
 show_help() {
     echo "Docker Compose Runner for Grievance Analytics"
     echo ""
-    echo "Usage: $0 [command]"
+    echo "Usage: $0 [command] [options]"
     echo ""
     echo "Commands:"
     echo "  test       - Run unit tests"
-    echo "  ingest     - Run data ingestion"
+    echo "  ingest     - Run data ingestion (with options)"
     echo "  serve      - Start API server"
     echo "  dev        - Start development server with hot reload"
     echo "  full       - Run full pipeline (test → ingest → serve)"
@@ -124,10 +176,19 @@ show_help() {
     echo "  build      - Build all Docker images"
     echo "  help       - Show this help message"
     echo ""
+    echo "Ingestion Options (for 'ingest' command):"
+    echo "  --complaints     - Ingest complaint data only"
+    echo "  --documents      - Ingest document data only"
+    echo "  --action-history - Ingest action history data only"
+    echo "  --force          - Force ingestion with default parameters"
+    echo "  --all            - Ingest all data types (default behavior)"
+    echo ""
     echo "Examples:"
     echo "  $0 test     # Run tests only"
     echo "  $0 dev      # Start development server"
     echo "  $0 full     # Run complete pipeline"
+    echo "  $0 ingest --complaints --documents  # Ingest complaints and documents"
+    echo "  $0 ingest --all --force             # Force ingest all data types"
 }
 
 # Function to clean up
@@ -167,7 +228,7 @@ main() {
             run_tests
             ;;
         "ingest")
-            run_ingestion
+            run_ingestion "$@"
             ;;
         "serve")
             run_api

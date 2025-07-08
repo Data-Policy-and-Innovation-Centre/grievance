@@ -295,6 +295,22 @@ resource "aws_ecs_task_definition" "ingestion" {
         {
           name  = "AWS_S3_DOCUMENTS"
           value = aws_s3_bucket.documents.bucket
+        },
+        {
+          name  = "INGEST_COMPLAINTS"
+          value = "true"
+        },
+        {
+          name  = "INGEST_DOCUMENTS"
+          value = "true"
+        },
+        {
+          name  = "INGEST_ACTION_HISTORY"
+          value = "true"
+        },
+        {
+          name  = "FORCE_PARAMS"
+          value = "false"
         }
       ]
 

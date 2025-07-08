@@ -35,23 +35,6 @@ class IngestionOrchestrator:
         self.semaphore = asyncio.Semaphore(semaphore_value)
         self.doc_service = DocumentService(db=self.db)
 
-    def _store_in_s3(self, data: dict, prefix: str):
-        """Store raw data in S3 with timestamp."""
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        key = f"{prefix}/{timestamp}.json"
-        
-        try:
-            self.s3.put_object(
-                Bucket=self.bucket_name,
-                Key=key,
-                Body=json.dumps(data),
-                ContentType='application/json'
-            )
-            logger.info(f"Successfully stored data in S3: {key}")
-        except Exception as e:
-            logger.error(f"Error storing data in S3: {e}")
-            raise
-
     def ingest_districts(self):
         """Ingest district data."""
         try:

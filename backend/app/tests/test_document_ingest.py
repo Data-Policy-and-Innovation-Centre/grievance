@@ -87,6 +87,12 @@ def setup_test_environment():
 def doc_service(db_session):
     return DocumentService(db=db_session)
 
+@pytest.fixture(autouse=True)
+def mock_aws_settings(monkeypatch):
+    """Mock AWS settings to prevent S3 validation errors in tests."""
+    monkeypatch.setattr("app.config.settings.AWS_S3_DOCUMENTS", "test-bucket-name")
+    monkeypatch.setattr("app.config.settings.AWS_S3_BUCKET_NAME", "test-bucket-name")
+
 
 # Test
 def test_get_document_path(doc_service, sample_complaint_data):
@@ -134,7 +140,9 @@ def test_document_exists_returns_false(doc_service, tmp_path, monkeypatch):
 
     monkeypatch.setattr("app.ingestion.document_ingestion.settings.LOCAL_STORAGE_PATH", str(tmp_path))
 
-    with patch.object(doc_service, "get_document_path", return_value=str(file_path)), patch("os.path.exists", return_value=False):
+    with patch.object(doc_service, "get_document_path", return_value=str(file_path)), \
+         patch("os.path.exists", return_value=False), \
+         patch.object(doc_service, "_document_already_downloaded_s3", return_value=False):
         assert doc_service.document_already_downloaded("T123", "complaint", "pdf") is False
 
 @pytest.mark.parametrize("environment", ["dev", "main"])
@@ -145,8 +153,31 @@ async def test_download_document_success(db_session, tmp_path, monkeypatch, envi
     # Set environment before creating service
     monkeypatch.setattr(settings, "ENV", environment)
     
-    test_path = tmp_path / "file.pdf"
-    complaint = ComplaintModel(ticket_no="T123", document_url="http://example.com/file~pdf")
+    # Create a proper test path that matches what the service will generate
+    expected_filename = "T123_complaint_20250101_120000.pdf"
+    test_path = tmp_path / expected_filename
+    
+    # Create complaint with proper document URL format and add to database
+    complaint = ComplaintModel(
+        ticket_no="T123", 
+        document_url="http://example.com/file~pdf",
+        grievance="Test grievance",  # Required field
+        office="Test Office",  # Required field
+        received_by="Test Officer",  # Required field
+        district="Test District",  # Required field
+        mode="Online",  # Required field
+        status="Pending",  # Required field
+        govt_ticket=True,  # Required field
+        created_on=datetime(2024, 1, 1, 12, 0),  # Required field
+        category="Test Category",  # Required field
+        state="Test State",  # Required field
+        petitioner_gender="Male",  # Required field
+        transfer_status="None",  # Required field
+        urgent="No",  # Required field
+        assigned_on=datetime(2024, 1, 1, 12, 0)  # Required field
+    )
+    db_session.add(complaint)
+    db_session.commit()
     
     # Create DocumentService after patching environment
     from app.ingestion.document_ingestion import DocumentService
@@ -160,7 +191,8 @@ async def test_download_document_success(db_session, tmp_path, monkeypatch, envi
 
         with patch.object(doc_service, "get_document_path", return_value=str(test_path)), \
              patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get, \
-             patch("aiofiles.open", return_value=mock_open_ctx):
+             patch("aiofiles.open", return_value=mock_open_ctx), \
+             patch.object(doc_service, "document_already_downloaded", return_value=False):
 
             # Mock httpx response
             mock_get.return_value.status_code = 200
@@ -175,7 +207,8 @@ async def test_download_document_success(db_session, tmp_path, monkeypatch, envi
         # For main environment, mock S3 operations
         with patch.object(doc_service, "get_document_path", return_value=str(test_path)), \
              patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get, \
-             patch.object(doc_service.s3_service, "upload_fileobj") as mock_upload:
+             patch.object(doc_service.s3_service, "upload_fileobj") as mock_upload, \
+             patch.object(doc_service, "document_already_downloaded", return_value=False):
 
             # Mock httpx response
             mock_get.return_value.status_code = 200
@@ -188,9 +221,28 @@ async def test_download_document_success(db_session, tmp_path, monkeypatch, envi
             mock_upload.assert_called_once_with(b"PDF_CONTENT", str(test_path))
 
 @pytest.mark.asyncio
-async def test_download_document_error_updates_db(doc_service, tmp_path, caplog):
+async def test_download_document_error_updates_db(doc_service, tmp_path, caplog, db_session):
     test_path = tmp_path / "file.pdf"
-    complaint = ComplaintModel(ticket_no="T123", document_url="http://example.com/file~pdf")
+    complaint = ComplaintModel(
+        ticket_no="T123", 
+        document_url="http://example.com/file~pdf",
+        grievance="Test grievance",  # Required field
+        office="Test Office",  # Required field
+        received_by="Test Officer",  # Required field
+        district="Test District",  # Required field
+        mode="Online",  # Required field
+        status="Pending",  # Required field
+        govt_ticket=True,  # Required field
+        created_on=datetime(2024, 1, 1, 12, 0),  # Required field
+        category="Test Category",  # Required field
+        state="Test State",  # Required field
+        petitioner_gender="Male",  # Required field
+        transfer_status="None",  # Required field
+        urgent="No",  # Required field
+        assigned_on=datetime(2024, 1, 1, 12, 0)  # Required field
+    )
+    db_session.add(complaint)
+    db_session.commit()
 
     with patch.object(doc_service, "get_document_path", return_value=str(test_path)), \
          patch.object(doc_service, "document_already_downloaded", return_value=False), \
@@ -212,11 +264,30 @@ async def test_download_document_error_updates_db(doc_service, tmp_path, caplog)
 
 
 @pytest.mark.asyncio
-async def test_batch_download_documents_success(doc_service):
+async def test_batch_download_documents_success(doc_service, db_session):
     doc_service
     
     # Mock complaint
-    complaint = ComplaintModel(ticket_no="T123", document_url="http://example.com/file~pdf")
+    complaint = ComplaintModel(
+        ticket_no="T123", 
+        document_url="http://example.com/file~pdf",
+        grievance="Test grievance",  # Required field
+        office="Test Office",  # Required field
+        received_by="Test Officer",  # Required field
+        district="Test District",  # Required field
+        mode="Online",  # Required field
+        status="Pending",  # Required field
+        govt_ticket=True,  # Required field
+        created_on=datetime(2024, 1, 1, 12, 0),  # Required field
+        category="Test Category",  # Required field
+        state="Test State",  # Required field
+        petitioner_gender="Male",  # Required field
+        transfer_status="None",  # Required field
+        urgent="No",  # Required field
+        assigned_on=datetime(2024, 1, 1, 12, 0)  # Required field
+    )
+    db_session.add(complaint)
+    db_session.commit()
     
     # Mock db context manager
     mock_db = MagicMock()

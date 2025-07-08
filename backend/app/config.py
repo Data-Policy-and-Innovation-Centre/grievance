@@ -26,7 +26,11 @@ class Directories:
     DOCUMENTS = RAW_DATA / "documents"
 
     def __init__(self):
-        for dir in [self.DATA, self.RAW_DATA, self.PROCESSED_DATA, self.LOGS]:
+        for dir in [self.DATA, 
+                    self.RAW_DATA, 
+                    self.PROCESSED_DATA, 
+                    self.LOGS, 
+                    self.DOCUMENTS]:
             dir.mkdir(exist_ok=True)
 
 
@@ -46,7 +50,7 @@ class Settings(BaseSettings):
     The settings are used to configure the application, such as setting up the database connection.
     """
 
-    ENV: str = os.getenv("ENV", "dev")
+    ENV: str = os.getenv("ENV", "local")
     DEBUG: bool = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
     JANASUNANI_API_BASE_URL: str = os.getenv(
         "JANASUNANI_API_BASE_URL", "https://janasunani.odisha.gov.in/api/DataServices"
@@ -56,11 +60,12 @@ class Settings(BaseSettings):
     DB_URL: str = os.getenv("DB_URL", f"sqlite:///{directories.RAW_DATA.as_posix()}/grievance.db")
     DB_PASSWORD: str = os.getenv("DB_PASSWORD", "None")
     LOCAL_STORAGE_PATH: str = str(directories.DOCUMENTS)
+    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "None")
     AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "None")
     AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "None")
     AWS_REGION: str = os.getenv("AWS_REGION", "ap-south-1")
-    AWS_S3_BUCKET_NAME: str = os.getenv("AWS_S3_BUCKET_NAME", "janasunani-data")
-    AWS_S3_DOCUMENTS: str = os.getenv("AWS_S3_DOCUMENTS", "janasunani-documents")
+    AWS_S3_BUCKET_NAME: str = os.getenv("AWS_S3_BUCKET_NAME", "janasunani-data-main")
+    AWS_S3_DOCUMENTS: str = os.getenv("AWS_S3_DOCUMENTS", "janasunani-documents-main")
 
     model_config = ConfigDict(env_file=directories.ROOT_DIR / ".env")
 

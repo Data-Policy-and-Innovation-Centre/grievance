@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "grievance-analytics"
-version = "0.1.0"
+version = "0.1.1"
 description = "An analytics app for grievance redressal data"
 authors = [
-    {name = "Your Name", email = "you@example.com"}
+    {name = "Yashaswi Mohanty", email = "yashaswi@uchicago.edu"},
+    {name = "Cesar Nunez", email = "cnunezh@uchicago.edu"}
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = "==3.13.*"
 dependencies = [
     "annotated-types==0.7.0",
     "anyio==4.9.0",
@@ -73,7 +74,11 @@ dependencies = [
     "ipython>=8.37.0",
     "ipykernel>=6.29.5",
     "pip>=25.1.1",
+    "dask>=2025.5.1",
     "colorama>=0.4.6",
+    "moto>=5.1.6",
+    "coverage>=7.9.2",
+    "argparse>=1.4.0",
     "coverage>=7.9.2",
 ]
 
@@ -84,6 +89,7 @@ exclude = ["tests*", "*.tests*"]
 
 [tool.setuptools.package-data]
 app = ["*.py", "**/*.py"]
+
 
 [project.optional-dependencies]
 dev = [

@@ -13,6 +13,7 @@ from ..db.crud import (
     filter_api_request,
     record_api_request_success,
     mark_api_request_failed,
+    get_all_complaints
 )
 from ..db.session import get_db
 from . import OFFICE, STATUS
@@ -22,6 +23,8 @@ from more_itertools import chunked
 from .document_ingestion import DocumentService
 from typing import List, Dict, Tuple, Coroutine
 from tqdm.asyncio import tqdm
+import sys
+import argparse
 
 class IngestionOrchestrator:
     def __init__(self, db: Session, semaphore_value: int = 5):
@@ -31,23 +34,6 @@ class IngestionOrchestrator:
         self.db = db
         self.semaphore = asyncio.Semaphore(semaphore_value)
         self.doc_service = DocumentService(db=self.db)
-
-    def _store_in_s3(self, data: dict, prefix: str):
-        """Store raw data in S3 with timestamp."""
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        key = f"{prefix}/{timestamp}.json"
-        
-        try:
-            self.s3.put_object(
-                Bucket=self.bucket_name,
-                Key=key,
-                Body=json.dumps(data),
-                ContentType='application/json'
-            )
-            logger.info(f"Successfully stored data in S3: {key}")
-        except Exception as e:
-            logger.error(f"Error storing data in S3: {e}")
-            raise
 
     def ingest_districts(self):
         """Ingest district data."""
@@ -121,7 +107,10 @@ async def track_with_progress(coros: List[Coroutine], desc: str = "Processing", 
 
     return results
 
-async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = None):
+async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = None,
+                                ingest_complaints: bool = True,
+                                ingest_documents: bool = True,
+                                ingest_action_history: bool = True):
     """Main async ingestion service runner."""
     days_threshold = 7
     max_retries = 3
@@ -143,63 +132,67 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
                        for status in STATUS.keys() 
                        for office in OFFICE.keys()]
         
-        logger.debug(f"Num. Params: {len(params)}")
-    
-
-        for param in params:
-            if filter_api_request(db, *param, days_threshold=days_threshold):
-                params.remove(param)
+        if ingest_complaints:
+            logger.info(f"Num. possible complaint requests: {len(params)}")
         
-        if force_params:
-            params.extend(force_params)
 
-        logger.info(f"Total complaint requests to process: {len(params)}")
+            for param in params:
+                if filter_api_request(db, *param, days_threshold=days_threshold):
+                    params.remove(param)
+            
+            if force_params:
+                params.extend(force_params)
 
-        stop_logging_to_console()
+            logger.info(f"Total complaint requests to process: {len(params)}")
 
-        try:
-            tasks = [orchestrator.ingest_complaints(*param) for param in params]
-            complaints = await track_with_progress(tasks, desc="Ingesting complaints")
-            flattened_complaints = []
-            for result, (year, dist_id, status, office) in zip(complaints, params):
-                if isinstance(result, list):
-                    flattened_complaints.extend(result)
-                    record_api_request_success(db, year, dist_id, status, office, len(result))
-                elif isinstance(result, Exception):
-                    logger.error(f"Failed to process year={year}, dist={dist_id}, status={status}, office={office}: {result}")
-                    mark_api_request_failed(db, year, dist_id, status, office, str(result)) # anywhere else to log this?
-            resume_logging_to_console()
-            logger.info(f"Completed {len(complaints)} complaint ingestion tasks")
-        except Exception as e:
-            logger.error(f"Error in complaint ingestion: {e}")
+            stop_logging_to_console()
 
+            try:
+                tasks = [orchestrator.ingest_complaints(*param) for param in params]
+                complaints = await track_with_progress(tasks, desc="Ingesting complaints")
+                flattened_complaints = []
+                for result, (year, dist_id, status, office) in zip(complaints, params):
+                    if isinstance(result, list):
+                        flattened_complaints.extend(result)
+                        record_api_request_success(db, year, dist_id, status, office, len(result))
+                    elif isinstance(result, Exception):
+                        logger.error(f"Failed to process year={year}, dist={dist_id}, status={status}, office={office}: {result}")
+                        mark_api_request_failed(db, year, dist_id, status, office, str(result)) # anywhere else to log this?
+                resume_logging_to_console()
+                logger.info(f"Completed {len(complaints)} complaint ingestion tasks")
+            except Exception as e:
+                logger.error(f"Error in complaint ingestion: {e}")
 
         # Ingest documents and action history for each complaint
-        try:
-            flattened_complaints = [complaint for sublist in complaints if isinstance(sublist, list) for complaint in sublist]
-            
-            logger.info(f"Processing documents for {len(flattened_complaints)} complaints")
-            stop_logging_to_console()
-            doc_tasks = [
-                orchestrator.ingest_documents(chunk, doc_service)
-                for chunk in chunked(flattened_complaints, 10)
-            ]
-            doc_results = await track_with_progress(doc_tasks, desc="Ingesting documents")
-            resume_logging_to_console()
-            logger.info(f"Completed {len(doc_results)} document ingestion tasks")
+        if ingest_documents:
+            try:
+                complaints = get_all_complaints(db)
+                
+                logger.info(f"Processing documents for {len(complaints)} complaints")
+                stop_logging_to_console()
+                doc_tasks = [
+                    orchestrator.ingest_documents(chunk, doc_service)
+                    for chunk in chunked(complaints, 10)
+                ]
+                doc_results = await track_with_progress(doc_tasks, desc="Ingesting documents")
+                resume_logging_to_console()
+                logger.info(f"Completed {len(doc_results)} document ingestion tasks")
+            except Exception as e:
+                logger.error(f"Error in document ingestion: {e}")
 
-
-            logger.info(f"Processing action history for {len(flattened_complaints)} complaints")
-            action_tasks = [
-                orchestrator.ingest_action_history(complaint.ticket_no)
-                for complaint in flattened_complaints
-            ]
-            stop_logging_to_console()
-            action_result = await track_with_progress(action_tasks, desc="Ingesting actions")
-            resume_logging_to_console()
-            logger.info(f"Completed {len(action_result)} action ingestion tasks")
-        except Exception as e:
-            logger.error(f"Error in action history ingestion: {e}")
+        if ingest_action_history:
+            try:
+                logger.info(f"Processing action history for {len(flattened_complaints)} complaints")
+                action_tasks = [
+                    orchestrator.ingest_action_history(complaint.ticket_no)
+                    for complaint in flattened_complaints
+                ]
+                stop_logging_to_console()
+                action_result = await track_with_progress(action_tasks, desc="Ingesting actions")
+                resume_logging_to_console()
+                logger.info(f"Completed {len(action_result)} action ingestion tasks")
+            except Exception as e:
+                logger.error(f"Error in action history ingestion: {e}")
         
         logger.info("Data ingestion completed successfully")
         return {
@@ -215,6 +208,26 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
         }
     finally:
         db.close()
+
+
+def main(args):
+    parser = argparse.ArgumentParser(description='Grievance Data Ingestion Service')
+    parser.add_argument('--force-params', action='store_true', 
+                       help='Force ingestion with default parameters')
+    parser.add_argument('--ingest-complaints', action='store_true', 
+                       help='Ingest complaint data')
+    parser.add_argument('--ingest-documents', action='store_true', 
+                       help='Ingest document data')
+    parser.add_argument('--ingest-action-history', action='store_true', 
+                       help='Ingest action history data')
+    
+    args = parser.parse_args(args)
+    
+    force_params = args.force_params
+    ingest_complaints = args.ingest_complaints
+    ingest_documents = args.ingest_documents
+    ingest_action_history = args.ingest_action_history
+    asyncio.run(run_ingestion_service(force_params, ingest_complaints, ingest_documents, ingest_action_history))
     
 if __name__ == "__main__":
-    asyncio.run(run_ingestion_service())
+    main(sys.argv[1:])

@@ -49,6 +49,10 @@ def get_all_districts(db: Session) -> List[District]:
     return db.query(District).all()
 
 # Complaint CRUD operations
+def get_all_complaints(db: Session) -> List[ComplaintModel]:
+    """Get all complaints."""
+    return db.query(ComplaintModel).all()
+
 def get_complaint_by_ticket(db: Session, ticket_no: str) -> Optional[ComplaintModel]:
     """Get a complaint by its ticket number."""
     return db.query(ComplaintModel).filter(ComplaintModel.ticket_no == ticket_no).first()

@@ -203,6 +203,7 @@ backend/join_grievance2025.ipynb
 /backend/notebooks
 data/
 *.ipynb
+
 *.tfstate
 *.tfstate.backup
 terraform/tfplan
@@ -211,3 +212,5 @@ terraform/.terraform*
 tfplan*
 /backend/logs
 *logs/
+backend/coverage.lcov
+

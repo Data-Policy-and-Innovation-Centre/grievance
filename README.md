@@ -1,5 +1,7 @@
 # Grievance Analytics
 
+[![Test Coverage](https://codecov.io/gh/Data-Policy-and-Innovation-Centre/grievance/branch/dev/graph/badge.svg)](https://codecov.io/gh/Data-Policy-and-Innovation-Centre/grievance)
+
 An analytics platform for Odisha Janasunani grievance redressal data, featuring robust data ingestion, processing, and API services.
 
 ---

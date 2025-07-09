@@ -339,7 +339,7 @@ def filter_api_request(db: Session, year: int, dist_id: int, status: int, office
                 tracking.last_successful_fetch = time_zone.localize(tracking.last_successful_fetch)
             recent_success = tracking.last_successful_fetch >= cutoff_date
 
-        return (recent_success or tracking.failure_count > failure_threshold)
+        return (recent_success or tracking.failure_count >= failure_threshold)
     except Exception as e:
         logger.error(f"Error checking if API request was recently processed: {e}")
         return False

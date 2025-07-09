@@ -155,7 +155,6 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
                 failure_count = 0
                 for result, (year, dist_id, status, office) in zip(complaints, params):
                     if isinstance(result, list) and len(result) > 0:
-                        logger.debug(f"Successfully ingested {len(result)} complaints for year={year}, dist={dist_id}, status={status}, office={office}")
                         flattened_complaints.extend(result)
                         record_api_request_success(db, year, dist_id, status, office, len(result))
                         success_count += 1

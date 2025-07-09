@@ -132,8 +132,6 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
                        for status in STATUS.keys() 
                        for office in OFFICE.keys()]
         
-        filtered_params = []
-        
         if ingest_complaints:
             logger.info(f"Num. possible complaint requests: {len(params)}")
             params = [
@@ -150,12 +148,11 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
             try:
                 tasks = [orchestrator.ingest_complaints(*param) for param in params]
                 complaints = await track_with_progress(tasks, desc="Ingesting complaints")
-                flattened_complaints = []
                 success_count = 0
                 failure_count = 0
                 for result, (year, dist_id, status, office) in zip(complaints, params):
                     if isinstance(result, list) and len(result) > 0:
-                        flattened_complaints.extend(result)
+                        logger.info(f"Successfully ingested {len(result)} complaints for year={year}, dist={dist_id}, status={status}, office={office}")
                         record_api_request_success(db, year, dist_id, status, office, len(result))
                         success_count += 1
                     elif isinstance(result, Exception) or len(result) == 0:
@@ -188,10 +185,12 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
 
         if ingest_action_history:
             try:
-                logger.info(f"Processing action history for {len(flattened_complaints)} complaints")
+                complaints = get_all_complaints(db)
+
+                logger.info(f"Processing action history for {len(complaints)} complaints")
                 action_tasks = [
                     orchestrator.ingest_action_history(complaint.ticket_no)
-                    for complaint in flattened_complaints
+                    for complaint in complaints
                 ]
                 stop_logging_to_console()
                 action_result = await track_with_progress(action_tasks, desc="Ingesting actions")

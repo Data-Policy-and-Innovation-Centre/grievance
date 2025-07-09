@@ -113,7 +113,7 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
                                 ingest_action_history: bool = True):
     """Main async ingestion service runner."""
     days_threshold = 7
-    max_retries = 3
+    max_retries = 1
     try:                
 
         db = next(get_db())
@@ -132,34 +132,41 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
                        for status in STATUS.keys() 
                        for office in OFFICE.keys()]
         
+        filtered_params = []
+        
         if ingest_complaints:
             logger.info(f"Num. possible complaint requests: {len(params)}")
-        
-
-            for param in params:
-                if filter_api_request(db, *param, days_threshold=days_threshold):
-                    params.remove(param)
+            params = [
+                param for param in params if not filter_api_request(db, *param, days_threshold=days_threshold, failure_threshold=max_retries)
+            ]
             
             if force_params:
                 params.extend(force_params)
 
             logger.info(f"Total complaint requests to process: {len(params)}")
 
-            stop_logging_to_console()
+            stop_logging_to_console(mode='w')
 
             try:
                 tasks = [orchestrator.ingest_complaints(*param) for param in params]
                 complaints = await track_with_progress(tasks, desc="Ingesting complaints")
                 flattened_complaints = []
+                success_count = 0
+                failure_count = 0
                 for result, (year, dist_id, status, office) in zip(complaints, params):
-                    if isinstance(result, list):
+                    if isinstance(result, list) and len(result) > 0:
+                        logger.debug(f"Successfully ingested {len(result)} complaints for year={year}, dist={dist_id}, status={status}, office={office}")
                         flattened_complaints.extend(result)
                         record_api_request_success(db, year, dist_id, status, office, len(result))
-                    elif isinstance(result, Exception):
+                        success_count += 1
+                    elif isinstance(result, Exception) or len(result) == 0:
                         logger.error(f"Failed to process year={year}, dist={dist_id}, status={status}, office={office}: {result}")
-                        mark_api_request_failed(db, year, dist_id, status, office, str(result)) # anywhere else to log this?
+                        mark_api_request_failed(db, year, dist_id, status, office)
+                        failure_count += 1
+                    else:
+                        logger.debug(f"Unknown result type: {type(result)}")
                 resume_logging_to_console()
-                logger.info(f"Completed {len(complaints)} complaint ingestion tasks")
+                logger.info(f"Completed {len(complaints)} complaint ingestion tasks\n \t Success: {success_count}\n \t Failure: {failure_count}")
             except Exception as e:
                 logger.error(f"Error in complaint ingestion: {e}")
 

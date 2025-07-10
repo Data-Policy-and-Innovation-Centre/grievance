@@ -54,25 +54,6 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-
-    - name: Build and push Docker image
-      working-directory: ./backend
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: grievance-ingestion-${{ env.ENVIRONMENT }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        # Build the image for linux/amd64 platform (required for ECS Fargate)
-        docker build --platform linux/amd64 -f Dockerfile.ingestion -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker build --platform linux/amd64 -f Dockerfile.ingestion -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-        
-        # Push the image
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
@@ -105,6 +86,25 @@ jobs:
         TF_VAR_janasunani_api_password: ${{ secrets.JANASUNANI_API_PASSWORD }}
       run: |
         terraform apply -auto-approve tfplan
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build and push Docker image
+      working-directory: ./backend
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: grievance-ingestion-${{ env.ENVIRONMENT }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build the image for linux/amd64 platform (required for ECS Fargate)
+        docker build --platform linux/amd64 -f Dockerfile.ingestion -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build --platform linux/amd64 -f Dockerfile.ingestion -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+        
+        # Push the image
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
     - name: Get deployment outputs
       if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'

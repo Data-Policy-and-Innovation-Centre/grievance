@@ -279,7 +279,7 @@ def get_complaints_without_documents(db: Session) -> list[ComplaintModel]:
 def get_complaints_with_document_urls(db: Session) -> list[ComplaintModel]:
     return db.query(ComplaintModel).filter(ComplaintModel.document_url.isnot(None)).all()
 
-def record_api_request_success(db: Session, year: int, dist_id: int, status: int, office: int, record_count: int) -> APIRequestTracking:
+def record_complaint_api_request_success(db: Session, year: int, dist_id: int, status: int, office: int, record_count: int) -> APIRequestTracking:
     """Record a successful API request in db and its results."""
     try:
         time_zone = pytz.timezone('Asia/Kolkata') 
@@ -316,7 +316,7 @@ def record_api_request_success(db: Session, year: int, dist_id: int, status: int
         logger.error(f"Error recording API request success: {e}")
         raise
 
-def filter_api_request(db: Session, year: int, dist_id: int, status: int, office: int, days_threshold: int = 7, failure_threshold: int = 3) -> bool:
+def filter_complaints_api_request(db: Session, year: int, dist_id: int, status: int, office: int, days_threshold: int = 7, failure_threshold: int = 3) -> bool:
     """Check if an API request combination was successfully processed or has failed too many times recently."""
     time_zone = pytz.timezone('Asia/Kolkata')
     cutoff_date = datetime.now(time_zone) - timedelta(days=days_threshold)
@@ -345,7 +345,7 @@ def filter_api_request(db: Session, year: int, dist_id: int, status: int, office
         return False
 
 
-def mark_api_request_failed(db: Session, year: int, dist_id: int, status: int, office: int) -> None:
+def mark_complaints_api_request_failed(db: Session, year: int, dist_id: int, status: int, office: int) -> None:
     """Record a failed API request attempt."""
     try:
         tracking = db.query(APIRequestTracking).filter(

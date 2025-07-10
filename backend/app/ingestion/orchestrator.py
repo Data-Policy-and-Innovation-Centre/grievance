@@ -10,9 +10,9 @@ from ..db.crud import (
     bulk_load_districts,
     bulk_load_complaints,
     bulk_load_action_histories,
-    filter_api_request,
-    record_api_request_success,
-    mark_api_request_failed,
+    filter_complaints_api_request,
+    record_complaint_api_request_success,
+    mark_complaints_api_request_failed,
     get_all_complaints
 )
 from ..db.session import get_db
@@ -135,7 +135,7 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
         if ingest_complaints:
             logger.info(f"Num. possible complaint requests: {len(params)}")
             params = [
-                param for param in params if not filter_api_request(db, *param, days_threshold=days_threshold, failure_threshold=max_retries)
+                param for param in params if not filter_complaints_api_request(db, *param, days_threshold=days_threshold, failure_threshold=max_retries)
             ]
             
             if force_params:
@@ -153,11 +153,11 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
                 for result, (year, dist_id, status, office) in zip(complaints, params):
                     if isinstance(result, list) and len(result) > 0:
                         logger.info(f"Successfully ingested {len(result)} complaints for year={year}, dist={dist_id}, status={status}, office={office}")
-                        record_api_request_success(db, year, dist_id, status, office, len(result))
+                        record_complaint_api_request_success(db, year, dist_id, status, office, len(result))
                         success_count += 1
                     elif isinstance(result, Exception) or len(result) == 0:
                         logger.error(f"Failed to process year={year}, dist={dist_id}, status={status}, office={office}: {result}")
-                        mark_api_request_failed(db, year, dist_id, status, office)
+                        mark_complaints_api_request_failed(db, year, dist_id, status, office)
                         failure_count += 1
                     else:
                         logger.debug(f"Unknown result type: {type(result)}")

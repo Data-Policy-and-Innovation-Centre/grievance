@@ -364,9 +364,9 @@ def test_unique_constraint_action_history(db_session, sample_action_history_data
 # API Request Tracking tests
 def test_record_api_request_success_new(db_session):
     """Test recording a successful API request for the first time."""
-    from app.db.crud import record_api_request_success
+    from app.db.crud import record_complaint_api_request_success
     
-    tracking = record_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
+    tracking = record_complaint_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
     
     assert tracking.year == 2026
     assert tracking.dist_id == 1
@@ -378,17 +378,17 @@ def test_record_api_request_success_new(db_session):
 
 def test_record_api_request_success_update(db_session):
     """Test updating an existing successful API request."""
-    from app.db.crud import record_api_request_success
+    from app.db.crud import record_complaint_api_request_success
     import time
     
     # First record
-    tracking1 = record_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
+    tracking1 = record_complaint_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
     
     # Small delay to ensure different timestamps
     time.sleep(0.001)
     
     # Update with new record count
-    tracking2 = record_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=75)
+    tracking2 = record_complaint_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=75)
     
     assert tracking1.id == tracking2.id  # Same record
     assert tracking2.records_count == 75
@@ -397,11 +397,11 @@ def test_record_api_request_success_update(db_session):
 
 def test_record_api_request_success_resets_failure_count(db_session):
     """Test that successful API request resets failure count."""
-    from app.db.crud import record_api_request_success, mark_api_request_failed
+    from app.db.crud import record_complaint_api_request_success, mark_complaints_api_request_failed
     
     # First mark as failed
-    mark_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
-    mark_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
+    mark_complaints_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
+    mark_complaints_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
     
     # Check failure count
     tracking = db_session.query(APIRequestTracking).filter(
@@ -413,33 +413,33 @@ def test_record_api_request_success_resets_failure_count(db_session):
     assert tracking.failure_count == 2
     
     # Now record success
-    success_tracking = record_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
+    success_tracking = record_complaint_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
     
     assert success_tracking.failure_count == 0
     assert success_tracking.records_count == 50
 
 def test_filter_api_request_not_processed(db_session):
     """Test filtering API request that hasn't been processed recently."""
-    from app.db.crud import filter_api_request
+    from app.db.crud import filter_complaints_api_request
     
     # Should return False for new request
-    result = filter_api_request(db_session, year=2026, dist_id=1, status=1, office=1)
+    result = filter_complaints_api_request(db_session, year=2026, dist_id=1, status=1, office=1)
     assert result is False
 
 def test_filter_api_request_recently_processed(db_session):
     """Test filtering API request that was recently processed successfully."""
-    from app.db.crud import filter_api_request, record_api_request_success
+    from app.db.crud import filter_complaints_api_request, record_complaint_api_request_success
     
     # Record a successful request
-    record_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
+    record_complaint_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
     
     # Should return True for recently processed request
-    result = filter_api_request(db_session, year=2026, dist_id=1, status=1, office=1, days_threshold=7)
+    result = filter_complaints_api_request(db_session, year=2026, dist_id=1, status=1, office=1, days_threshold=7)
     assert result is True
 
 def test_filter_api_request_old_processed(db_session):
     """Test filtering API request that was processed but is old."""
-    from app.db.crud import filter_api_request, record_api_request_success
+    from app.db.crud import filter_complaints_api_request, record_complaint_api_request_success
     from datetime import datetime, timedelta
     import pytz
     
@@ -457,20 +457,20 @@ def test_filter_api_request_old_processed(db_session):
     db_session.commit()
     
     # Should return False for old request (within 7 day threshold)
-    result = filter_api_request(db_session, year=2026, dist_id=1, status=1, office=1, days_threshold=7)
+    result = filter_complaints_api_request(db_session, year=2026, dist_id=1, status=1, office=1, days_threshold=7)
     assert result is False
     
     # Should return True for old request (within 15 day threshold)
-    result = filter_api_request(db_session, year=2026, dist_id=1, status=1, office=1, days_threshold=15)
+    result = filter_complaints_api_request(db_session, year=2026, dist_id=1, status=1, office=1, days_threshold=15)
     assert result is True
 
 def test_filter_api_request_too_many_failures(db_session):
     """Test filtering API request that has failed too many times."""
-    from app.db.crud import filter_api_request, mark_api_request_failed
+    from app.db.crud import filter_complaints_api_request, mark_complaints_api_request_failed
     
     # Mark as failed multiple times
     for _ in range(4):  # More than failure_threshold of 3
-        mark_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
+        mark_complaints_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
 
     # Get record from db
     tracking = db_session.query(APIRequestTracking).filter(
@@ -482,26 +482,26 @@ def test_filter_api_request_too_many_failures(db_session):
     assert tracking.failure_count == 4
     
     # Should return True for request with too many failures
-    result = filter_api_request(db_session, year=2026, dist_id=1, status=1, office=1, failure_threshold=3)
+    result = filter_complaints_api_request(db_session, year=2026, dist_id=1, status=1, office=1, failure_threshold=3)
     assert result is True
 
 def test_filter_api_request_few_failures(db_session):
     """Test filtering API request that has few failures."""
-    from app.db.crud import filter_api_request, mark_api_request_failed
+    from app.db.crud import filter_complaints_api_request, mark_complaints_api_request_failed
     
     # Mark as failed few times
     for _ in range(2):  # Less than failure_threshold of 3
-        mark_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
+        mark_complaints_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
     
     # Should return False for request with few failures and no recent success
-    result = filter_api_request(db_session, year=2026, dist_id=1, status=1, office=1, failure_threshold=3)
+    result = filter_complaints_api_request(db_session, year=2026, dist_id=1, status=1, office=1, failure_threshold=3)
     assert result is False
 
 def test_mark_api_request_failed_new(db_session):
     """Test marking a new API request as failed."""
-    from app.db.crud import mark_api_request_failed
+    from app.db.crud import mark_complaints_api_request_failed
     
-    tracking = mark_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
+    tracking = mark_complaints_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
     
     assert tracking.year == 2026
     assert tracking.dist_id == 1
@@ -512,26 +512,26 @@ def test_mark_api_request_failed_new(db_session):
 
 def test_mark_api_request_failed_increment(db_session):
     """Test incrementing failure count for existing API request."""
-    from app.db.crud import mark_api_request_failed
+    from app.db.crud import mark_complaints_api_request_failed
     
     # First failure
-    tracking1 = mark_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
+    tracking1 = mark_complaints_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
     assert tracking1.failure_count == 1
     
     # Second failure
-    tracking2 = mark_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
+    tracking2 = mark_complaints_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
     assert tracking2.failure_count == 2
     assert tracking1.id == tracking2.id  # Same record
 
 def test_mark_api_request_failed_preserves_success_data(db_session):
     """Test that marking as failed preserves existing success data."""
-    from app.db.crud import mark_api_request_failed, record_api_request_success
+    from app.db.crud import mark_complaints_api_request_failed, record_complaint_api_request_success
     
     # First record success
-    success_tracking = record_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
+    success_tracking = record_complaint_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
     
     # Then mark as failed
-    failed_tracking = mark_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
+    failed_tracking = mark_complaints_api_request_failed(db_session, year=2026, dist_id=1, status=1, office=1)
     
     assert failed_tracking.records_count == 50  # Preserved
     assert failed_tracking.failure_count == 1   # Incremented
@@ -539,10 +539,10 @@ def test_mark_api_request_failed_preserves_success_data(db_session):
 
 def test_api_request_tracking_unique_constraint(db_session):
     """Test that duplicate API request tracking raises IntegrityError."""
-    from app.db.crud import record_api_request_success
+    from app.db.crud import record_complaint_api_request_success
     
     # First record
-    record_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
+    record_complaint_api_request_success(db_session, year=2026, dist_id=1, status=1, office=1, record_count=50)
     
     # Try to create duplicate
     with pytest.raises(IntegrityError):
@@ -558,22 +558,22 @@ def test_api_request_tracking_unique_constraint(db_session):
 
 def test_api_request_tracking_different_combinations(db_session):
     """Test that different API request combinations are tracked separately."""
-    from app.db.crud import record_api_request_success, filter_api_request
+    from app.db.crud import record_complaint_api_request_success, filter_complaints_api_request
     
     # Record different combinations
-    record_api_request_success(db_session, year=2024, dist_id=1, status=1, office=1, record_count=50)
-    record_api_request_success(db_session, year=2024, dist_id=2, status=1, office=1, record_count=30)
-    record_api_request_success(db_session, year=2024, dist_id=1, status=2, office=1, record_count=20)
+    record_complaint_api_request_success(db_session, year=2024, dist_id=1, status=1, office=1, record_count=50)
+    record_complaint_api_request_success(db_session, year=2024, dist_id=2, status=1, office=1, record_count=30)
+    record_complaint_api_request_success(db_session, year=2024, dist_id=1, status=2, office=1, record_count=20)
     
     # Check that they are tracked separately
-    assert filter_api_request(db_session, year=2024, dist_id=1, status=1, office=1) is True
-    assert filter_api_request(db_session, year=2024, dist_id=2, status=1, office=1) is True
-    assert filter_api_request(db_session, year=2024, dist_id=1, status=2, office=1) is True
-    assert filter_api_request(db_session, year=2024, dist_id=3, status=1, office=1) is False
+    assert filter_complaints_api_request(db_session, year=2024, dist_id=1, status=1, office=1) is True
+    assert filter_complaints_api_request(db_session, year=2024, dist_id=2, status=1, office=1) is True
+    assert filter_complaints_api_request(db_session, year=2024, dist_id=1, status=2, office=1) is True
+    assert filter_complaints_api_request(db_session, year=2024, dist_id=3, status=1, office=1) is False
 
 def test_api_request_tracking_error_handling(db_session):
     """Test error handling in API request tracking functions."""
-    from app.db.crud import record_api_request_success, filter_api_request, mark_api_request_failed
+    from app.db.crud import record_complaint_api_request_success, filter_complaints_api_request, mark_complaints_api_request_failed
     from sqlalchemy.exc import OperationalError
     
     # Test with invalid database session (closed session)
@@ -581,13 +581,13 @@ def test_api_request_tracking_error_handling(db_session):
     
     # These should raise exceptions with closed session
     with pytest.raises(OperationalError):
-        record_api_request_success(db_session, year=2024, dist_id=1, status=1, office=1, record_count=50)
+        record_complaint_api_request_success(db_session, year=2024, dist_id=1, status=1, office=1, record_count=50)
 
     # filter_api_request should return False on error
-    result = filter_api_request(db_session, year=2024, dist_id=1, status=1, office=1)
+    result = filter_complaints_api_request(db_session, year=2024, dist_id=1, status=1, office=1)
     assert result is False
     
     with pytest.raises(OperationalError):
-        mark_api_request_failed(db_session, year=2024, dist_id=1, status=1, office=1)
+        mark_complaints_api_request_failed(db_session, year=2024, dist_id=1, status=1, office=1)
 
     

@@ -13,7 +13,10 @@ from ..db.crud import (
     filter_complaints_api_request,
     record_complaint_api_request_success,
     mark_complaints_api_request_failed,
-    get_all_complaints
+    get_all_complaints,
+    get_tickets_needing_action_history,
+    record_action_history_api_request_success,
+    mark_action_history_api_request_failed
 )
 from ..db.session import get_db
 from . import OFFICE, STATUS
@@ -72,6 +75,14 @@ class IngestionOrchestrator:
         """Ingest action history data."""
         try:
             action_history = await self.client.get_action_history(ticket_no, self.semaphore)
+
+            if action_history is None:
+                logger.warning(f"No action history received for ticket={ticket_no}")
+                mark_action_history_api_request_failed(self.db, ticket_no)
+                return []
+            
+            record_action_history_api_request_success(self.db, ticket_no, len(action_history))
+
             action_history_validated = validate_action_history(items=action_history, ticket_no=ticket_no, dict_mode=False)
 
             # Store data in database using CRUD operations
@@ -81,6 +92,7 @@ class IngestionOrchestrator:
             return action_history_validated
         except Exception as e:
             logger.error(f"Error ingesting action history failed for ticket={ticket_no}: {e}")
+            mark_action_history_api_request_failed(self.db, ticket_no)
             return []
         
     async def ingest_documents(self, complaints: List[Complaint], doc_service: DocumentService) -> Dict[str, str]:
@@ -185,12 +197,12 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
 
         if ingest_action_history:
             try:
-                complaints = get_all_complaints(db)
+                ticket_numbers = get_tickets_needing_action_history(db)
 
-                logger.info(f"Processing action history for {len(complaints)} complaints")
+                logger.info(f"Processing action history for {len(ticket_numbers)} complaints")
                 action_tasks = [
-                    orchestrator.ingest_action_history(complaint.ticket_no)
-                    for complaint in complaints
+                    orchestrator.ingest_action_history(ticket_no)
+                    for ticket_no in ticket_numbers
                 ]
                 stop_logging_to_console()
                 action_result = await track_with_progress(action_tasks, desc="Ingesting actions")

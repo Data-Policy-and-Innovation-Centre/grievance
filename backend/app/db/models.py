@@ -132,6 +132,8 @@ class ActionHistory(Base):
     action_status = Column(String, nullable=False)
     action_taken_remark = Column(String, nullable=True)
     complaint_status_with_authority = Column(String, nullable=False)
+    last_updated_on = Column(DateTime, nullable=True)
+    failure_count = Column(Integer, nullable=False, default=0)
 
     __table_args__ = (UniqueConstraint('ticket_no', 
                                        'action_taken_by', 
@@ -155,3 +157,4 @@ class APIRequestTracking(Base):
     __table_args__ = (
         UniqueConstraint('year', 'dist_id', 'status', 'office', name='api_request_uniq'),
     )
+

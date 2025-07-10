@@ -132,8 +132,6 @@ class ActionHistory(Base):
     action_status = Column(String, nullable=False)
     action_taken_remark = Column(String, nullable=True)
     complaint_status_with_authority = Column(String, nullable=False)
-    last_updated_on = Column(DateTime, nullable=True)
-    failure_count = Column(Integer, nullable=False, default=0)
 
     __table_args__ = (UniqueConstraint('ticket_no', 
                                        'action_taken_by', 
@@ -158,3 +156,17 @@ class APIRequestTracking(Base):
         UniqueConstraint('year', 'dist_id', 'status', 'office', name='api_request_uniq'),
     )
 
+class ActionHistoryAPIRequestTracking(Base):
+    """Track which action history API request combinations have been successfully processed."""
+    __tablename__ = 'action_history_api_request_tracking'
+
+    id = Column(Integer, primary_key=True)
+    ticket_no = Column(String, ForeignKey('complaints.ticket_no'))
+    complaint = relationship('Complaint', backref='action_history_api_request_tracking')
+    last_successful_fetch = Column(DateTime, nullable=True)
+    records_count = Column(Integer, nullable=True)
+    failure_count = Column(Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        UniqueConstraint('ticket_no', name='action_history_api_request_uniq'),
+    )

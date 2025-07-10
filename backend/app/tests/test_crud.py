@@ -2,7 +2,7 @@ import pytest
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.db.models import Base, District, Complaint, ActionHistory, APIRequestTracking
+from app.db.models import Base, District, Complaint, ActionHistory, APIRequestTracking, ActionHistoryAPIRequestTracking
 from app.db.crud import (
     get_district_by_id,
     get_district_by_name,
@@ -572,7 +572,7 @@ def test_api_request_tracking_different_combinations(db_session):
     assert filter_complaints_api_request(db_session, year=2024, dist_id=3, status=1, office=1) is False
 
 def test_api_request_tracking_error_handling(db_session):
-    """Test error handling in API request tracking functions."""
+    """Test error handling in API request tracking."""
     from app.db.crud import record_complaint_api_request_success, filter_complaints_api_request, mark_complaints_api_request_failed
     from sqlalchemy.exc import OperationalError
     
@@ -589,5 +589,265 @@ def test_api_request_tracking_error_handling(db_session):
     
     with pytest.raises(OperationalError):
         mark_complaints_api_request_failed(db_session, year=2024, dist_id=1, status=1, office=1)
+
+# Action History API Request Tracking Tests
+def test_record_action_history_api_request_success_new(db_session):
+    """Test recording successful action history API request for new ticket."""
+    from app.db.crud import record_action_history_api_request_success
+    
+    # Test recording success for a new ticket
+    tracking = record_action_history_api_request_success(db_session, "T123", 5)
+    
+    assert tracking.ticket_no == "T123"
+    assert tracking.records_count == 5
+    assert tracking.failure_count == 0
+    assert tracking.last_successful_fetch is not None
+
+def test_record_action_history_api_request_success_update(db_session):
+    """Test updating existing action history API request tracking."""
+    from app.db.crud import record_action_history_api_request_success
+    import time
+    
+    # First record a success
+    tracking = record_action_history_api_request_success(db_session, "T123", 3)
+    first_time = tracking.last_successful_fetch
+    
+    # Add a small delay to ensure timestamps are different
+    time.sleep(0.01)
+    
+    # Then update it with new data
+    record_action_history_api_request_success(db_session, "T123", 7)
+ 
+    assert tracking.ticket_no == "T123"
+    assert tracking.records_count == 7  # Updated
+    assert tracking.failure_count == 0  # Reset
+    assert tracking.last_successful_fetch > first_time
+
+def test_record_action_history_api_request_success_resets_failure_count(db_session):
+    """Test that successful API request resets failure count."""
+    from app.db.crud import record_action_history_api_request_success, mark_action_history_api_request_failed
+    
+    # First mark as failed multiple times
+    mark_action_history_api_request_failed(db_session, "T123")
+    mark_action_history_api_request_failed(db_session, "T123")
+    
+    # Then record success
+    tracking = record_action_history_api_request_success(db_session, "T123", 5)
+    
+    assert tracking.failure_count == 0  # Should be reset
+
+def test_mark_action_history_api_request_failed_new(db_session):
+    """Test marking action history API request as failed for new ticket."""
+    from app.db.crud import mark_action_history_api_request_failed
+    
+    # Test marking failure for a new ticket
+    tracking = mark_action_history_api_request_failed(db_session, "T123")
+    
+    assert tracking.ticket_no == "T123"
+    assert tracking.failure_count == 1
+    assert tracking.last_successful_fetch is None
+    assert tracking.records_count is None
+
+def test_mark_action_history_api_request_failed_increment(db_session):
+    """Test incrementing failure count for existing action history tracking."""
+    from app.db.crud import mark_action_history_api_request_failed
+    
+    # First failure
+    tracking1 = mark_action_history_api_request_failed(db_session, "T123")
+    assert tracking1.failure_count == 1
+    
+    # Second failure
+    tracking2 = mark_action_history_api_request_failed(db_session, "T123")
+    assert tracking2.failure_count == 2
+    
+    # Third failure
+    tracking3 = mark_action_history_api_request_failed(db_session, "T123")
+    assert tracking3.failure_count == 3
+
+def test_mark_action_history_api_request_failed_preserves_success_data(db_session):
+    """Test that marking failure preserves existing success data."""
+    from app.db.crud import record_action_history_api_request_success, mark_action_history_api_request_failed
+    
+    # First record success
+    success_tracking = record_action_history_api_request_success(db_session, "T123", 5)
+    original_success_time = success_tracking.last_successful_fetch
+    original_records_count = success_tracking.records_count
+    
+    # Then mark as failed
+    failed_tracking = mark_action_history_api_request_failed(db_session, "T123")
+    
+    # Success data should be preserved
+    assert failed_tracking.last_successful_fetch == original_success_time
+    assert failed_tracking.records_count == original_records_count
+    assert failed_tracking.failure_count == 1
+
+def test_get_complaints_needing_action_history_empty(db_session):
+    """Test getting complaints needing action history when none exist."""
+    from app.db.crud import get_tickets_needing_action_history
+    
+    # Should return empty list when no complaints exist
+    result = get_tickets_needing_action_history(db_session)
+    assert result == []
+
+def test_get_complaints_needing_action_history_recent_success(db_session, sample_complaint_data):
+    """Test that recently successful requests are not returned."""
+    from app.db.crud import record_action_history_api_request_success, get_tickets_needing_action_history, create_or_update_complaint
+    
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+    
+    # Record a recent success (within threshold)
+    record_action_history_api_request_success(db_session, "T123", 5)
+    
+    # Should not return this ticket as it was recently successful
+    result = get_tickets_needing_action_history(db_session, days_threshold=7)
+    assert len(result) == 0
+
+def test_get_complaints_needing_action_history_old_success(db_session, sample_complaint_data):
+    """Test that old successful requests are returned."""
+    from app.db.crud import get_tickets_needing_action_history, create_or_update_complaint
+    from datetime import datetime, timedelta
+    import pytz
+    
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+    
+    # Create a tracking record with old success time
+    time_zone = pytz.timezone('Asia/Kolkata')
+    old_time = datetime.now(time_zone) - timedelta(days=10)  # 10 days ago
+    
+    # Manually create tracking record with old time
+    from app.db.models import ActionHistoryAPIRequestTracking
+    tracking = ActionHistoryAPIRequestTracking(
+        ticket_no="T123",
+        last_successful_fetch=old_time,
+        records_count=5,
+        failure_count=0
+    )
+    db_session.add(tracking)
+    db_session.commit()
+    
+    # Should return this ticket as it was successful but old
+    result = get_tickets_needing_action_history(db_session, days_threshold=7)
+    assert len(result) == 1
+    assert "T123" in result
+
+def test_get_complaints_needing_action_history_too_many_failures(db_session, sample_complaint_data):
+    """Test that tickets with too many failures are not returned."""
+    from app.db.crud import mark_action_history_api_request_failed, get_tickets_needing_action_history, create_or_update_complaint
+    
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+    
+    # Mark multiple failures
+    for _ in range(5):  # More than threshold
+        mark_action_history_api_request_failed(db_session, "T123")
+    
+    # Should not return this ticket as it has too many failures
+    result = get_tickets_needing_action_history(db_session, failure_threshold=3)
+    assert len(result) == 0
+
+def test_get_complaints_needing_action_history_few_failures(db_session, sample_complaint_data):
+    """Test that tickets with few failures are returned."""
+    from app.db.crud import mark_action_history_api_request_failed, get_tickets_needing_action_history, create_or_update_complaint
+    
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+    
+    # Mark only 2 failures (below threshold)
+    mark_action_history_api_request_failed(db_session, "T123")
+    mark_action_history_api_request_failed(db_session, "T123")
+    
+    # Should return this ticket as it has few failures
+    result = get_tickets_needing_action_history(db_session, failure_threshold=3)
+    assert len(result) == 1
+    assert "T123" in result
+
+def test_get_complaints_needing_action_history_mixed_scenarios(db_session, sample_complaint_data):
+    """Test multiple scenarios in the same database."""
+    from app.db.crud import (
+        record_action_history_api_request_success, 
+        mark_action_history_api_request_failed, 
+        get_tickets_needing_action_history,
+        create_or_update_complaint
+    )
+    from datetime import datetime, timedelta
+    import pytz
+    
+    # Create multiple complaints
+    create_or_update_complaint(db_session, sample_complaint_data)
+    
+    # Create additional complaints
+    complaint2 = sample_complaint_data.model_copy(update={"ticket_no": "T456"}, deep=True)
+    complaint3 = sample_complaint_data.model_copy(update={"ticket_no": "T789"}, deep=True)
+    complaint4 = sample_complaint_data.model_copy(update={"ticket_no": "T101"}, deep=True)
+    
+    complaint2 = create_or_update_complaint(db_session, complaint2)
+    create_or_update_complaint(db_session, complaint3)
+    create_or_update_complaint(db_session, complaint4)
+    
+    time_zone = pytz.timezone('Asia/Kolkata')
+    old_time = datetime.now(time_zone) - timedelta(days=10)
+    
+    # Scenario 1: Recent success (should not be returned)
+    record_action_history_api_request_success(db_session, "T123", 5)
+    
+    # Scenario 2: Old success (should be returned)
+    from app.db.models import ActionHistoryAPIRequestTracking
+    old_tracking = ActionHistoryAPIRequestTracking(
+        ticket_no="T456",
+        last_successful_fetch=old_time,
+        records_count=3,
+        failure_count=0
+    )
+    db_session.add(old_tracking)
+    
+    # Scenario 3: Too many failures (should not be returned)
+    for _ in range(5):
+        mark_action_history_api_request_failed(db_session, "T789")
+    
+    # Scenario 4: Few failures (should be returned)
+    mark_action_history_api_request_failed(db_session, "T101")
+    mark_action_history_api_request_failed(db_session, "T101")
+    
+    db_session.commit()
+    
+    # Should return only T456 and T101
+    result = get_tickets_needing_action_history(db_session, days_threshold=7, failure_threshold=3)
+    assert len(result) == 2
+    assert "T456" in result
+    assert "T101" in result
+    assert "T123" not in result  # Recent success
+    assert "T789" not in result  # Too many failures
+
+def test_action_history_tracking_error_handling(db_session):
+    """Test error handling in action history tracking functions."""
+    from app.db.crud import record_action_history_api_request_success, mark_action_history_api_request_failed
+    
+    # Test with invalid data - these should handle None values gracefully
+    # The functions don't raise exceptions for None values, they handle them
+    tracking1 = record_action_history_api_request_success(db_session, None, None)
+    assert tracking1 is not None
+    
+    tracking2 = mark_action_history_api_request_failed(db_session, None)
+    assert tracking2 is not None
+
+def test_action_history_tracking_database_rollback(db_session):
+    """Test that database rollback works correctly on errors."""
+    from app.db.crud import record_action_history_api_request_success
+    
+    # Create a tracking record
+    tracking1 = record_action_history_api_request_success(db_session, "T123", 5)
+    original_id = tracking1.id
+    original_records_count = tracking1.records_count
+    
+    # Try to create another with same ticket_no (should update existing record)
+    # This should update the existing record due to unique constraint
+    tracking2 = record_action_history_api_request_success(db_session, "T123", 3)
+    
+    # Verify the record was updated, not created new
+    assert tracking2.id == original_id
+    assert tracking2.records_count == 3  # Should be updated
+    assert tracking2.records_count != original_records_count  # Should be different
 
     

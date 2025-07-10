@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
 from loguru import logger
-from .models import District, Complaint as ComplaintModel, ActionHistory as ActionHistoryModel, APIRequestTracking
+from .models import District, Complaint as ComplaintModel, ActionHistory as ActionHistoryModel, APIRequestTracking, ActionHistoryAPIRequestTracking
 from app.ingestion.schemas import Complaint as ComplaintSchema, ActionHistory as ActionHistorySchema, District as DistrictSchema
 from .session import get_db
 from app.config import settings
@@ -279,7 +279,7 @@ def get_complaints_without_documents(db: Session) -> list[ComplaintModel]:
 def get_complaints_with_document_urls(db: Session) -> list[ComplaintModel]:
     return db.query(ComplaintModel).filter(ComplaintModel.document_url.isnot(None)).all()
 
-def record_complaint_api_request_success(db: Session, year: int, dist_id: int, status: int, office: int, record_count: int) -> APIRequestTracking:
+def record_complaint_api_request_success(db: Session, year: int, dist_id: int, status: int, office: int, record_count: int) -> Optional[APIRequestTracking]:
     """Record a successful API request in db and its results."""
     try:
         time_zone = pytz.timezone('Asia/Kolkata') 
@@ -345,7 +345,7 @@ def filter_complaints_api_request(db: Session, year: int, dist_id: int, status: 
         return False
 
 
-def mark_complaints_api_request_failed(db: Session, year: int, dist_id: int, status: int, office: int) -> None:
+def mark_complaints_api_request_failed(db: Session, year: int, dist_id: int, status: int, office: int) -> Optional[APIRequestTracking]:
     """Record a failed API request attempt."""
     try:
         tracking = db.query(APIRequestTracking).filter(
@@ -374,6 +374,95 @@ def mark_complaints_api_request_failed(db: Session, year: int, dist_id: int, sta
         db.rollback()
         logger.error(f"Error recording API request failure: {e}")
         raise
+
+def record_action_history_api_request_success(db: Session, ticket_no: str, record_count: int):
+    try:
+        time_zone = pytz.timezone('Asia/Kolkata')
+        now = datetime.now(time_zone)
+        tracking = db.query(ActionHistoryAPIRequestTracking).filter(
+            ActionHistoryAPIRequestTracking.ticket_no == ticket_no
+        ).first()
+
+        if tracking:
+            tracking.last_successful_fetch = now
+            tracking.records_count = record_count
+            tracking.failure_count = 0
+        else:
+            tracking = ActionHistoryAPIRequestTracking(
+                ticket_no=ticket_no,
+                last_successful_fetch=now,
+                records_count=record_count,
+                failure_count=0
+            )
+            db.add(tracking)
+        
+        db.commit()
+        db.refresh(tracking)
+        return tracking
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error recording action history API request success: {e}")
+        raise
+
+def mark_action_history_api_request_failed(db: Session, ticket_no: str):
+    try:
+        tracking = db.query(ActionHistoryAPIRequestTracking).filter(
+            ActionHistoryAPIRequestTracking.ticket_no == ticket_no
+        ).first()
+        
+        if tracking:
+            tracking.failure_count += 1
+        else:
+            tracking = ActionHistoryAPIRequestTracking(
+                ticket_no=ticket_no,
+                failure_count=1
+            )
+            db.add(tracking)
+        
+        db.commit()
+        db.refresh(tracking)
+        return tracking
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error marking action history API request failed: {e}")
+        raise
+
+def get_tickets_needing_action_history(db: Session, days_threshold: int = 7, failure_threshold: int = 3) -> List[str]:
+    """Get ticket numbers that need action history fetching using existing fields."""
+    try:
+        time_zone = pytz.timezone('Asia/Kolkata')
+        cutoff_date = datetime.now(time_zone) - timedelta(days=days_threshold)
+        
+        # Get all complaints
+        all_complaints = get_all_complaints(db)
+        tickets_needing_fetch = []
+        
+        for complaint in all_complaints:
+            # Check if this ticket needs action history fetching
+            tracking = db.query(ActionHistoryAPIRequestTracking).filter(
+                ActionHistoryAPIRequestTracking.ticket_no == complaint.ticket_no
+            ).first()
+            
+            if tracking is None:
+                tickets_needing_fetch.append(complaint.ticket_no)
+            elif tracking.last_successful_fetch is None and tracking.failure_count < failure_threshold:
+                tickets_needing_fetch.append(complaint.ticket_no)
+            elif tracking.last_successful_fetch is None and tracking.failure_count >= failure_threshold:
+                continue
+            else:
+                last_fetch = tracking.last_successful_fetch
+
+                if last_fetch.tzinfo is None:
+                    last_fetch = time_zone.localize(last_fetch)
+                
+                if last_fetch < cutoff_date and tracking.failure_count < failure_threshold:
+                    tickets_needing_fetch.append(complaint.ticket_no)
+        
+        return tickets_needing_fetch
+    except Exception as e:
+        logger.error(f"Error getting complaints needing action history: {e}")
+        return []
+
 
 
 if __name__ == "__main__":

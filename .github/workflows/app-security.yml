@@ -1,0 +1,235 @@
+name: Security Vulnerability Scan
+
+on:
+  pull_request:
+    branches: [ dev ]
+
+# Add this permissions block
+permissions:
+    contents: read
+    pull-requests: write
+    issues: write
+    actions: read
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        
+    - name: Set up Python
+      run: uv python install 3.11
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        uv sync
+        
+    # Bandit - Static security analysis for Python
+    - name: Run Bandit security scan
+      run: |
+        uv tool install bandit
+        cd backend
+        uv tool run bandit -c pyproject.toml -r ./app/ -f json -o ../bandit-report.json || true
+
+        
+    # Safety - Check for known security vulnerabilities in dependencies
+    - name: Run Safety check
+      run: |
+        uv tool install safety
+        cd backend
+        uv tool run safety check --json --output ../safety-report.json || true
+        uv tool run safety check
+        
+    # Semgrep - Advanced static analysis
+    - name: Run Semgrep
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: |
+            paths: |
+                backend/
+            exclude: |
+                backend/venv/
+                backend/.venv/
+                backend/env/
+                backend/.env/
+                backend/node_modules/
+                backend/__pycache__/
+                backend/.pytest_cache/
+                backend/migrations/
+                backend/tests/
+                backend/.git/
+                backend/build/
+                backend/dist/
+                backend/.tox/
+                backend/.mypy_cache/
+                backend/.coverage/
+                backend/htmlcov/
+        
+    # CodeQL Analysis (GitHub's semantic code analysis)
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: python
+        # Configure CodeQL to focus on backend directory and exclude common paths
+        config: |
+          paths:
+            - backend/
+          paths-ignore:
+            - backend/venv/
+            - backend/.venv/
+            - backend/env/
+            - backend/.env/
+            - backend/node_modules/
+            - backend/__pycache__/
+            - backend/.pytest_cache/
+            - backend/migrations/
+            - backend/tests/
+            - backend/.git/
+            - backend/build/
+            - backend/dist/
+            - backend/.tox/
+            - backend/.mypy_cache/
+            - backend/.coverage/
+            - backend/htmlcov/
+        
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      
+    # Generate security report summary
+    - name: Generate security summary
+      id: security-summary
+      run: |
+        echo "## 🔒 Security Scan Results" > security-summary.md
+        echo "" >> security-summary.md
+        
+        # Process Bandit results
+        if [ -f bandit-report.json ]; then
+          BANDIT_ISSUES=$(jq '.results | length' bandit-report.json 2>/dev/null || echo "0")
+          HIGH_ISSUES=$(jq '.results[] | select(.issue_severity == "HIGH") | length' bandit-report.json 2>/dev/null | wc -l)
+          MEDIUM_ISSUES=$(jq '.results[] | select(.issue_severity == "MEDIUM") | length' bandit-report.json 2>/dev/null | wc -l)
+          LOW_ISSUES=$(jq '.results[] | select(.issue_severity == "LOW") | length' bandit-report.json 2>/dev/null | wc -l)
+          
+          echo "### 🔍 Bandit Static Analysis" >> security-summary.md
+          echo "- **Total Issues:** $BANDIT_ISSUES" >> security-summary.md
+          echo "- **High Severity:** $HIGH_ISSUES" >> security-summary.md
+          echo "- **Medium Severity:** $MEDIUM_ISSUES" >> security-summary.md
+          echo "- **Low Severity:** $LOW_ISSUES" >> security-summary.md
+          echo "" >> security-summary.md
+          
+          # Add detailed high severity issues
+          if [ $HIGH_ISSUES -gt 0 ]; then
+            echo "#### 🚨 High Severity Issues:" >> security-summary.md
+            jq -r '.results[] | select(.issue_severity == "HIGH") | "- **\(.test_name)** in `\(.filename):\(.line_number)` - \(.issue_text)"' bandit-report.json >> security-summary.md
+            echo "" >> security-summary.md
+          fi
+          
+          # Add medium severity issues
+          if [ $MEDIUM_ISSUES -gt 0 ]; then
+            echo "#### ⚠️ Medium Severity Issues:" >> security-summary.md
+            jq -r '.results[] | select(.issue_severity == "MEDIUM") | "- **\(.test_name)** in `\(.filename):\(.line_number)` - \(.issue_text)"' bandit-report.json >> security-summary.md
+            echo "" >> security-summary.md
+          fi
+        else
+          echo "### 🔍 Bandit Static Analysis" >> security-summary.md
+          echo "- ✅ No issues found" >> security-summary.md
+          echo "" >> security-summary.md
+        fi
+        
+        # Process Safety results
+        if [ -f safety-report.json ]; then
+          SAFETY_ISSUES=$(jq '.vulnerabilities | length' safety-report.json 2>/dev/null || echo "0")
+          echo "### 📦 Safety Dependency Check" >> security-summary.md
+          echo "- **Vulnerable Dependencies:** $SAFETY_ISSUES" >> security-summary.md
+          echo "" >> security-summary.md
+          
+          if [ $SAFETY_ISSUES -gt 0 ]; then
+            echo "#### 🔴 Vulnerable Dependencies:" >> security-summary.md
+            jq -r '.vulnerabilities[] | "- **\(.package_name)** \(.installed_version) - \(.vulnerability_id): \(.advisory)"' safety-report.json >> security-summary.md
+            echo "" >> security-summary.md
+          fi
+        else
+          echo "### 📦 Safety Dependency Check" >> security-summary.md
+          echo "- ✅ No vulnerable dependencies found" >> security-summary.md
+          echo "" >> security-summary.md
+        fi
+        
+        # Add recommendations
+        echo "### 💡 Recommendations" >> security-summary.md
+        echo "- Review and fix high severity issues before merging" >> security-summary.md
+        echo "- Update vulnerable dependencies to secure versions" >> security-summary.md
+        echo "- Consider adding security-focused code review practices" >> security-summary.md
+        echo "" >> security-summary.md
+        echo "---" >> security-summary.md
+        echo "*This scan was performed by GitHub Actions on $(date)*" >> security-summary.md
+        
+        # Set outputs for conditional logic
+        echo "high_issues=$HIGH_ISSUES" >> $GITHUB_OUTPUT
+        echo "total_issues=$((BANDIT_ISSUES + SAFETY_ISSUES))" >> $GITHUB_OUTPUT
+        
+    # Comment on PR with security results
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const fs = require('fs');
+          const securitySummary = fs.readFileSync('security-summary.md', 'utf8');
+          
+          // Find existing security comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const existingComment = comments.find(comment => 
+            comment.body.includes('🔒 Security Scan Results')
+          );
+          
+          if (existingComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: securitySummary
+            });
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: securitySummary
+            });
+          }
+          
+    # Upload artifacts for review
+    - name: Upload security reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+          security-summary.md
+          
+    # Fail the workflow if high severity issues are found
+    - name: Check for critical vulnerabilities
+      run: |
+        if [ "${{ steps.security-summary.outputs.high_issues }}" -gt 0 ]; then
+          echo "❌ Found ${{ steps.security-summary.outputs.high_issues }} high severity security issues"
+          echo "Please review and fix these issues before merging the PR"
+          exit 1
+        else
+          echo "✅ No high severity security issues found"
+        fi

@@ -92,6 +92,7 @@ jobs:
       uses: aws-actions/amazon-ecr-login@v2
 
     - name: Build and push Docker image
+      if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
       working-directory: ./backend
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}

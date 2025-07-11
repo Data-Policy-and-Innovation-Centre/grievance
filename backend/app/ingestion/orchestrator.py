@@ -131,7 +131,6 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
 
         db = next(get_db())
         orchestrator = IngestionOrchestrator(db,5)
-        doc_service = DocumentService(db=db)
         
         # Load districts from database if exists or ingest
         districts = db.query(DistrictModel).all()
@@ -192,11 +191,11 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
                 
                 stop_logging_to_console()
                 doc_tasks = [
-                    orchestrator.ingest_documents(chunk, doc_service)
+                    orchestrator.ingest_documents(chunk, orchestrator.doc_service)
                     for chunk in chunked(complaints, 10)
                 ]
                 doc_results = await track_with_progress(doc_tasks, desc="Ingesting documents")
-                doc_service.update_document_status_for_all_complaints(only_without_documents=True)
+                await orchestrator.doc_service.update_document_status_for_all_complaints(only_without_documents=True)
                 resume_logging_to_console()
                 logger.info(f"Completed {len(doc_results)} document ingestion tasks")
             except Exception as e:

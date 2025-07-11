@@ -330,7 +330,8 @@ def test_document_service_skips_local_folder_when_not_local(db_session, monkeypa
         mock_mkdir.assert_not_called()
 
 # Tests for update_document_status_for_all_complaints
-def test_update_document_status_for_all_complaints_no_complaints(doc_service, db_session):
+@pytest.mark.asyncio
+async def test_update_document_status_for_all_complaints_no_complaints(doc_service, db_session):
     """Test update_document_status_for_all_complaints when no complaints exist."""
     from app.db.crud import get_all_complaints
     
@@ -339,13 +340,14 @@ def test_update_document_status_for_all_complaints_no_complaints(doc_service, db
     assert len(complaints) == 0
     
     # Should not raise any errors
-    doc_service.update_document_status_for_all_complaints()
+    await doc_service.update_document_status_for_all_complaints()
     
     # Verify no complaints were processed
     complaints_after = get_all_complaints(db_session)
     assert len(complaints_after) == 0
 
-def test_update_document_status_for_all_complaints_with_pdf_document(doc_service, db_session, tmp_path, monkeypatch):
+@pytest.mark.asyncio
+async def test_update_document_status_for_all_complaints_with_pdf_document(doc_service, db_session, tmp_path, monkeypatch):
     """Test update_document_status_for_all_complaints with PDF document already downloaded."""
     from app.db.crud import get_all_complaints, update_document_status
     from app.config import settings
@@ -388,7 +390,7 @@ def test_update_document_status_for_all_complaints_with_pdf_document(doc_service
         mock_downloaded.side_effect = lambda ticket, doc_type, ext: ext == "pdf"
             
         # Call the method
-        doc_service.update_document_status_for_all_complaints()
+        await doc_service.update_document_status_for_all_complaints()
             
         # Verify the method was called for both PDF and JPEG
         assert mock_downloaded.call_count == 1
@@ -399,7 +401,8 @@ def test_update_document_status_for_all_complaints_with_pdf_document(doc_service
     assert updated_complaint.document_downloaded == True
     assert updated_complaint.local_document_path is not None
 
-def test_update_document_status_for_all_complaints_with_jpeg_document(doc_service, db_session, tmp_path, monkeypatch):
+@pytest.mark.asyncio
+async def test_update_document_status_for_all_complaints_with_jpeg_document(doc_service, db_session, tmp_path, monkeypatch):
     """Test update_document_status_for_all_complaints with JPEG document already downloaded."""
     from app.db.crud import get_all_complaints, update_document_status
     from app.config import settings
@@ -442,7 +445,7 @@ def test_update_document_status_for_all_complaints_with_jpeg_document(doc_servic
         mock_downloaded.side_effect = lambda ticket, doc_type, ext: ext == "jpeg"
             
         # Call the method
-        doc_service.update_document_status_for_all_complaints()
+        await doc_service.update_document_status_for_all_complaints()
             
         # Verify the method was called for both PDF and JPEG
         assert mock_downloaded.call_count == 2
@@ -454,7 +457,8 @@ def test_update_document_status_for_all_complaints_with_jpeg_document(doc_servic
     assert updated_complaint.document_downloaded == True
     assert updated_complaint.local_document_path is not None
 
-def test_update_document_status_for_all_complaints_multiple_complaints(doc_service, db_session, tmp_path, monkeypatch):
+@pytest.mark.asyncio
+async def test_update_document_status_for_all_complaints_multiple_complaints(doc_service, db_session, tmp_path, monkeypatch):
     """Test update_document_status_for_all_complaints with multiple complaints."""
     from app.db.crud import get_all_complaints, update_document_status
     from app.config import settings
@@ -495,7 +499,7 @@ def test_update_document_status_for_all_complaints_multiple_complaints(doc_servi
     # Mock the document_already_downloaded method to return True for all
     with patch.object(doc_service, "document_already_downloaded", return_value=True) as mock_downloaded:
         # Call the method
-        doc_service.update_document_status_for_all_complaints()
+        await doc_service.update_document_status_for_all_complaints()
         
         # Verify the method was called for each complaint
         assert mock_downloaded.call_count == 3  # Only pdf is checked
@@ -505,7 +509,8 @@ def test_update_document_status_for_all_complaints_multiple_complaints(doc_servi
         updated_complaint = get_complaint_by_ticket(db_session, complaint.ticket_no)
         assert updated_complaint.document_downloaded == True
 
-def test_update_document_status_for_all_complaints_no_documents_downloaded(doc_service, db_session, tmp_path, monkeypatch):
+@pytest.mark.asyncio
+async def test_update_document_status_for_all_complaints_no_documents_downloaded(doc_service, db_session, tmp_path, monkeypatch):
     """Test update_document_status_for_all_complaints when no documents are downloaded."""
     from app.db.crud import get_all_complaints, update_document_status
     from app.config import settings
@@ -542,14 +547,15 @@ def test_update_document_status_for_all_complaints_no_documents_downloaded(doc_s
     # Mock the document_already_downloaded method to return False for all
     with patch.object(doc_service, "document_already_downloaded", return_value=False) as mock_downloaded:
         # Call the method
-        doc_service.update_document_status_for_all_complaints()
+        await doc_service.update_document_status_for_all_complaints()
     
     
     # Verify the complaint was NOT updated
     updated_complaint = get_complaint_by_ticket(db_session, "T789")
     assert updated_complaint.document_downloaded == False
 
-def test_update_document_status_for_all_complaints_already_downloaded(doc_service, db_session, tmp_path, monkeypatch):
+@pytest.mark.asyncio
+async def test_update_document_status_for_all_complaints_already_downloaded(doc_service, db_session, tmp_path, monkeypatch):
     """Test update_document_status_for_all_complaints when documents are already marked as downloaded."""
     from app.config import settings
     
@@ -588,7 +594,7 @@ def test_update_document_status_for_all_complaints_already_downloaded(doc_servic
     with patch.object(doc_service, "document_already_downloaded", return_value=True) as mock_downloaded:
             
         # Call the method
-        doc_service.update_document_status_for_all_complaints()
+        await doc_service.update_document_status_for_all_complaints()
             
         # Verify the method was called for both PDF and JPEG
         assert mock_downloaded.call_count == 1
@@ -600,7 +606,8 @@ def test_update_document_status_for_all_complaints_already_downloaded(doc_servic
     # The path might be updated to a new one based on current timestamp
     assert updated_complaint.local_document_path is not None
 
-def test_update_document_status_for_all_complaints_mixed_scenarios(doc_service, db_session, tmp_path, monkeypatch):
+@pytest.mark.asyncio
+async def test_update_document_status_for_all_complaints_mixed_scenarios(doc_service, db_session, tmp_path, monkeypatch):
     """Test update_document_status_for_all_complaints with mixed scenarios."""
     from app.db.crud import get_all_complaints, update_document_status
     from app.config import settings
@@ -690,7 +697,7 @@ def test_update_document_status_for_all_complaints_mixed_scenarios(doc_service, 
     
     with patch.object(doc_service, "document_already_downloaded", side_effect=mock_downloaded) as mock_downloaded_func:
         # Call the method
-        doc_service.update_document_status_for_all_complaints()
+        await doc_service.update_document_status_for_all_complaints()
                
     
     # Verify results
@@ -702,7 +709,8 @@ def test_update_document_status_for_all_complaints_mixed_scenarios(doc_service, 
     assert complaint_102.document_downloaded == True  # JPEG found
     assert complaint_103.document_downloaded == False  # No document found
 
-def test_update_document_status_for_all_complaints_s3_environment(doc_service, db_session, monkeypatch):
+@pytest.mark.asyncio
+async def test_update_document_status_for_all_complaints_s3_environment(doc_service, db_session, monkeypatch):
     """Test update_document_status_for_all_complaints in S3 environment."""
     from app.db.crud import get_all_complaints, update_document_status
     from app.config import settings
@@ -737,7 +745,7 @@ def test_update_document_status_for_all_complaints_s3_environment(doc_service, d
     with patch.object(doc_service, "document_already_downloaded", return_value=True) as mock_downloaded:
      
         # Call the method
-        doc_service.update_document_status_for_all_complaints()
+        await doc_service.update_document_status_for_all_complaints()
             
         # Verify the method was called for both PDF and JPEG
         assert mock_downloaded.call_count == 1
@@ -747,7 +755,8 @@ def test_update_document_status_for_all_complaints_s3_environment(doc_service, d
     updated_complaint = get_complaint_by_ticket(db_session, "T200")
     assert updated_complaint.document_downloaded == True
 
-def test_update_document_status_for_all_complaints_error_handling(doc_service, db_session, tmp_path, monkeypatch):
+@pytest.mark.asyncio
+async def test_update_document_status_for_all_complaints_error_handling(doc_service, db_session, tmp_path, monkeypatch):
     """Test update_document_status_for_all_complaints with error handling."""
     from app.db.crud import get_all_complaints, update_document_status
     from app.config import settings
@@ -785,4 +794,4 @@ def test_update_document_status_for_all_complaints_error_handling(doc_service, d
     with patch.object(doc_service, "document_already_downloaded", side_effect=Exception("Test error")):
         # Call the method - should raise an exception since there's no error handling
         with pytest.raises(Exception, match="Test error"):
-            doc_service.update_document_status_for_all_complaints()
+            await doc_service.update_document_status_for_all_complaints()

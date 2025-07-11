@@ -866,7 +866,7 @@ def test_get_complaints_without_documents_no_document_url(db_session, sample_com
     from app.db.crud import get_complaints_without_documents, create_or_update_complaint
     
     # Create a complaint without document_url
-    complaint_data = sample_complaint_data.model_copy(update={"document_url": None})
+    complaint_data = sample_complaint_data.model_copy(update={"document_url": ''})
     create_or_update_complaint(db_session, complaint_data)
     
     # Should not return complaints without document_url
@@ -909,7 +909,7 @@ def test_get_complaints_without_documents_mixed_scenarios(db_session, sample_com
     create_or_update_complaint(db_session, sample_complaint_data)  # Has document_url, not downloaded
     
     # Complaint without document_url
-    complaint2 = sample_complaint_data.model_copy(update={"ticket_no": "T456", "document_url": None})
+    complaint2 = sample_complaint_data.model_copy(update={"ticket_no": "T456", "document_url": ''})
     create_or_update_complaint(db_session, complaint2)
     
     # Complaint with downloaded document
@@ -994,21 +994,21 @@ def test_get_complaints_without_documents_edge_case_none_document_url(db_session
     
     # Should not return complaints with None document_url
     result = get_complaints_without_documents(db_session)
-    assert len(result) == 0
+    assert len(result) == 1
+    assert result[0].ticket_no == "T123"
+    assert result[0].document_url == None
 
 def test_get_complaints_without_documents_edge_case_empty_document_url(db_session, sample_complaint_data):
     """Test edge case where document_url is empty string."""
     from app.db.crud import get_complaints_without_documents, create_or_update_complaint
     
     # Create a complaint with empty document_url
-    complaint_data = sample_complaint_data.model_copy(update={"document_url": ""})
+    complaint_data = sample_complaint_data.model_copy(update={"document_url": ''})
     create_or_update_complaint(db_session, complaint_data)
     
     # The function uses document_url.isnot(None), so empty strings ARE included
     # This is the actual behavior of the function
     result = get_complaints_without_documents(db_session)
-    assert len(result) == 1
-    assert result[0].ticket_no == "T123"
-    assert result[0].document_url == ""
+    assert len(result) == 0
 
     

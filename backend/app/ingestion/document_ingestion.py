@@ -9,7 +9,7 @@ from datetime import datetime
 from loguru import logger
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.db.crud import get_complaint_by_ticket, update_document_status, get_all_complaints, get_complaints_without_documents
+from app.db.crud import get_complaint_by_ticket, update_document_status, get_complaints_with_document_urls, get_complaints_without_documents
 from app.config import settings
 from app.ingestion.schemas import Complaint
 from app.ingestion.client import with_retry
@@ -36,7 +36,7 @@ class DocumentService:
         if not os.path.exists(settings.LOCAL_STORAGE_PATH):
             os.mkdir(settings.LOCAL_STORAGE_PATH)
 
-    def update_document_status_for_all_complaints(self, only_without_documents: bool = False):
+    async def update_document_status_for_all_complaints(self, only_without_documents: bool = False):
         """
         Update the document status for all complaints whose documents are already downloaded
         """
@@ -44,35 +44,22 @@ class DocumentService:
         if only_without_documents:
             complaints = get_complaints_without_documents(self.db)
         else:
-            complaints = get_all_complaints(self.db)
+            complaints = get_complaints_with_document_urls(self.db)
         
         with tqdm(total = len(complaints), desc = "Updating document status", position = 1, leave = False) as pbar:
             for complaint in complaints:
                 pbar.set_description(f"Processing {complaint.ticket_no}")
                 path = self.get_document_path(complaint.ticket_no, "complaint")
-                if self.document_already_downloaded(complaint.ticket_no, "complaint", "pdf"):
-                    update_document_status(self.db, complaint.ticket_no, local_path=path, success=True)
-                    pbar.update(1)
-                elif self.document_already_downloaded(complaint.ticket_no, "complaint", "jpeg"):
-                    update_document_status(self.db, complaint.ticket_no, local_path=path, success=True)
-                    pbar.update(1)
-                elif self.document_already_downloaded(complaint.ticket_no, "complaint", "docx"):
-                    update_document_status(self.db, complaint.ticket_no, local_path=path, success=True)
-                    pbar.update(1)
-                elif self.document_already_downloaded(complaint.ticket_no, "complaint", "doc"):
-                    update_document_status(self.db, complaint.ticket_no, local_path=path, success=True)
-                    pbar.update(1)
-                elif self.document_already_downloaded(complaint.ticket_no, "complaint", "png"):
-                    update_document_status(self.db, complaint.ticket_no, local_path=path, success=True)
-                    pbar.update(1)
-                elif self.document_already_downloaded(complaint.ticket_no, "complaint", "bin"):
-                    update_document_status(self.db, complaint.ticket_no, local_path=path, success=True)
-                    pbar.update(1)
-                elif self.document_already_downloaded(complaint.ticket_no, "complaint", "jpg"):
+                downloaded = any(
+                    self.document_already_downloaded(complaint.ticket_no, "complaint", ext)
+                    for ext in ["pdf", "jpeg", "docx", "doc", "png", "bin", "jpg"]
+                )
+
+                if downloaded:
                     update_document_status(self.db, complaint.ticket_no, local_path=path, success=True)
                     pbar.update(1)
                 else:
-                    self.download_document(complaint)
+                    await self.download_document(complaint)
                 
                 # TODO: Add as needed for other document types
 

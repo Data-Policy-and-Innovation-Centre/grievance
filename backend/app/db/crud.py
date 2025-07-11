@@ -273,14 +273,14 @@ def update_document_status(db: Session, ticket_no: str, local_path: str, success
 
 def get_complaints_without_documents(db: Session, get_docs_where_errors_occurred: bool = False) -> list[ComplaintModel]:
     return db.query(ComplaintModel).filter(
-        ComplaintModel.document_url.isnot(None),
+        ComplaintModel.document_url.isnot(''),
         ComplaintModel.document_downloaded == False,
         ComplaintModel.document_download_error.isnot(None) if get_docs_where_errors_occurred else ComplaintModel.document_download_error.is_(None)
     ).all()
 
 
 def get_complaints_with_document_urls(db: Session) -> list[ComplaintModel]:
-    return db.query(ComplaintModel).filter(ComplaintModel.document_url.isnot(None)).all()
+    return db.query(ComplaintModel).filter(ComplaintModel.document_url.isnot('')).all()
 
 def record_complaint_api_request_success(db: Session, year: int, dist_id: int, status: int, office: int, record_count: int) -> Optional[APIRequestTracking]:
     """Record a successful API request in db and its results."""

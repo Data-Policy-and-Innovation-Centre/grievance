@@ -1,26 +1,30 @@
-import re
-import os
 import asyncio
-import httpx
-import aiofiles
 import glob
-from typing import List, Dict
+import os
+import re
 from datetime import datetime
+from typing import Dict, List
+
+import aiofiles
+import httpx
+from botocore.exceptions import ClientError
 from loguru import logger
 from sqlalchemy.orm import Session
-from app.db.session import get_db
-from app.db.crud import get_complaint_by_ticket, update_document_status
-from app.config import settings
-from app.ingestion.schemas import Complaint
-from app.ingestion.client import with_retry
 from tqdm import tqdm
-from botocore.exceptions import ClientError
+
+from app.config import settings
+from app.db.crud import get_complaint_by_ticket, update_document_status
+from app.db.session import get_db
+from app.ingestion.client import with_retry
+from app.ingestion.schemas import Complaint
 from app.s3service import S3Service
+
 
 class DocumentService:
     """
     Async client for Document download service
     """
+
     def __init__(self, s3_bucket: str = settings.AWS_S3_DOCUMENTS, db: Session = None):
         self.semaphore = asyncio.Semaphore(5)
         self.db = db or next(get_db())
@@ -28,7 +32,7 @@ class DocumentService:
             self._create_local_folder()
         else:
             self.s3_service = S3Service(s3_bucket)
-    
+
     def _create_local_folder(self):
         """
         Private function that creates a local folder if not exists
@@ -42,13 +46,13 @@ class DocumentService:
 
         Args:
         ticket_no (str): The unique identifier of the complaint.
-        document_type (str): A string label indicating the type of document 
+        document_type (str): A string label indicating the type of document
 
         Returns:
-            str: The full local file path where the document should be saved, or 
+            str: The full local file path where the document should be saved, or
                 None if the complaint does not exist or an error occurs.
         """
-        type_file_pattern = re.compile(r'~([a-zA-Z]*)$') 
+        type_file_pattern = re.compile(r"~([a-zA-Z]*)$")
         complaint = get_complaint_by_ticket(self.db, ticket_no)
         if complaint is None:
             logger.error(f"Complaint {ticket_no} does not exist in the database.")
@@ -65,10 +69,12 @@ class DocumentService:
         except Exception as e:
             logger.error(f"Complaint {ticket_no} failed in get_document_path: {e}")
             return None
-        
-    def _document_already_downloaded_local(self, ticket_no: str, document_type: str, extension: str) -> bool:
+
+    def _document_already_downloaded_local(
+        self, ticket_no: str, document_type: str, extension: str
+    ) -> bool:
         """
-        Checks whether a document with the given ticket number, document type, 
+        Checks whether a document with the given ticket number, document type,
         and file extension has already been downloaded. Regardless of the timestamp
         of the date when it was downloaded
 
@@ -81,12 +87,14 @@ class DocumentService:
             bool: True if a matching document file already existe, False otherwise
         """
         base_pattern = f"{ticket_no}_{document_type}_*.{extension.lower()}"
-        full_pattern = os.path.join(settings.LOCAL_STORAGE_PATH, base_pattern) 
+        full_pattern = os.path.join(settings.LOCAL_STORAGE_PATH, base_pattern)
         return len(glob.glob(full_pattern)) > 0
-    
-    def _document_already_downloaded_s3(self, ticket_no: str, document_type: str, extension: str) -> bool:
+
+    def _document_already_downloaded_s3(
+        self, ticket_no: str, document_type: str, extension: str
+    ) -> bool:
         """
-        Checks whether a document with the given ticket number, document type, 
+        Checks whether a document with the given ticket number, document type,
         and file extension has already been downloaded to S3. Regardless of the timestamp
         of the date when it was downloaded
 
@@ -100,22 +108,27 @@ class DocumentService:
         """
         prefix = f"{ticket_no}_{document_type}_"
         objects = self.s3_service.list_objects(prefix=prefix)
-        
+
         for obj in objects:
-            if obj['Key'].lower().endswith(f".{extension.lower()}"):
+            if obj["Key"].lower().endswith(f".{extension.lower()}"):
                 return True
-        
+
         return False
-    
-    def document_already_downloaded(self, ticket_no: str, document_type: str, extension: str) -> bool:
+
+    def document_already_downloaded(
+        self, ticket_no: str, document_type: str, extension: str
+    ) -> bool:
         if settings.ENV == "dev":
-            return self._document_already_downloaded_local(ticket_no, document_type, extension)
-        
+            return self._document_already_downloaded_local(
+                ticket_no, document_type, extension
+            )
+
         return self._document_already_downloaded_s3(ticket_no, document_type, extension)
-    
 
     @with_retry()
-    async def download_document(self, complaint: Complaint, document_type: str = "complaint") -> str:
+    async def download_document(
+        self, complaint: Complaint, document_type: str = "complaint"
+    ) -> str:
         """
         Asynchronously downloads the document associated with a complaint, if not already downloaded.
         This method performs the following:
@@ -123,13 +136,13 @@ class DocumentService:
         - Constructs the expected local file path
         - Cheks if the document has already been dowloaded
         - Downloads and saves the document using an async HTTP Client
-        
+
         Args:
             complaint (Complaint): The complaint object containing the document URL and ticket number.
             document_type (str, optional): Label to distinguish types of documents. Defaults to "complaint".
 
         Returns:
-            str: The full local file path where the document was saved, or None if the document was already downloaded 
+            str: The full local file path where the document was saved, or None if the document was already downloaded
                 or an error occurred during path generation or validation.
         """
         url, ticket_no = complaint.document_url, complaint.ticket_no
@@ -137,25 +150,25 @@ class DocumentService:
         if not url or not url.lower().startswith(("http://", "https://")):
             logger.warning(f"Complaint {ticket_no} does not have a valid document URL.")
             return None
-        
+
         path = self.get_document_path(ticket_no, document_type)
 
         if path is None:
             logger.warning(f"Failed to generate a path for complaint {ticket_no}")
             return None
-        
+
         extension = os.path.splitext(path)[1][1:].lower()
 
         if self.document_already_downloaded(ticket_no, document_type, extension):
             logger.info(f"Document for complaint {ticket_no} already saved.")
             return None
-        
+
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url)
                 response.raise_for_status()
                 if settings.ENV == "dev":
-                    async with aiofiles.open(path, 'wb') as f:
+                    async with aiofiles.open(path, "wb") as f:
                         await f.write(response.content)
                 else:
                     self.s3_service.upload_fileobj(response.content, path)
@@ -164,13 +177,21 @@ class DocumentService:
         except Exception as e:
             error_msg = str(e)
             logger.error(f"Error downloading document for {ticket_no}: {error_msg}")
-            update_document_status(self.db, ticket_no, local_path="", success=False, error=f"Error: {error_msg}")
+            update_document_status(
+                self.db,
+                ticket_no,
+                local_path="",
+                success=False,
+                error=f"Error: {error_msg}",
+            )
             return "Error"
 
-    async def batch_download_documents(self, complaints: List[Complaint]) -> Dict[str, str]:
+    async def batch_download_documents(
+        self, complaints: List[Complaint]
+    ) -> Dict[str, str]:
         """
         Asynchronously downloads documents for a batch of complaints and updates their status in the database.
-    
+
         Args:
             complaints (List[Complaint]): A list of Complaint objects to process.
 
@@ -181,19 +202,29 @@ class DocumentService:
                     - "failed" if an error occurred during download.
         """
         results = {}
-        with tqdm(total = len(complaints), desc = "Downloading documents", position = 1, leave = False) as pbar:
+        with tqdm(
+            total=len(complaints), desc="Downloading documents", position=1, leave=False
+        ) as pbar:
             for complaint in complaints:
                 try:
                     pbar.set_description(f"Downloading {complaint.ticket_no}")
                     path = await self.download_document(complaint)
                     if path:
-                        update_document_status(self.db, complaint.ticket_no, local_path=path, success=True)
+                        update_document_status(
+                            self.db, complaint.ticket_no, local_path=path, success=True
+                        )
                         results[complaint.ticket_no] = "success"
                     else:
                         results[complaint.ticket_no] = "skipped"
                     pbar.update(1)
                 except Exception as e:
-                    update_document_status(self.db, complaint.ticket_no, local_path="", success=False, error=str(e))
+                    update_document_status(
+                        self.db,
+                        complaint.ticket_no,
+                        local_path="",
+                        success=False,
+                        error=str(e),
+                    )
                     results[complaint.ticket_no] = "failed"
                     pbar.update(1)
             self.db.commit()

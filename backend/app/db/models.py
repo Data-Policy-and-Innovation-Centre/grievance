@@ -1,8 +1,11 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, UniqueConstraint
 from datetime import datetime
-from sqlalchemy.orm import relationship, declarative_base
+
+from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
+                        UniqueConstraint)
+from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
+
 
 class District(Base):
     """
@@ -11,13 +14,14 @@ class District(Base):
     This model stores information about different districts including their
     names and unique district IDs.
     """
-    __tablename__ = 'districts'
+
+    __tablename__ = "districts"
 
     id = Column(Integer, primary_key=True)
     dist_name = Column(String, nullable=False)
     dist_id = Column(Integer, nullable=False, unique=True)
 
-    __table_args__ = (UniqueConstraint('dist_id', name='dist_id_uniq'),)
+    __table_args__ = (UniqueConstraint("dist_id", name="dist_id_uniq"),)
 
 
 class Complaint(Base):
@@ -64,9 +68,10 @@ class Complaint(Base):
         local_document_path (str): Local path where the document is storage
         document_downloaded (bool): Indicates if the document has been downloaded
         document_download_date (datetime): Indicates the date in which the document has been downloaded
-        document_download_error (str): Captures the error obtained when failing to download the document 
+        document_download_error (str): Captures the error obtained when failing to download the document
     """
-    __tablename__ = 'complaints'
+
+    __tablename__ = "complaints"
 
     id = Column(Integer, primary_key=True)
     ticket_no = Column(String, unique=True, nullable=False)
@@ -101,12 +106,13 @@ class Complaint(Base):
     self_assign = Column(String, nullable=True)
     resolved_on = Column(DateTime, nullable=True)
     benefitted = Column(String, nullable=True)
-    local_document_path = Column(String, nullable = True)
-    document_downloaded = Column(Boolean, default = False)
-    document_download_date = Column(DateTime, nullable = True)
-    document_download_error = Column(String, nullable = True)
+    local_document_path = Column(String, nullable=True)
+    document_downloaded = Column(Boolean, default=False)
+    document_download_date = Column(DateTime, nullable=True)
+    document_download_error = Column(String, nullable=True)
 
-    __table_args__ = (UniqueConstraint('ticket_no', name='ticket_no_uniq'),)
+    __table_args__ = (UniqueConstraint("ticket_no", name="ticket_no_uniq"),)
+
 
 class ActionHistory(Base):
     """
@@ -122,26 +128,34 @@ class ActionHistory(Base):
         action_taken_remark (str): Additional remarks or comments about the action
         complaint_status_with_authority (str): The status of the complaint with the authority
     """
-    __tablename__ = 'action_history'
+
+    __tablename__ = "action_history"
 
     id = Column(Integer, primary_key=True)
-    ticket_no = Column(String, ForeignKey('complaints.ticket_no'))
-    complaint = relationship('Complaint', backref='action_history')
+    ticket_no = Column(String, ForeignKey("complaints.ticket_no"))
+    complaint = relationship("Complaint", backref="action_history")
     action_taken_date = Column(DateTime, nullable=True)
     action_taken_by = Column(String, nullable=False)
     action_status = Column(String, nullable=False)
     action_taken_remark = Column(String, nullable=True)
     complaint_status_with_authority = Column(String, nullable=False)
 
-    __table_args__ = (UniqueConstraint('ticket_no', 
-                                       'action_taken_by', 
-                                       'action_status', 
-                                       'action_taken_remark',
-                                       'complaint_status_with_authority', name='action_history_uniq'),)
+    __table_args__ = (
+        UniqueConstraint(
+            "ticket_no",
+            "action_taken_by",
+            "action_status",
+            "action_taken_remark",
+            "complaint_status_with_authority",
+            name="action_history_uniq",
+        ),
+    )
+
 
 class APIRequestTracking(Base):
     """Track which API request combinations have been successfully processed."""
-    __tablename__ = 'api_request_tracking'
+
+    __tablename__ = "api_request_tracking"
 
     id = Column(Integer, primary_key=True)
     year = Column(Integer, nullable=False)
@@ -151,7 +165,9 @@ class APIRequestTracking(Base):
     last_successful_fetch = Column(DateTime, nullable=True)
     records_count = Column(Integer, nullable=True)
     failure_count = Column(Integer, nullable=False, default=0)
-    
+
     __table_args__ = (
-        UniqueConstraint('year', 'dist_id', 'status', 'office', name='api_request_uniq'),
+        UniqueConstraint(
+            "year", "dist_id", "status", "office", name="api_request_uniq"
+        ),
     )

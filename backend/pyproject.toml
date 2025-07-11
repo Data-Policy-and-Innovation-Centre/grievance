@@ -96,6 +96,7 @@ dev = [
     "black",
     "flake8",
     "isort",
+    "mypy",
     "pytest",
     "pytest-asyncio",
     "coverage",
@@ -131,3 +132,11 @@ directory = "coverage_html"
 exclude_dirs = ["app/tests"]
 tests = ["B201", "B301"]
 skips = ["B101", "B601"]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "flake8>=7.2.0",
+    "isort>=6.0.1",
+    "mypy>=1.16.1",
+]

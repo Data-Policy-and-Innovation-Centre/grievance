@@ -1,9 +1,11 @@
-import pytest
-from datetime import datetime
-from pydantic import ValidationError
-from app.ingestion.schemas import Complaint, District, validate
 import sys
+from datetime import datetime
 from types import SimpleNamespace
+
+import pytest
+from pydantic import ValidationError
+
+from app.ingestion.schemas import Complaint, District, validate
 
 # Mock OFFICE and settings for testing
 
@@ -12,6 +14,7 @@ sys.modules["app.ingestion.schemas"].OFFICE = OFFICE
 
 settings = SimpleNamespace(DEBUG=True)
 sys.modules["app.ingestion.schemas"].settings = settings
+
 
 def valid_complaint_dict(**overrides):
     data = {
@@ -51,10 +54,12 @@ def valid_complaint_dict(**overrides):
     data.update(overrides)
     return data
 
+
 def test_district_model():
     d = District(distName="District X", distId=1)
     assert d.dist_name == "District X"
     assert d.dist_id == 1
+
 
 def test_complaint_valid_data():
     data = valid_complaint_dict()
@@ -65,11 +70,13 @@ def test_complaint_valid_data():
     assert isinstance(c.created_on, datetime)
     assert c.status == "Pending"
 
+
 def test_complaint_office_typo_correction(monkeypatch):
     # Simulate typo in office name, should match closest
     data = valid_complaint_dict(officeNAme="Office B")
     c = Complaint(**data)
     assert c.office == "Office B"
+
 
 def test_complaint_office_invalid():
     data = valid_complaint_dict(officeNAme="Unknown Office")
@@ -77,16 +84,21 @@ def test_complaint_office_invalid():
         Complaint(**data)
     assert "is not recognized" in str(exc.value)
 
-@pytest.mark.parametrize("input_val,expected", [
-    ("Yes", True),
-    ("No", False),
-    ("yes", True),
-    ("no", False),
-])
+
+@pytest.mark.parametrize(
+    "input_val,expected",
+    [
+        ("Yes", True),
+        ("No", False),
+        ("yes", True),
+        ("no", False),
+    ],
+)
 def test_complaint_govt_ticket_variants(input_val, expected):
     data = valid_complaint_dict(govtTicket=input_val)
     c = Complaint(**data)
     assert c.govt_ticket is expected
+
 
 def test_complaint_govt_ticket_invalid():
     data = valid_complaint_dict(govtTicket="Maybe")
@@ -94,24 +106,39 @@ def test_complaint_govt_ticket_invalid():
         Complaint(**data)
     assert "not recognized" in str(exc.value)
 
+
 def test_complaint_datetime_formats():
     data = valid_complaint_dict(CreatedOn="2024-06-01T12:00:00")
     c = Complaint(**data)
     assert isinstance(c.created_on, datetime)
 
-    data2 = valid_complaint_dict(CreatedOn="2024-06-01T12:00:00", assignedOn="2024-06-01T13:00:00")
+    data2 = valid_complaint_dict(
+        CreatedOn="2024-06-01T12:00:00", assignedOn="2024-06-01T13:00:00"
+    )
     c2 = Complaint(**data2)
     assert isinstance(c2.assigned_on, datetime)
+
 
 def test_complaint_datetime_invalid():
     data = valid_complaint_dict(CreatedOn="not-a-date")
     with pytest.raises(ValidationError) as exc:
         Complaint(**data)
-    assert "input should be a valid datetime" in str(exc.value).lower() or "parse datetime" in str(exc.value).lower()
+    assert (
+        "input should be a valid datetime" in str(exc.value).lower()
+        or "parse datetime" in str(exc.value).lower()
+    )
+
 
 def test_validate_function_success(monkeypatch):
     # Patch logger to avoid actual logging
-    monkeypatch.setattr("app.ingestion.schemas.logger", SimpleNamespace(info=lambda *a, **k: None, debug=lambda *a, **k: None, error=lambda *a, **k: None))
+    monkeypatch.setattr(
+        "app.ingestion.schemas.logger",
+        SimpleNamespace(
+            info=lambda *a, **k: None,
+            debug=lambda *a, **k: None,
+            error=lambda *a, **k: None,
+        ),
+    )
     items = [valid_complaint_dict()]
     validated = validate(items, Complaint, dict_mode=False)
     assert len(validated) == 1
@@ -120,10 +147,18 @@ def test_validate_function_success(monkeypatch):
     validated_dict = validate(items, Complaint, dict_mode=True)
     assert len(validated_dict) == 1
     assert isinstance(validated_dict[0], dict)
-    assert validated_dict[0]['ticket_no'] == "T123"
+    assert validated_dict[0]["ticket_no"] == "T123"
+
 
 def test_validate_function_with_errors(monkeypatch):
-    monkeypatch.setattr("app.ingestion.schemas.logger", SimpleNamespace(info=lambda *a, **k: None, debug=lambda *a, **k: None, error=lambda *a, **k: None))
+    monkeypatch.setattr(
+        "app.ingestion.schemas.logger",
+        SimpleNamespace(
+            info=lambda *a, **k: None,
+            debug=lambda *a, **k: None,
+            error=lambda *a, **k: None,
+        ),
+    )
     items = [valid_complaint_dict(), valid_complaint_dict(officeNAme="Unknown Office")]
     validated = validate(items, Complaint)
     assert len(validated) == 1  # Only the valid one is returned

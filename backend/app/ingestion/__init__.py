@@ -1,8 +1,4 @@
-STATUS = {
-    0: "To be assigned",
-    1: "Assigned but pending",
-    2: "Disposed"
-}
+STATUS = {0: "To be assigned", 1: "Assigned but pending", 2: "Disposed"}
 OFFICE = {
     1: "Office of Chief Minister",
     2: "Governor",
@@ -10,6 +6,5 @@ OFFICE = {
     4: "DG & IG Police",
     5: "Departments",
     6: "Collector",
-    7: "Superintendent of Police"
+    7: "Superintendent of Police",
 }
-

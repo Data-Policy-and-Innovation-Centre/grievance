@@ -260,10 +260,12 @@ def bulk_load_action_histories(db: Session, actions_data: List[ActionHistorySche
 
 def update_document_status(db: Session, ticket_no: str, local_path: str, success: bool, error: str = None):
     complaint = get_complaint_by_ticket(db, ticket_no = ticket_no)
+    time_zone = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(time_zone)
     if complaint:
         complaint.local_document_path = local_path
         complaint.document_downloaded = success
-        complaint.document_download_date = datetime.now()
+        complaint.document_download_date = now
         complaint.document_download_error = error
         db.commit()
         db.refresh(complaint)

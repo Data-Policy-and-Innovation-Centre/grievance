@@ -1,10 +1,14 @@
-from pydantic import BaseModel, field_validator, Field
-from typing import Optional, Any
-from loguru import logger
 from datetime import datetime
-from . import OFFICE
 from difflib import get_close_matches
+from typing import Any, Optional
+
+from loguru import logger
+from pydantic import BaseModel, Field, field_validator
+
 from app.config import settings
+
+from . import OFFICE
+
 
 class District(BaseModel):
     """
@@ -14,8 +18,10 @@ class District(BaseModel):
         dist_name (str): The name of the district.
         dist_id (int): The unique identifier for the district.
     """
+
     dist_name: str = Field(..., alias="distName")
     dist_id: int = Field(..., alias="distId")
+
 
 class Complaint(BaseModel):
     """
@@ -55,6 +61,7 @@ class Complaint(BaseModel):
         resolved_on (Optional[datetime]): Date and time when the complaint was resolved.
         benefitted (Optional[str]): Indicates if the petitioner benefitted from the resolution.
     """
+
     ticket_no: str = Field(..., alias="ticketNumber")
     petitioner_name: Optional[str] = Field(..., alias="petitionerName")
     petitioner_mobile: Optional[str] = Field(..., alias="petitionerMobile")
@@ -94,9 +101,11 @@ class Complaint(BaseModel):
             closest = get_close_matches(str(v), OFFICE.values(), n=1)
             if closest:
                 return closest[0]
-            raise ValueError(f"Office '{v}' is not recognized and no close match found.")
+            raise ValueError(
+                f"Office '{v}' is not recognized and no close match found."
+            )
         return v
-    
+
     @field_validator("govt_ticket", mode="before")
     def validate_govt_ticket(cls, v):
         if v in ["Yes", "yes"]:
@@ -105,8 +114,15 @@ class Complaint(BaseModel):
             return False
         else:
             raise ValueError(f"Government ticket status '{v}' is not recognized.")
-        
-    @field_validator("created_on", "tagged_date", "assigned_on", "escalation_date", "resolved_on", mode="before")
+
+    @field_validator(
+        "created_on",
+        "tagged_date",
+        "assigned_on",
+        "escalation_date",
+        "resolved_on",
+        mode="before",
+    )
     def validate_datetime(cls, v):
         if v is None:
             return None
@@ -119,7 +135,8 @@ class Complaint(BaseModel):
                 return datetime.strptime(v, "%Y-%m-%dT%H:%M:%S")
             except (ValueError, TypeError):
                 return None
-            
+
+
 class ActionHistory(BaseModel):
     """
     Represents an action taken on a complaint, including the action taken by, the date of action, the remarks, and the status of the action.
@@ -132,6 +149,7 @@ class ActionHistory(BaseModel):
         action_status (str): The status of the action taken.
         complaint_status_with_authority (str): The status of the complaint with the authority.
     """
+
     ticket_no: str = Field(..., alias="ticketNumber")
     action_taken_by: str
     action_taken_date: Optional[datetime]
@@ -149,12 +167,15 @@ class ActionHistory(BaseModel):
             return datetime.fromisoformat(v)
         except (ValueError, TypeError):
             try:
-                return datetime.strptime(v, '%d-%b-%Y %H:%M %p')
-            
+                return datetime.strptime(v, "%d-%b-%Y %H:%M %p")
+
             except (ValueError, TypeError):
                 return None
-        
-def validate(items: list[dict], model: BaseModel, dict_mode: bool = True) -> list[dict] | list[BaseModel]:
+
+
+def validate(
+    items: list[dict], model: BaseModel, dict_mode: bool = True
+) -> list[dict] | list[BaseModel]:
     """
     Validates data against a Pydantic model.
     Args:
@@ -166,7 +187,7 @@ def validate(items: list[dict], model: BaseModel, dict_mode: bool = True) -> lis
     Raises:
         ValueError: If the data does not match the expected format.
     """
-    
+
     logger.info(f"Attempting to validate {len(items)} {model.__name__} records")
     validated = []
     errors = []
@@ -176,16 +197,19 @@ def validate(items: list[dict], model: BaseModel, dict_mode: bool = True) -> lis
         except Exception as e:
             errors.append((idx, item, str(e)))
     if errors:
-        error_msgs = "\n".join(
-            [f"Index {idx}: {err}" for idx, itm, err in errors]
+        error_msgs = "\n".join([f"Index {idx}: {err}" for idx, itm, err in errors])
+        logger.error(
+            f"Validation failed for {len(errors)} records. Errors:\n{error_msgs}"
         )
-        logger.error(f"Validation failed for {len(errors)} records. Errors:\n{error_msgs}")
-    
+
     logger.info(f"Validated {len(validated)} {model.__name__} records")
     validated_dict = [model.model_dump(by_alias=False) for model in validated]
     return validated_dict if dict_mode else validated
 
-def validate_action_history(items: list[dict], ticket_no: str, dict_mode: bool = True) -> list[ActionHistory]:
+
+def validate_action_history(
+    items: list[dict], ticket_no: str, dict_mode: bool = True
+) -> list[ActionHistory]:
     """
     Validates action history data against the ActionHistory model.
 
@@ -199,4 +223,3 @@ def validate_action_history(items: list[dict], ticket_no: str, dict_mode: bool =
     for item in items:
         item["ticketNumber"] = ticket_no
     return validate(items, ActionHistory, dict_mode=dict_mode)
-

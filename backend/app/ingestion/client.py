@@ -1,17 +1,21 @@
-import httpx
 import asyncio
-from app.config import settings, directories
-from .schemas import validate, validate_action_history, Complaint, District
-from loguru import logger
-from . import STATUS, OFFICE
-from datetime import datetime
-from more_itertools import chunked
-from itertools import product
-import json
 import functools
+import json
+from datetime import datetime
+from itertools import product
+
+import httpx
+from loguru import logger
+from more_itertools import chunked
+
+from app.config import directories, settings
+
+from . import OFFICE, STATUS
+from .schemas import Complaint, District, validate, validate_action_history
 
 RETRY_BACKOFF = 5
 MAX_RETRIES = 10
+
 
 class JanasunaniAPIError(Exception):
     """Custom exception for Jansunani API errors."""
@@ -19,6 +23,7 @@ class JanasunaniAPIError(Exception):
     def __init__(self, message: str):
         super().__init__(message)
         self.message = message
+
 
 def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF):
     def decorator(func):
@@ -32,7 +37,9 @@ def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF):
                     raise
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code == 429:
-                        retry_after = int(e.response.headers.get("Retry-After", backoff))
+                        retry_after = int(
+                            e.response.headers.get("Retry-After", backoff)
+                        )
                         logger.warning(f"[429] {label}: retrying in {retry_after}s...")
                         await asyncio.sleep(retry_after)
                     else:
@@ -43,8 +50,11 @@ def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF):
                     break
             logger.error(f"[{label}] Failed after {max_retries} retries.")
             return None
+
         return wrapper
+
     return decorator
+
 
 class JanasunaniAPIClient:
     """
@@ -118,7 +128,14 @@ class JanasunaniAPIClient:
             return self._handle_response(response)
 
     @with_retry()
-    async def get_complaints(self, year: int, distId: int, status: int, office: int, semaphore: asyncio.Semaphore) -> list[dict]:
+    async def get_complaints(
+        self,
+        year: int,
+        distId: int,
+        status: int,
+        office: int,
+        semaphore: asyncio.Semaphore,
+    ) -> list[dict]:
         """
         Retrieves complaints from the grievance system based on the specified filters.
 
@@ -137,30 +154,31 @@ class JanasunaniAPIClient:
         """
         if status not in STATUS.keys():
             raise ValueError(f"Status must be in {STATUS.keys()}")
-        
+
         if office not in OFFICE.keys():
             raise ValueError(f"Office must be in {OFFICE.keys()}")
 
-        
         logger.info(
-                f"Fetching complaints for year: {year}, district ID: {distId}, status: {STATUS[status]}, office: {OFFICE[office]} (async)"
-            )
+            f"Fetching complaints for year: {year}, district ID: {distId}, status: {STATUS[status]}, office: {OFFICE[office]} (async)"
+        )
         url = f"{self.base_url}/getGrievanceDetails"
         params = {"year": year, "distId": distId, "status": status, "office": office}
         async with semaphore:
             await asyncio.sleep(0.5)
             timeout = httpx.Timeout(
                 connect=15.0,  # time to establish connection
-                read=60.0,     # max time to wait for server response **after** connection
-                write=15.0,    # max time to send request
-                pool=120.0     # max time to wait for a connection from pool
-                )
+                read=60.0,  # max time to wait for server response **after** connection
+                write=15.0,  # max time to send request
+                pool=120.0,  # max time to wait for a connection from pool
+            )
             async with httpx.AsyncClient(auth=self.auth, timeout=timeout) as client:
                 response = await client.get(url, params=params)
                 return self._handle_response(response)
 
     @with_retry()
-    async def get_action_history(self, ticket_no: str, semaphore: asyncio.Semaphore) -> list[dict]:
+    async def get_action_history(
+        self, ticket_no: str, semaphore: asyncio.Semaphore
+    ) -> list[dict]:
         """
         Retrieves action history for a given ticket number from the grievance system.
 
@@ -186,6 +204,7 @@ class JanasunaniAPIClient:
 
 async def main():
     pass
+
 
 if __name__ == "__main__":
     asyncio.run(main())

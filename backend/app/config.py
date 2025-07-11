@@ -1,8 +1,9 @@
 import os
-from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
 from pathlib import Path
+
 from loguru import logger
+from pydantic import ConfigDict
+from pydantic_settings import BaseSettings
 from tqdm import tqdm
 
 
@@ -18,6 +19,7 @@ class Directories:
         PROCESSED_DATA (Path): The directory containing processed data.
         LOGS (Path): The directory containing logs.
     """
+
     ROOT_DIR = Path(__file__).resolve().parent.parent
     DATA = ROOT_DIR / "data"
     RAW_DATA = DATA / "raw"
@@ -26,15 +28,18 @@ class Directories:
     DOCUMENTS = RAW_DATA / "documents"
 
     def __init__(self):
-        for dir in [self.DATA, 
-                    self.RAW_DATA, 
-                    self.PROCESSED_DATA, 
-                    self.LOGS, 
-                    self.DOCUMENTS]:
+        for dir in [
+            self.DATA,
+            self.RAW_DATA,
+            self.PROCESSED_DATA,
+            self.LOGS,
+            self.DOCUMENTS,
+        ]:
             dir.mkdir(exist_ok=True)
 
 
 directories = Directories()
+
 
 # Settings
 class Settings(BaseSettings):
@@ -57,7 +62,9 @@ class Settings(BaseSettings):
     )
     JANASUNANI_API_USERNAME: str = os.getenv("JANASUNANI_API_USERNAME")
     JANASUNANI_API_PASSWORD: str = os.getenv("JANASUNANI_API_PASSWORD")
-    DB_URL: str = os.getenv("DB_URL", f"sqlite:///{directories.RAW_DATA.as_posix()}/grievance.db")
+    DB_URL: str = os.getenv(
+        "DB_URL", f"sqlite:///{directories.RAW_DATA.as_posix()}/grievance.db"
+    )
     DB_PASSWORD: str = os.getenv("DB_PASSWORD", "None")
     LOCAL_STORAGE_PATH: str = str(directories.DOCUMENTS)
     DB_PASSWORD: str = os.getenv("DB_PASSWORD", "None")
@@ -69,9 +76,13 @@ class Settings(BaseSettings):
 
     model_config = ConfigDict(env_file=directories.ROOT_DIR / ".env")
 
+
 settings = Settings()
 
-def stop_logging_to_console(filename: str = directories.LOGS / "main.log", mode: str = "a"):
+
+def stop_logging_to_console(
+    filename: str = directories.LOGS / "main.log", mode: str = "a"
+):
     """
     Stops logging messages to the console and redirects them to a file.
 
@@ -101,6 +112,7 @@ def stop_logging_to_console(filename: str = directories.LOGS / "main.log", mode:
         mode=mode,
     )
 
+
 def resume_logging_to_console():
     """
     Resumes logging messages to the console using tqdm for writing.
@@ -118,4 +130,3 @@ def resume_logging_to_console():
     None
     """
     logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-

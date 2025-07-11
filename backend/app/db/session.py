@@ -1,6 +1,8 @@
 import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from app.config import settings
 from app.db.models import Base
 
@@ -11,6 +13,7 @@ engine = create_engine(
 )
 Base.metadata.create_all(bind=engine)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 def get_db():
     """Get a database session."""

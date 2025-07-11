@@ -271,10 +271,11 @@ def update_document_status(db: Session, ticket_no: str, local_path: str, success
         db.refresh(complaint)
     return complaint
 
-def get_complaints_without_documents(db: Session) -> list[ComplaintModel]:
+def get_complaints_without_documents(db: Session, get_docs_where_errors_occurred: bool = False) -> list[ComplaintModel]:
     return db.query(ComplaintModel).filter(
         ComplaintModel.document_url.isnot(None),
-        ComplaintModel.document_downloaded == False
+        ComplaintModel.document_downloaded == False,
+        ComplaintModel.document_download_error.isnot(None) if get_docs_where_errors_occurred else ComplaintModel.document_download_error.is_(None)
     ).all()
 
 

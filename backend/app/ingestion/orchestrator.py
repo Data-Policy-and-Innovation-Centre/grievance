@@ -16,11 +16,12 @@ from ..db.crud import (
     get_all_complaints,
     get_tickets_needing_action_history,
     record_action_history_api_request_success,
-    mark_action_history_api_request_failed
+    mark_action_history_api_request_failed,
+    get_complaints_without_documents
 )
 from ..db.session import get_db
 from . import OFFICE, STATUS
-from app.config import directories, stop_logging_to_console, resume_logging_to_console
+from app.config import settings, stop_logging_to_console, resume_logging_to_console
 import asyncio
 from more_itertools import chunked
 from .document_ingestion import DocumentService
@@ -181,15 +182,21 @@ async def run_ingestion_service(force_params: List[Tuple[int, int, int, int]] = 
         # Ingest documents and action history for each complaint
         if ingest_documents:
             try:
-                complaints = get_all_complaints(db)
+                complaints = get_complaints_without_documents(db)
+                if settings.ENV == "dev":
+                    logger.info(f"Processing documents for {len(complaints)} complaints with local path {settings.LOCAL_STORAGE_PATH}")
+                elif settings.ENV == "main":
+                    logger.info(f"Processing documents for {len(complaints)} complaints with s3 path {settings.AWS_S3_DOCUMENTS}")
+                else:
+                    raise ValueError(f"Invalid environment: {settings.ENV}")
                 
-                logger.info(f"Processing documents for {len(complaints)} complaints")
                 stop_logging_to_console()
                 doc_tasks = [
                     orchestrator.ingest_documents(chunk, doc_service)
                     for chunk in chunked(complaints, 10)
                 ]
                 doc_results = await track_with_progress(doc_tasks, desc="Ingesting documents")
+                doc_service.update_document_status_for_all_complaints(only_without_documents=True)
                 resume_logging_to_console()
                 logger.info(f"Completed {len(doc_results)} document ingestion tasks")
             except Exception as e:

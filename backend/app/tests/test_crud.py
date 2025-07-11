@@ -19,7 +19,9 @@ from app.db.crud import (
     batch_create_action_history,
     bulk_load_districts,
     bulk_load_complaints,
-    bulk_load_action_histories
+    bulk_load_action_histories,
+    get_complaints_without_documents,
+    update_document_status
 )
 from app.ingestion.schemas import District as DistrictSchema, Complaint as ComplaintSchema, ActionHistory as ActionHistorySchema
 from sqlalchemy.exc import IntegrityError
@@ -849,5 +851,164 @@ def test_action_history_tracking_database_rollback(db_session):
     assert tracking2.id == original_id
     assert tracking2.records_count == 3  # Should be updated
     assert tracking2.records_count != original_records_count  # Should be different
+
+# Document-related CRUD tests
+def test_get_complaints_without_documents_empty(db_session):
+    """Test getting complaints without documents when none exist."""
+    from app.db.crud import get_complaints_without_documents
+    
+    # Should return empty list when no complaints exist
+    result = get_complaints_without_documents(db_session)
+    assert result == []
+
+def test_get_complaints_without_documents_no_document_url(db_session, sample_complaint_data):
+    """Test that complaints without document_url are not returned."""
+    from app.db.crud import get_complaints_without_documents, create_or_update_complaint
+    
+    # Create a complaint without document_url
+    complaint_data = sample_complaint_data.model_copy(update={"document_url": None})
+    create_or_update_complaint(db_session, complaint_data)
+    
+    # Should not return complaints without document_url
+    result = get_complaints_without_documents(db_session)
+    assert len(result) == 0
+
+def test_get_complaints_without_documents_already_downloaded(db_session, sample_complaint_data):
+    """Test that complaints with already downloaded documents are not returned."""
+    from app.db.crud import get_complaints_without_documents, create_or_update_complaint, update_document_status
+    
+    # Create a complaint with document_url
+    create_or_update_complaint(db_session, sample_complaint_data)
+    
+    # Mark document as downloaded
+    update_document_status(db_session, "T123", "/path/to/document.pdf", True)
+    
+    # Should not return complaints with downloaded documents
+    result = get_complaints_without_documents(db_session)
+    assert len(result) == 0
+
+def test_get_complaints_without_documents_needs_download(db_session, sample_complaint_data):
+    """Test that complaints with document_url but not downloaded are returned."""
+    from app.db.crud import get_complaints_without_documents, create_or_update_complaint
+    
+    # Create a complaint with document_url
+    create_or_update_complaint(db_session, sample_complaint_data)
+    
+    # Should return complaints with document_url but not downloaded
+    result = get_complaints_without_documents(db_session)
+    assert len(result) == 1
+    assert result[0].ticket_no == "T123"
+    assert result[0].document_url == "example.pdf"
+    assert result[0].document_downloaded == False
+
+def test_get_complaints_without_documents_mixed_scenarios(db_session, sample_complaint_data):
+    """Test multiple scenarios in the same database."""
+    from app.db.crud import get_complaints_without_documents, create_or_update_complaint, update_document_status
+    
+    # Create multiple complaints with different scenarios
+    create_or_update_complaint(db_session, sample_complaint_data)  # Has document_url, not downloaded
+    
+    # Complaint without document_url
+    complaint2 = sample_complaint_data.model_copy(update={"ticket_no": "T456", "document_url": None})
+    create_or_update_complaint(db_session, complaint2)
+    
+    # Complaint with downloaded document
+    complaint3 = sample_complaint_data.model_copy(update={"ticket_no": "T789"})
+    create_or_update_complaint(db_session, complaint3)
+    update_document_status(db_session, "T789", "/path/to/document.pdf", True)
+    
+    # Complaint with document_url but not downloaded
+    complaint4 = sample_complaint_data.model_copy(update={"ticket_no": "T101"})
+    create_or_update_complaint(db_session, complaint4)
+    
+    # Should return only T123 and T101 (have document_url but not downloaded)
+    result = get_complaints_without_documents(db_session)
+    assert len(result) == 2
+    ticket_nos = [complaint.ticket_no for complaint in result]
+    assert "T123" in ticket_nos
+    assert "T101" in ticket_nos
+    assert "T456" not in ticket_nos  # No document_url
+    assert "T789" not in ticket_nos  # Already downloaded
+
+def test_get_complaints_without_documents_download_error(db_session, sample_complaint_data):
+    """Test that complaints with download errors are still returned."""
+    from app.db.crud import get_complaints_without_documents, create_or_update_complaint, update_document_status
+    
+    # Create a complaint with document_url
+    create_or_update_complaint(db_session, sample_complaint_data)
+    
+    # Mark document as failed download
+    update_document_status(db_session, "T123", None, False, "Network error")
+    
+    # Should still return complaints with download errors (not downloaded)
+    result = get_complaints_without_documents(db_session, get_docs_where_errors_occurred=True)
+    assert len(result) == 1
+    assert result[0].ticket_no == "T123"
+    assert result[0].document_downloaded == False
+    assert result[0].document_download_error == "Network error"
+
+    result2 = get_complaints_without_documents(db_session, get_docs_where_errors_occurred=False)
+    assert len(result2) == 0
+
+def test_get_complaints_without_documents_partial_download(db_session, sample_complaint_data):
+    """Test that complaints with partial download info are handled correctly."""
+    from app.db.crud import get_complaints_without_documents, create_or_update_complaint, update_document_status
+    
+    # Create a complaint with document_url
+    create_or_update_complaint(db_session, sample_complaint_data)
+    
+    # Mark document as downloaded with local path
+    update_document_status(db_session, "T123", "/local/path/document.pdf", True)
+    
+    # Should not return complaints with downloaded documents
+    result = get_complaints_without_documents(db_session)
+    assert len(result) == 0
+
+def test_get_complaints_without_documents_multiple_complaints(db_session, sample_complaint_data):
+    """Test with multiple complaints needing document download."""
+    from app.db.crud import get_complaints_without_documents, create_or_update_complaint
+    
+    # Create multiple complaints with document_urls
+    complaints = []
+    for i in range(5):
+        complaint = sample_complaint_data.model_copy(update={"ticket_no": f"T{i+100}"})
+        create_or_update_complaint(db_session, complaint)
+        complaints.append(complaint)
+    
+    # Should return all complaints with document_urls
+    result = get_complaints_without_documents(db_session)
+    assert len(result) == 5
+    
+    # Verify all returned complaints have document_urls and are not downloaded
+    for complaint in result:
+        assert complaint.document_url is not None
+        assert complaint.document_downloaded == False
+
+def test_get_complaints_without_documents_edge_case_none_document_url(db_session, sample_complaint_data):
+    """Test edge case where document_url is explicitly None."""
+    from app.db.crud import get_complaints_without_documents, create_or_update_complaint
+    
+    # Create a complaint with explicit None document_url
+    complaint_data = sample_complaint_data.model_copy(update={"document_url": None})
+    create_or_update_complaint(db_session, complaint_data)
+    
+    # Should not return complaints with None document_url
+    result = get_complaints_without_documents(db_session)
+    assert len(result) == 0
+
+def test_get_complaints_without_documents_edge_case_empty_document_url(db_session, sample_complaint_data):
+    """Test edge case where document_url is empty string."""
+    from app.db.crud import get_complaints_without_documents, create_or_update_complaint
+    
+    # Create a complaint with empty document_url
+    complaint_data = sample_complaint_data.model_copy(update={"document_url": ""})
+    create_or_update_complaint(db_session, complaint_data)
+    
+    # The function uses document_url.isnot(None), so empty strings ARE included
+    # This is the actual behavior of the function
+    result = get_complaints_without_documents(db_session)
+    assert len(result) == 1
+    assert result[0].ticket_no == "T123"
+    assert result[0].document_url == ""
 
     

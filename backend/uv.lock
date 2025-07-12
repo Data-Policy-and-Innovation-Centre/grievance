@@ -61,6 +61,15 @@ wheels = [
 ]
 
 [[package]]
+name = "awscli-local"
+version = "0.22.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "localstack-client" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/25/f9/023c80ea27d67b0930f116597fd55a93f84de9b05d18b38c7d2d5d75c1c9/awscli-local-0.22.0.tar.gz", hash = "sha256:3807cf2ee4bbdd4df4dfc8bef027f25bde523dcaf8119720f677ed95ebba66a4", size = 11373, upload-time = "2023-12-28T09:57:45.36Z" }
+
+[[package]]
 name = "black"
 version = "25.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -431,6 +440,7 @@ dependencies = [
     { name = "annotated-types" },
     { name = "anyio" },
     { name = "argparse" },
+    { name = "awscli-local" },
     { name = "black" },
     { name = "boto3" },
     { name = "certifi" },
@@ -522,6 +532,7 @@ requires-dist = [
     { name = "annotated-types", specifier = "==0.7.0" },
     { name = "anyio", specifier = "==4.9.0" },
     { name = "argparse", specifier = ">=1.4.0" },
+    { name = "awscli-local", specifier = ">=0.22.0" },
     { name = "black", specifier = "==25.1.0" },
     { name = "black", marker = "extra == 'dev'" },
     { name = "boto3" },

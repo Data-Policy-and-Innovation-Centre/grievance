@@ -80,6 +80,8 @@ dependencies = [
     "coverage>=7.9.2",
     "argparse>=1.4.0",
     "coverage>=7.9.2",
+    "terraform-local>=0.24.0",
+    "localstack>=4.6.0",
 ]
 
 [tool.setuptools.packages.find]

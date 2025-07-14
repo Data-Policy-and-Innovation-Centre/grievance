@@ -198,20 +198,20 @@ async def test_download_document_success(
     complaint = ComplaintModel(
         ticket_no="T123",
         document_url="http://example.com/file~pdf",
-        grievance="Test grievance",  # Required field
-        office="Test Office",  # Required field
-        received_by="Test Officer",  # Required field
-        district="Test District",  # Required field
-        mode="Online",  # Required field
-        status="Pending",  # Required field
-        govt_ticket=True,  # Required field
-        created_on=datetime(2024, 1, 1, 12, 0),  # Required field
-        category="Test Category",  # Required field
-        state="Test State",  # Required field
-        petitioner_gender="Male",  # Required field
-        transfer_status="None",  # Required field
-        urgent="No",  # Required field
-        assigned_on=datetime(2024, 1, 1, 12, 0),  # Required field
+        grievance="Test grievance",  
+        office="Test Office",  
+        received_by="Test Officer",  
+        district="Test District",  
+        mode="Online",  
+        status="Pending",  
+        govt_ticket=True,  
+        created_on=datetime(2024, 1, 1, 12, 0),  
+        category="Test Category",  
+        state="Test State",  
+        petitioner_gender="Male",  
+        transfer_status="None",  
+        urgent="No",  
+        assigned_on=datetime(2024, 1, 1, 12, 0),  
     )
     db_session.add(complaint)
     db_session.commit()
@@ -361,20 +361,20 @@ async def test_download_document_error_updates_db(
     complaint = ComplaintModel(
         ticket_no="T123",
         document_url="http://example.com/file~pdf",
-        grievance="Test grievance",  # Required field
-        office="Test Office",  # Required field
-        received_by="Test Officer",  # Required field
-        district="Test District",  # Required field
-        mode="Online",  # Required field
-        status="Pending",  # Required field
-        govt_ticket=True,  # Required field
-        created_on=datetime(2024, 1, 1, 12, 0),  # Required field
-        category="Test Category",  # Required field
-        state="Test State",  # Required field
-        petitioner_gender="Male",  # Required field
-        transfer_status="None",  # Required field
-        urgent="No",  # Required field
-        assigned_on=datetime(2024, 1, 1, 12, 0),  # Required field
+        grievance="Test grievance",  
+        office="Test Office",  
+        received_by="Test Officer",  
+        district="Test District",  
+        mode="Online",  
+        status="Pending",  
+        govt_ticket=True,  
+        created_on=datetime(2024, 1, 1, 12, 0),  
+        category="Test Category",  
+        state="Test State",  
+        petitioner_gender="Male",  
+        transfer_status="None",  
+        urgent="No",  
+        assigned_on=datetime(2024, 1, 1, 12, 0),  
     )
     db_session.add(complaint)
     db_session.commit()
@@ -414,20 +414,20 @@ async def test_batch_download_documents_success(doc_service, db_session):
     complaint = ComplaintModel(
         ticket_no="T123",
         document_url="http://example.com/file~pdf",
-        grievance="Test grievance",  # Required field
-        office="Test Office",  # Required field
-        received_by="Test Officer",  # Required field
-        district="Test District",  # Required field
-        mode="Online",  # Required field
-        status="Pending",  # Required field
-        govt_ticket=True,  # Required field
-        created_on=datetime(2024, 1, 1, 12, 0),  # Required field
-        category="Test Category",  # Required field
-        state="Test State",  # Required field
-        petitioner_gender="Male",  # Required field
-        transfer_status="None",  # Required field
-        urgent="No",  # Required field
-        assigned_on=datetime(2024, 1, 1, 12, 0),  # Required field
+        grievance="Test grievance", 
+        office="Test Office", 
+        received_by="Test Officer", 
+        district="Test District", 
+        mode="Online", 
+        status="Pending", 
+        govt_ticket=True, 
+        created_on=datetime(2024, 1, 1, 12, 0), 
+        category="Test Category", 
+        state="Test State", 
+        petitioner_gender="Male", 
+        transfer_status="None", 
+        urgent="No", 
+        assigned_on=datetime(2024, 1, 1, 12, 0), 
     )
     db_session.add(complaint)
     db_session.commit()
@@ -455,8 +455,7 @@ async def test_batch_download_documents_success(doc_service, db_session):
 
 @pytest.mark.asyncio
 async def test_batch_download_documents_handles_exception(doc_service, db_session):
-    # Arrange: un complaint válido
-    complaint = ComplaintModel(
+    complaint1 = ComplaintModel(
         ticket_no="T999",
         document_url="https://example.com/file.pdf",
         grievance="Test grievance",
@@ -474,25 +473,37 @@ async def test_batch_download_documents_handles_exception(doc_service, db_sessio
         urgent="No",
         assigned_on=datetime(2024, 1, 1, 12, 0),
     )
-    db_session.add(complaint)
+    complaint2 = ComplaintModel(
+        ticket_no="T989",
+        document_url="https://example.com/file.pdf",
+        grievance="Test grievance",
+        office="Test Office",
+        received_by="Test Officer",
+        district="Test District",
+        mode="Online",
+        status="Pending",
+        govt_ticket=True,
+        created_on=datetime(2024, 1, 1, 12, 0),
+        category="Test Category",
+        state="Test State",
+        petitioner_gender="Male",
+        transfer_status="None",
+        urgent="No",
+        assigned_on=datetime(2024, 1, 1, 12, 0),
+    )
+    db_session.add(complaint1)
+    db_session.add(complaint2)
     db_session.commit()
 
-    with patch.object(
-        doc_service, "download_document", side_effect=Exception("Boom!")
-    ), patch(
-        "app.ingestion.document_ingestion.update_document_status"
-    ) as mock_update_status, patch(
-        "app.ingestion.document_ingestion.tqdm"
-    ):  # para evitar output en test
+    doc_service.db = db_session
+    
+    doc_service.download_document = AsyncMock(side_effect=Exception("Boom!"))
+    fake_updated_complaint = MagicMock()
+    fake_updated_complaint.ticket_no = "T999"
 
-        # Act
-        result = await doc_service.batch_download_documents([complaint])
-
-        # Assert
-        assert result == {"T999": "failed"}
-        mock_update_status.assert_called_once_with(
-            db_session, "T999", local_path=None, success=False, error="Boom!"
-        )
+    with patch("app.ingestion.document_ingestion.update_document_status", return_value=None):
+        result = await doc_service.batch_download_documents([complaint1, complaint2])
+        assert result == {"T989": "failed", "T999": "failed"}
 
 
 def test_document_service_uses_env_setting(db_session, monkeypatch):

@@ -254,11 +254,11 @@ class DocumentService:
                 path = await self.download_document(complaint)
                 status = "success" if path else "skipped"
                 updated = update_document_status(
-                self.db,
-                complaint.ticket_no,
-                local_path=path,
-                success=(status == "success"),
-            )
+                    self.db,
+                    complaint.ticket_no,
+                    local_path=path,
+                    success=(status == "success"),
+                )
                 return complaint.ticket_no, status, updated
             except Exception as e:
                 updated = update_document_status(
@@ -275,14 +275,18 @@ class DocumentService:
         counter = 0
         for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Downloading documents", position=1, leave=False):
             ticket_no, status, updated = await coro
+            # print(ticket_no)
             results[ticket_no] = status
             if updated:
                 updated_complaints.append(updated)
+            
+            # Commits to db every 500 tasks
             counter += 1
             if counter % 500 == 0:
                 self.db.commit()
 
-        self.db.add_all(updated_complaints)
+        if updated_complaints:
+            self.db.add_all(updated_complaints)
         self.db.commit()
         return results
 

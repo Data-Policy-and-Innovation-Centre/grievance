@@ -3,7 +3,7 @@ import glob
 import os
 import re
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import aiofiles
 import httpx
@@ -11,8 +11,9 @@ from botocore.exceptions import ClientError
 from loguru import logger
 from sqlalchemy.orm import Session
 from tqdm import tqdm
+from more_itertools import chunked
 
-from app.config import settings
+from app.config import settings, directories, resume_logging_to_console, stop_logging_to_console
 from app.db.crud import (get_complaint_by_ticket,
                          get_complaints_with_document_urls,
                          get_complaints_without_documents,
@@ -20,6 +21,7 @@ from app.db.crud import (get_complaint_by_ticket,
 from app.db.session import get_db
 from app.ingestion.client import with_retry
 from app.ingestion.schemas import Complaint
+from app.db.models import Complaint as ComplaintModel
 from app.s3service import S3Service
 
 
@@ -29,7 +31,7 @@ class DocumentService:
     """
 
     def __init__(self, s3_bucket: str = settings.AWS_S3_DOCUMENTS, db: Session = None):
-        self.semaphore = asyncio.Semaphore(5)
+        self.semaphore = asyncio.Semaphore(15)
         self.db = db or next(get_db())
         if settings.ENV == "dev":
             self._create_local_folder()
@@ -219,16 +221,17 @@ class DocumentService:
             return None
 
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url)
-                response.raise_for_status()
-                if settings.ENV == "dev":
-                    async with aiofiles.open(path, "wb") as f:
-                        await f.write(response.content)
-                else:
-                    self.s3_service.upload_fileobj(response.content, path)
-            logger.info(f"Downloaded document for complaint {ticket_no} to {path}")
-            update_document_status(self.db, ticket_no, local_path=path, success=True)
+            async with self.semaphore:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(url)
+                    response.raise_for_status()
+                    if settings.ENV == "dev":
+                        async with aiofiles.open(path, "wb") as f:
+                            await f.write(response.content)
+                    else:
+                        self.s3_service.upload_fileobj(response.content, path)
+                logger.info(f"Downloaded document for complaint {ticket_no} to {path}")
+                update_document_status(self.db, ticket_no, local_path=path, success=True)
             return path
         except Exception as e:
             error_msg = str(e)
@@ -242,43 +245,87 @@ class DocumentService:
             )
             return "Error"
 
-    async def batch_download_documents(
-        self, complaints: List[Complaint]
-    ) -> Dict[str, str]:
-        """
-        Asynchronously downloads documents for a batch of complaints and updates their status in the database.
-
-        Args:
-            complaints (List[Complaint]): A list of Complaint objects to process.
-
-        Returns:
-            Dict: A dictionary mapping each complaint's ticket number to its processing status:
-                    - "success" if the document was downloaded and saved,
-                    - "skipped" if the document was already present or not valid,
-                    - "failed" if an error occurred during download.
-        """
+    async def batch_download_documents(self, complaints: List[Complaint]) -> Dict[str, str]:
         results = {}
-        with tqdm(
-            total=len(complaints), desc="Downloading documents", position=1, leave=False
-        ) as pbar:
-            for complaint in complaints:
-                try:
-                    pbar.set_description(f"Downloading {complaint.ticket_no}")
-                    path = await self.download_document(complaint)
-                    if path:
-                        results[complaint.ticket_no] = "success"
-                    else:
-                        results[complaint.ticket_no] = "skipped"
-                    pbar.update(1)
-                except Exception as e:
-                    update_document_status(
-                        self.db,
-                        complaint.ticket_no,
-                        local_path=None,
-                        success=False,
-                        error=str(e),
-                    )
-                    results[complaint.ticket_no] = "failed"
-                    pbar.update(1)
-            self.db.commit()
+        updated_complaints = []
+        
+        async def process(complaint: Complaint) -> Tuple[str, str]:
+            try:
+                path = await self.download_document(complaint)
+                status = "success" if path else "skipped"
+                updated = update_document_status(
+                self.db,
+                complaint.ticket_no,
+                local_path=path,
+                success=(status == "success"),
+            )
+                return complaint.ticket_no, status, updated
+            except Exception as e:
+                updated = update_document_status(
+                    self.db,
+                    complaint.ticket_no,
+                    local_path=None,
+                    success=False,
+                    error=str(e),
+                )
+                return complaint.ticket_no, "failed", updated
+            
+        tasks = [process(c) for c in complaints]
+
+        counter = 0
+        for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Downloading documents", position=1, leave=False):
+            ticket_no, status, updated = await coro
+            results[ticket_no] = status
+            if updated:
+                updated_complaints.append(updated)
+            counter += 1
+            if counter % 500 == 0:
+                self.db.commit()
+
+        self.db.add_all(updated_complaints)
+        self.db.commit()
         return results
+
+    
+    async def batch_download_documents_in_chunks(self, complaints: List[Complaint], chunk_size: int = 100) -> Dict[str, str]:
+        results = {}
+
+        for i, complaint_chunk in enumerate(chunked(complaints, chunk_size), 1):
+            logger.info(f"📦 Processing chunk {i} ({len(complaint_chunk)} complaints)")
+            chunk_result = await self.batch_download_documents(complaint_chunk)
+            results.update(chunk_result)
+            logger.success(f"✅ Finished chunk {i}: {len(chunk_result)} processed")
+
+        return results
+
+async def main():
+    db = next(get_db())
+    doc_service = DocumentService(db = db)
+
+    total_docs = get_complaints_with_document_urls(db)
+    tickets = set([complaint.ticket_no for complaint in total_docs])
+
+    pattern = re.compile(r'([A-Z]{2,4}[0-9]*)(_compliant)*')
+
+    files_down = os.listdir(directories.DOCUMENTS)
+
+    ticket_nos = set([re.search(pattern, file).group(0) for file in files_down])
+
+    pending_tickets = tickets.difference(ticket_nos)
+    
+    print(len(tickets))
+    print(len(ticket_nos))
+    print(len(pending_tickets))
+
+    pending_tickets = list(pending_tickets)
+
+    sample_1000 = [get_complaint_by_ticket(db, ticket_no) for ticket_no in pending_tickets[:50000]]
+    logger.info(f"Starting downloading")
+    stop_logging_to_console(mode="w")
+    result = await doc_service.batch_download_documents_in_chunks(sample_1000,100)
+    resume_logging_to_console()
+    logger.info(f"Finalizing downloading")
+    
+    
+if __name__ == "__main__":
+    asyncio.run(main())

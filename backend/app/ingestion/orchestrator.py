@@ -174,7 +174,7 @@ async def run_ingestion_service(
         # Generate initial set of all possible combinations
         params = [
             (year, district.dist_id, status, office)
-            for year in [2025]  # TODO: change to range(2021, datetime.now().year)
+            for year in [2024]  # TODO: change to range(2021, datetime.now().year)
             for district in districts
             for status in STATUS.keys()
             for office in OFFICE.keys()
@@ -251,7 +251,7 @@ async def run_ingestion_service(
                 stop_logging_to_console()
                 doc_tasks = [
                     orchestrator.ingest_documents(chunk, orchestrator.doc_service)
-                    for chunk in chunked(complaints, 10)
+                    for chunk in chunked(complaints[0:100], 10)
                 ]
                 doc_results = await track_with_progress(
                     doc_tasks, desc="Ingesting documents"

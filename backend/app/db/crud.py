@@ -329,8 +329,7 @@ def update_document_status(
         complaint.document_downloaded = success
         complaint.document_download_date = now
         complaint.document_download_error = error
-        db.commit()
-        db.refresh(complaint)
+        db.add(complaint)
     return complaint
 
 

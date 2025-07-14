@@ -9,19 +9,20 @@ import aiofiles
 import httpx
 from botocore.exceptions import ClientError
 from loguru import logger
+from more_itertools import chunked
 from sqlalchemy.orm import Session
 from tqdm import tqdm
-from more_itertools import chunked
 
-from app.config import settings, directories, resume_logging_to_console, stop_logging_to_console
+from app.config import (directories, resume_logging_to_console, settings,
+                        stop_logging_to_console)
 from app.db.crud import (get_complaint_by_ticket,
                          get_complaints_with_document_urls,
                          get_complaints_without_documents,
                          update_document_status)
+from app.db.models import Complaint as ComplaintModel
 from app.db.session import get_db
 from app.ingestion.client import with_retry
 from app.ingestion.schemas import Complaint
-from app.db.models import Complaint as ComplaintModel
 from app.s3service import S3Service
 
 
@@ -231,7 +232,9 @@ class DocumentService:
                     else:
                         self.s3_service.upload_fileobj(response.content, path)
                 logger.info(f"Downloaded document for complaint {ticket_no} to {path}")
-                update_document_status(self.db, ticket_no, local_path=path, success=True)
+                update_document_status(
+                    self.db, ticket_no, local_path=path, success=True
+                )
             return path
         except Exception as e:
             error_msg = str(e)
@@ -245,10 +248,12 @@ class DocumentService:
             )
             return "Error"
 
-    async def batch_download_documents(self, complaints: List[Complaint]) -> Dict[str, str]:
+    async def batch_download_documents(
+        self, complaints: List[Complaint]
+    ) -> Dict[str, str]:
         results = {}
         updated_complaints = []
-        
+
         async def process(complaint: Complaint) -> Tuple[str, str]:
             try:
                 path = await self.download_document(complaint)
@@ -269,17 +274,23 @@ class DocumentService:
                     error=str(e),
                 )
                 return complaint.ticket_no, "failed", updated
-            
+
         tasks = [process(c) for c in complaints]
 
         counter = 0
-        for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Downloading documents", position=1, leave=False):
+        for coro in tqdm(
+            asyncio.as_completed(tasks),
+            total=len(tasks),
+            desc="Downloading documents",
+            position=1,
+            leave=False,
+        ):
             ticket_no, status, updated = await coro
             # print(ticket_no)
             results[ticket_no] = status
             if updated:
                 updated_complaints.append(updated)
-            
+
             # Commits to db every 500 tasks
             counter += 1
             if counter % 500 == 0:
@@ -290,8 +301,9 @@ class DocumentService:
         self.db.commit()
         return results
 
-    
-    async def batch_download_documents_in_chunks(self, complaints: List[Complaint], chunk_size: int = 100) -> Dict[str, str]:
+    async def batch_download_documents_in_chunks(
+        self, complaints: List[Complaint], chunk_size: int = 100
+    ) -> Dict[str, str]:
         results = {}
 
         for i, complaint_chunk in enumerate(chunked(complaints, chunk_size), 1):
@@ -302,34 +314,37 @@ class DocumentService:
 
         return results
 
+
 async def main():
     db = next(get_db())
-    doc_service = DocumentService(db = db)
+    doc_service = DocumentService(db=db)
 
     total_docs = get_complaints_with_document_urls(db)
     tickets = set([complaint.ticket_no for complaint in total_docs])
 
-    pattern = re.compile(r'([A-Z]{2,4}[0-9]*)(_compliant)*')
+    pattern = re.compile(r"([A-Z]{2,4}[0-9]*)(_compliant)*")
 
     files_down = os.listdir(directories.DOCUMENTS)
 
     ticket_nos = set([re.search(pattern, file).group(0) for file in files_down])
 
     pending_tickets = tickets.difference(ticket_nos)
-    
+
     print(len(tickets))
     print(len(ticket_nos))
     print(len(pending_tickets))
 
     pending_tickets = list(pending_tickets)
 
-    sample_1000 = [get_complaint_by_ticket(db, ticket_no) for ticket_no in pending_tickets[:50000]]
+    sample_1000 = [
+        get_complaint_by_ticket(db, ticket_no) for ticket_no in pending_tickets[:50000]
+    ]
     logger.info(f"Starting downloading")
     stop_logging_to_console(mode="w")
-    result = await doc_service.batch_download_documents_in_chunks(sample_1000,100)
+    result = await doc_service.batch_download_documents_in_chunks(sample_1000, 100)
     resume_logging_to_console()
     logger.info(f"Finalizing downloading")
-    
-    
+
+
 if __name__ == "__main__":
     asyncio.run(main())

@@ -198,20 +198,20 @@ async def test_download_document_success(
     complaint = ComplaintModel(
         ticket_no="T123",
         document_url="http://example.com/file~pdf",
-        grievance="Test grievance",  
-        office="Test Office",  
-        received_by="Test Officer",  
-        district="Test District",  
-        mode="Online",  
-        status="Pending",  
-        govt_ticket=True,  
-        created_on=datetime(2024, 1, 1, 12, 0),  
-        category="Test Category",  
-        state="Test State",  
-        petitioner_gender="Male",  
-        transfer_status="None",  
-        urgent="No",  
-        assigned_on=datetime(2024, 1, 1, 12, 0),  
+        grievance="Test grievance",
+        office="Test Office",
+        received_by="Test Officer",
+        district="Test District",
+        mode="Online",
+        status="Pending",
+        govt_ticket=True,
+        created_on=datetime(2024, 1, 1, 12, 0),
+        category="Test Category",
+        state="Test State",
+        petitioner_gender="Male",
+        transfer_status="None",
+        urgent="No",
+        assigned_on=datetime(2024, 1, 1, 12, 0),
     )
     db_session.add(complaint)
     db_session.commit()
@@ -361,20 +361,20 @@ async def test_download_document_error_updates_db(
     complaint = ComplaintModel(
         ticket_no="T123",
         document_url="http://example.com/file~pdf",
-        grievance="Test grievance",  
-        office="Test Office",  
-        received_by="Test Officer",  
-        district="Test District",  
-        mode="Online",  
-        status="Pending",  
-        govt_ticket=True,  
-        created_on=datetime(2024, 1, 1, 12, 0),  
-        category="Test Category",  
-        state="Test State",  
-        petitioner_gender="Male",  
-        transfer_status="None",  
-        urgent="No",  
-        assigned_on=datetime(2024, 1, 1, 12, 0),  
+        grievance="Test grievance",
+        office="Test Office",
+        received_by="Test Officer",
+        district="Test District",
+        mode="Online",
+        status="Pending",
+        govt_ticket=True,
+        created_on=datetime(2024, 1, 1, 12, 0),
+        category="Test Category",
+        state="Test State",
+        petitioner_gender="Male",
+        transfer_status="None",
+        urgent="No",
+        assigned_on=datetime(2024, 1, 1, 12, 0),
     )
     db_session.add(complaint)
     db_session.commit()
@@ -414,20 +414,20 @@ async def test_batch_download_documents_success(doc_service, db_session):
     complaint = ComplaintModel(
         ticket_no="T123",
         document_url="http://example.com/file~pdf",
-        grievance="Test grievance", 
-        office="Test Office", 
-        received_by="Test Officer", 
-        district="Test District", 
-        mode="Online", 
-        status="Pending", 
-        govt_ticket=True, 
-        created_on=datetime(2024, 1, 1, 12, 0), 
-        category="Test Category", 
-        state="Test State", 
-        petitioner_gender="Male", 
-        transfer_status="None", 
-        urgent="No", 
-        assigned_on=datetime(2024, 1, 1, 12, 0), 
+        grievance="Test grievance",
+        office="Test Office",
+        received_by="Test Officer",
+        district="Test District",
+        mode="Online",
+        status="Pending",
+        govt_ticket=True,
+        created_on=datetime(2024, 1, 1, 12, 0),
+        category="Test Category",
+        state="Test State",
+        petitioner_gender="Male",
+        transfer_status="None",
+        urgent="No",
+        assigned_on=datetime(2024, 1, 1, 12, 0),
     )
     db_session.add(complaint)
     db_session.commit()
@@ -496,12 +496,14 @@ async def test_batch_download_documents_handles_exception(doc_service, db_sessio
     db_session.commit()
 
     doc_service.db = db_session
-    
+
     doc_service.download_document = AsyncMock(side_effect=Exception("Boom!"))
     fake_updated_complaint = MagicMock()
     fake_updated_complaint.ticket_no = "T999"
 
-    with patch("app.ingestion.document_ingestion.update_document_status", return_value=None):
+    with patch(
+        "app.ingestion.document_ingestion.update_document_status", return_value=None
+    ):
         result = await doc_service.batch_download_documents([complaint1, complaint2])
         assert result == {"T989": "failed", "T999": "failed"}
 

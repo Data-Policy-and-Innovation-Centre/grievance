@@ -251,14 +251,14 @@ async def run_ingestion_service(
                 stop_logging_to_console()
                 doc_tasks = [
                     orchestrator.ingest_documents(chunk, orchestrator.doc_service)
-                    for chunk in chunked(complaints[0:100], 10)
+                    for chunk in chunked(complaints, 10)
                 ]
                 doc_results = await track_with_progress(
                     doc_tasks, desc="Ingesting documents"
                 )
-                await orchestrator.doc_service.update_document_status_for_all_complaints(
-                    only_without_documents=True
-                )
+                # await orchestrator.doc_service.update_document_status_for_all_complaints(
+                #     only_without_documents=True
+                # )
                 resume_logging_to_console()
                 logger.info(f"Completed {len(doc_results)} document ingestion tasks")
             except Exception as e:

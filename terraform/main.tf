@@ -95,7 +95,7 @@ resource "aws_security_group" "rds" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [aws_vpc.main.cidr_block]
   }
 
   tags = {
@@ -110,9 +110,9 @@ resource "aws_security_group" "ecs" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -120,7 +120,7 @@ resource "aws_security_group" "ecs" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [aws_vpc.main.cidr_block]
   }
 
   tags = {
@@ -186,6 +186,13 @@ resource "aws_ecs_cluster" "main" {
 # ECR Repository for ingestion
 resource "aws_ecr_repository" "ingestion" {
   name = "grievance-ingestion-${var.environment}"
+  
+  image_tag_mutability = "IMMUTABLE"
+  
+  image_scanning_configuration {
+    scan_on_push = true
+    }
+
   force_delete = true
   tags = {
     Name        = "grievance-ingestion-${var.environment}"
@@ -361,20 +368,25 @@ resource "aws_iam_role_policy" "ecs_s3_access" {
   role = aws_iam_role.ecs_execution.id
 
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [
       {
+        Sid    = "AllowListBucket"
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = aws_s3_bucket.documents.arn
+      },
+      {
+        Sid    = "AllowObjectOperations"
         Effect = "Allow"
         Action = [
           "s3:GetObject",
           "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:ListBucket"
+          "s3:DeleteObject"
         ]
-        Resource = [
-          aws_s3_bucket.documents.arn,
-          "${aws_s3_bucket.documents.arn}/*"
-        ]
+        Resource = "${aws_s3_bucket.documents.arn}/*"
       }
     ]
   })

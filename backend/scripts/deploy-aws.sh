@@ -3,11 +3,8 @@
 # AWS Deployment Script for Grievance Analytics
 # Usage: ./scripts/deploy-aws.sh [action]
 # Example: ./scripts/deploy-aws.sh deploy
+# Default values
 
-set -e
-set -a
-source .env
-set +a
 
 # Colors for output
 RED='\033[0;31m'
@@ -33,10 +30,30 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Default values
-ENVIRONMENT="main"
+if [ -f .env ]; then
+    print_status "Loading environment variables from .env"
+    set -a
+    source .env
+    set +a
+else
+    print_warning ".env file not found. Skipping environment variable loading."
+fi
+
+
+ENVIRONMENT=${ENV:-"main"}
 ACTION=${1:-deploy}
 TERRAFORM_DIR="../terraform"
+if [ "$ENVIRONMENT" = "main" ]; then
+    TERRAFORM_CMD="terraform"
+    AWS_CMD="aws"
+elif [ "$ENVIRONMENT" = "dev" ]; then
+    TERRAFORM_CMD="tflocal"
+    AWS_CMD="awslocal"
+else
+    print_error "Environment '$ENVIRONMENT' is not valid. Exiting."
+    exit 1
+fi
+
 HOME_DIR=$(pwd)
 AWS_REGION="ap-south-1"
 
@@ -45,7 +62,7 @@ check_prerequisites() {
     print_status "Checking prerequisites..."
     
     # Check if AWS CLI is installed
-    if ! command -v aws &> /dev/null; then
+    if ! command -v $AWS_CMD &> /dev/null; then
         print_error "AWS CLI is not installed. Please install it first."
         exit 1
     fi
@@ -55,25 +72,32 @@ check_prerequisites() {
         print_error "Docker is not installed. Please install it first."
         exit 1
     fi
+
+    if ! command -v localstack &> /dev/null; then
+        print_error "Localstack is not installed. Please install it first."
+        exit 1
+    fi
     
     # Check if Terraform is installed
-    if ! command -v terraform &> /dev/null; then
+    if ! command -v $TERRAFORM_CMD &> /dev/null; then
         print_error "Terraform is not installed. Please install it first."
         exit 1
     fi
     
     # Check AWS credentials
-    if ! aws sts get-caller-identity &> /dev/null; then
+    if ! $AWS_CMD sts get-caller-identity &> /dev/null; then
         print_error "AWS credentials not configured. Please run 'aws configure' first."
         exit 1
     fi
     
+    print_status "Terraform command: $TERRAFORM_CMD"
+    print_status "AWS command: $AWS_CMD"
     print_success "All prerequisites are met!"
 }
 
 # Function to get AWS account ID
 get_aws_account_id() {
-    AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+    AWS_ACCOUNT_ID=$($AWS_CMD sts get-caller-identity --query Account --output text)
     print_status "Using AWS Account ID: $AWS_ACCOUNT_ID"
 }
 
@@ -83,7 +107,7 @@ build_and_push_images() {
     
     # Get ECR login token
     print_status "Logging into ECR..."
-    aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+    $AWS_CMD ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
     
     # Build and push ingestion image
     print_status "Building ingestion image..."
@@ -107,9 +131,19 @@ init_terraform() {
     cd $TERRAFORM_DIR
     
     # Initialize Terraform
-    terraform init
+    $TERRAFORM_CMD init
     
     print_success "Terraform initialized successfully!"
+}
+
+init_localstack() {
+    if [ "$ENVIRONMENT" = "dev" ]; then
+        print_status "Initializing Localstack..."
+        localstack start
+        print_success "Localstack initialized successfully!"
+    else 
+        print_status "Localstack not initialized for $ENVIRONMENT environment."
+    fi
 }
 
 # Function to plan Terraform deployment
@@ -132,7 +166,7 @@ plan_terraform() {
     fi
     
     # Run terraform plan
-    terraform plan \
+    $TERRAFORM_CMD plan \
         -var-file="terraform.main.tfvars" \
         -var="db_password=$DB_PASSWORD" \
         -var="janasunani_api_username=$JANASUNANI_API_USERNAME" \
@@ -147,7 +181,7 @@ apply_terraform() {
     print_status "Applying Terraform deployment..."
     
     # Apply the plan
-    terraform apply tfplan
+    $TERRAFORM_CMD apply tfplan
     
     print_success "Terraform deployment completed successfully!"
 }
@@ -157,23 +191,23 @@ get_outputs() {
     print_status "Getting deployment outputs..."
     
     # Get ECR repository URL
-    ECR_REPO_URL=$(terraform output -raw ingestion_ecr_repository_url)
+    ECR_REPO_URL=$($TERRAFORM_CMD output -raw ingestion_ecr_repository_url)
     print_status "ECR Repository URL: $ECR_REPO_URL"
     
     # Get RDS endpoint
-    RDS_ENDPOINT=$(terraform output -raw rds_endpoint)
+    RDS_ENDPOINT=$($TERRAFORM_CMD output -raw rds_endpoint)
     print_status "RDS Endpoint: $RDS_ENDPOINT"
     
     # Get ECS cluster name
-    ECS_CLUSTER=$(terraform output -raw ecs_cluster_name)
+    ECS_CLUSTER=$($TERRAFORM_CMD output -raw ecs_cluster_name)
     print_status "ECS Cluster: $ECS_CLUSTER"
     
     # Get EventBridge rule name
-    EVENTBRIDGE_RULE=$(terraform output -raw eventbridge_rule_name)
+    EVENTBRIDGE_RULE=$($TERRAFORM_CMD output -raw eventbridge_rule_name)
     print_status "EventBridge Rule: $EVENTBRIDGE_RULE"
     
     # Get S3 bucket name
-    S3_BUCKET_NAME=$(terraform output -raw documents_s3_bucket_name)
+    S3_BUCKET_NAME=$($TERRAFORM_CMD output -raw documents_s3_bucket_name)
     print_status "S3 Documents Bucket: $S3_BUCKET_NAME"
     
     print_success "Deployment outputs retrieved!"
@@ -184,15 +218,15 @@ test_deployment() {
     print_status "Testing deployment..."
     
     # Get ECS cluster name
-    ECS_CLUSTER=$(cd $TERRAFORM_DIR && terraform output -raw ecs_cluster_name)
+    ECS_CLUSTER=$(cd $TERRAFORM_DIR && $TERRAFORM_CMD output -raw ecs_cluster_name)
     
     # List ECS tasks
     print_status "Checking ECS tasks..."
-    aws ecs list-tasks --cluster $ECS_CLUSTER --region $AWS_REGION
+    $AWS_CMD ecs list-tasks --cluster $ECS_CLUSTER --region $AWS_REGION
     
     # Check CloudWatch logs
     print_status "Checking CloudWatch logs..."
-    aws logs describe-log-groups --log-group-name-prefix "/ecs/grievance-ingestion" --region $AWS_REGION
+    $AWS_CMD logs describe-log-groups --log-group-name-prefix "/ecs/grievance-ingestion" --region $AWS_REGION
     
     print_success "Deployment test completed!"
 }
@@ -208,7 +242,7 @@ destroy_infrastructure() {
         print_status "Destroying infrastructure..."
         cd $TERRAFORM_DIR
         
-        terraform destroy \
+        $TERRAFORM_CMD destroy \
             -var-file="terraform.main.tfvars" \
             -var="db_password=$DB_PASSWORD" \
             -var="janasunani_api_username=$JANASUNANI_API_USERNAME" \
@@ -229,9 +263,9 @@ show_status() {
     cd $TERRAFORM_DIR
     
     # Get outputs
-    ECS_CLUSTER=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "Not deployed")
-    RDS_ENDPOINT=$(terraform output -raw rds_endpoint 2>/dev/null || echo "Not deployed")
-    ECR_REPO_URL=$(terraform output -raw ingestion_ecr_repository_url 2>/dev/null || echo "Not deployed")
+    ECS_CLUSTER=$($TERRAFORM_CMD output -raw ecs_cluster_name 2>/dev/null || echo "Not deployed")
+    RDS_ENDPOINT=$($TERRAFORM_CMD output -raw rds_endpoint 2>/dev/null || echo "Not deployed")
+    ECR_REPO_URL=$($TERRAFORM_CMD output -raw ingestion_ecr_repository_url 2>/dev/null || echo "Not deployed")
     
     echo "=== Deployment Status ==="
     echo "Environment: $ENVIRONMENT"
@@ -242,11 +276,11 @@ show_status() {
     if [ "$ECS_CLUSTER" != "Not deployed" ]; then
         echo ""
         echo "=== ECS Tasks ==="
-        aws ecs list-tasks --cluster $ECS_CLUSTER --region $AWS_REGION --query 'taskArns' --output table 2>/dev/null || echo "No tasks found"
+        $AWS_CMD ecs list-tasks --cluster $ECS_CLUSTER --region $AWS_REGION --query 'taskArns' --output table 2>/dev/null || echo "No tasks found"
         
         echo ""
         echo "=== CloudWatch Log Groups ==="
-        aws logs describe-log-groups --log-group-name-prefix "/ecs/grievance-ingestion" --region $AWS_REGION --query 'logGroups[].logGroupName' --output table 2>/dev/null || echo "No log groups found"
+        $AWS_CMD logs describe-log-groups --log-group-name-prefix "/ecs/grievance-ingestion" --region $AWS_REGION --query 'logGroups[].logGroupName' --output table 2>/dev/null || echo "No log groups found"
     fi
 }
 
@@ -286,11 +320,20 @@ show_help() {
 
 # Function to validate environment
 validate_environment() {
-    if [ "$ENVIRONMENT" != "main" ]; then
-        print_error "Invalid environment: $ENVIRONMENT. Use 'main'."
+    if [ "$ENVIRONMENT" != "main" ] && [ "$ENVIRONMENT" != "dev" ]; then
+        print_error "Invalid environment: $ENVIRONMENT. Use 'main' or 'dev'."
         exit 1
     fi
+
+    if [ "$ENVIRONMENT" = "dev" ]; then
+        print_status "Setting up AWS CLI environment  for local development..."
+        export AWS_ENDPOINT_URL=http://localhost:4566
+        export AWS_ACCESS_KEY_ID=test
+        export AWS_SECRET_ACCESS_KEY=test
+        export AWS_DEFAULT_REGION=us-east-1
+    fi
 }
+
 
 # Function to validate action
 validate_action() {
@@ -314,6 +357,9 @@ deploy() {
     
     # Get AWS account ID
     get_aws_account_id
+
+    # Initialize Localstack
+    init_localstack
 
     # Initialize Terraform
     init_terraform
@@ -372,6 +418,7 @@ main() {
             ;;
         "apply")
             check_prerequisites
+            init_localstack
             init_terraform
             apply_terraform
             get_outputs

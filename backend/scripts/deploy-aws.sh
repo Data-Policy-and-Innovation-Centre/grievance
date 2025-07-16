@@ -112,7 +112,7 @@ build_and_push_images() {
     # Build and push ingestion image
     print_status "Building ingestion image..."
     # Change to backend directory for Docker build
-    cd $HOME_DIR
+    cd '$HOME_DIR'
     # Build for linux/amd64 platform (required for ECS Fargate)
     docker build --platform linux/amd64 -f Dockerfile.ingestion -t grievance-ingestion-$ENVIRONMENT:latest .
     

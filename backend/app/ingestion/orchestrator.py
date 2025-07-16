@@ -198,7 +198,9 @@ async def run_ingestion_service(
 
             logger.info(f"Total complaint requests to process: {len(params)}")
 
-            stop_logging_to_console(mode="w", filename=directories.LOGS / "ingest_complaints.log")
+            stop_logging_to_console(
+                mode="w", filename=directories.LOGS / "ingest_complaints.log"
+            )
 
             try:
                 tasks = [orchestrator.ingest_complaints(*param) for param in params]
@@ -248,7 +250,9 @@ async def run_ingestion_service(
                 else:
                     raise ValueError(f"Invalid environment: {settings.ENV}")
 
-                stop_logging_to_console(mode="w", filename=directories.LOGS / "ingest_documents.log")
+                stop_logging_to_console(
+                    mode="w", filename=directories.LOGS / "ingest_documents.log"
+                )
                 doc_tasks = [
                     orchestrator.ingest_documents(chunk, orchestrator.doc_service)
                     for chunk in chunked(complaints, 10)
@@ -275,7 +279,9 @@ async def run_ingestion_service(
                     orchestrator.ingest_action_history(ticket_no)
                     for ticket_no in ticket_numbers
                 ]
-                stop_logging_to_console(mode="w", filename=directories.LOGS / "ingest_action_history.log")
+                stop_logging_to_console(
+                    mode="w", filename=directories.LOGS / "ingest_action_history.log"
+                )
                 action_result = await track_with_progress(
                     action_tasks, desc="Ingesting actions"
                 )

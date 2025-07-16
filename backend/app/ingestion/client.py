@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import time 
 import json
 from datetime import datetime
 from itertools import product
@@ -11,6 +12,7 @@ from more_itertools import chunked
 from app.config import directories, settings
 
 from . import OFFICE, STATUS
+from .benchmark_client import ClientStats
 from .schemas import Complaint, District, validate, validate_action_history
 
 RETRY_BACKOFF = 5
@@ -55,6 +57,29 @@ def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF):
 
     return decorator
 
+def with_timing(stats: ClientStats):
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            start_time = time.time()
+            success = False
+            error_type = None
+
+            try:
+                result = await func(*args, **kwargs)
+                success = True
+                return result
+            except Exception as e:
+                error_type = type(e).__name__
+                success = False
+                raise
+            finally:
+                end_time = time.time()
+                stats.add_timing(end_time - start_time, success, error_type)
+
+        return wrapper
+    return decorator
+
 
 class JanasunaniAPIClient:
     """
@@ -71,6 +96,16 @@ class JanasunaniAPIClient:
     ):
         self.base_url = base_url
         self.auth = auth
+
+        # Performance stats
+        self.complaints_stats = ClientStats(endpoint="get_complaints")
+        self.action_history_stats = ClientStats(endpoint="get_action_history")
+
+    
+    def record_stats(self):
+        self.complaints_stats.save_summary("complaint_request_stats.txt")
+        self.action_history_stats.save_summary("action_history_request_stats.txt")
+
 
     def _handle_response(self, response: httpx.Response) -> dict:
         """
@@ -128,6 +163,7 @@ class JanasunaniAPIClient:
             return self._handle_response(response)
 
     @with_retry()
+    @with_timing(lambda self: self.complaints_stats)
     async def get_complaints(
         self,
         year: int,
@@ -176,6 +212,7 @@ class JanasunaniAPIClient:
                 return self._handle_response(response)
 
     @with_retry()
+    @with_timing(lambda self: self.action_history_stats)
     async def get_action_history(
         self, ticket_no: str, semaphore: asyncio.Semaphore
     ) -> list[dict]:

@@ -295,6 +295,7 @@ async def run_ingestion_service(
         return {"statusCode": 500, "body": json.dumps(f"Error: {str(e)}")}
     finally:
         db.close()
+        orchestrator.client.record_stats()
 
 
 def main(args):

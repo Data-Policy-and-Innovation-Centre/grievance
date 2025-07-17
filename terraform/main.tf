@@ -285,7 +285,7 @@ resource "aws_ecs_task_definition" "ingestion" {
         },
         {
           name  = "DB_URL"
-          value = "postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.postgres.endpoint}:5432/${var.db_name}"
+          value = "postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.postgres.endpoint}/${var.db_name}"
         },
         {
           name  = "JANASUNANI_API_USERNAME"

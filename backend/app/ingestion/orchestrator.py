@@ -175,7 +175,7 @@ async def run_ingestion_service(
         params = [
             (year, district.dist_id, status, office)
             for year in [2021] # TODO range(2021, datetime.now().year)
-            for district in districts
+            for district in districts[0:2] # TODO districts
             for status in STATUS.keys()
             for office in OFFICE.keys()
         ]

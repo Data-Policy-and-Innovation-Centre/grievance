@@ -321,11 +321,11 @@ def bulk_load_action_histories(
 def update_document_status(
     db: Session, ticket_no: str, local_path: str, success: bool, error: str = None
 ):
-    import warnings 
+    import warnings
 
-    warnings.warn("update_document_status is deprecated",
-                  DeprecationWarning,
-                  stacklevel=2)
+    warnings.warn(
+        "update_document_status is deprecated", DeprecationWarning, stacklevel=2
+    )
     complaint = get_complaint_by_ticket(db, ticket_no=ticket_no)
     time_zone = pytz.timezone("Asia/Kolkata")
     now = datetime.now(time_zone)

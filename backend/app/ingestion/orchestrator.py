@@ -295,7 +295,7 @@ async def run_ingestion_service(
         logger.error(f"Error in ingestion service: {e}")
         return {"statusCode": 500, "body": json.dumps(f"Error: {str(e)}")}
     finally:
-        if 'db' in locals():
+        if "db" in locals():
             db.close()
 
 

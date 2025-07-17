@@ -121,9 +121,7 @@ class IngestionOrchestrator:
             mark_action_history_api_request_failed(self.db, ticket_no)
             return []
 
-    async def ingest_documents(
-        self, complaints: List[Complaint]
-    ) -> Dict[str, str]:
+    async def ingest_documents(self, complaints: List[Complaint]) -> Dict[str, str]:
         """Ingest documents data"""
         results = await self.doc_service.batch_download_documents(complaints)
         return results

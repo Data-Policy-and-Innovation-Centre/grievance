@@ -104,7 +104,7 @@ def stop_logging_to_console(
     # Add new logger
     logger.add(
         filename,
-        format="{time} {level} {message}",
+        format="{file}:{function}:{line} {time} {level} {message}",
         level="INFO",
         colorize=True,
         catch=True,

@@ -1,0 +1,14 @@
+version = 1
+
+test_patterns = ["backend/app/tests/*"]
+
+exclude_patterns = ["backend/.venv"]
+
+[[analyzers]]
+name = "terraform"
+
+[[analyzers]]
+name = "python"
+
+  [analyzers.meta]
+  runtime_version = "3.x.x"

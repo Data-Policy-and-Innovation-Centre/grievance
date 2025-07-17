@@ -200,31 +200,31 @@ class DocumentService:
             try:
                 path = await self.download_document(complaint)
                 status = "success" if path else "skipped"
-                
+
                 # Return update data instead of calling update_document_status
                 update_data = {
-                    'ticket_no': complaint.ticket_no,
-                    'local_path': path,
-                    'success': (status == "success"),
-                    'error': None
+                    "ticket_no": complaint.ticket_no,
+                    "local_path": path,
+                    "success": (status == "success"),
+                    "error": None,
                 }
-                
+
                 return complaint.ticket_no, status, update_data
-                
+
             except Exception as e:
                 # Return error update data
                 update_data = {
-                    'ticket_no': complaint.ticket_no,
-                    'local_path': None,
-                    'success': False,
-                    'error': str(e)
+                    "ticket_no": complaint.ticket_no,
+                    "local_path": None,
+                    "success": False,
+                    "error": str(e),
                 }
-                
+
                 return complaint.ticket_no, "failed", update_data
 
         # Process all complaints concurrently
         tasks = [process(c) for c in complaints]
-        
+
         counter = 0
         for coro in tqdm(
             asyncio.as_completed(tasks),
@@ -268,41 +268,51 @@ class DocumentService:
         """
         try:
             import pytz
-            from sqlalchemy import update, case
+            from sqlalchemy import case, update
+
             from app.db.models import Complaint as ComplaintModel
-            
+
             time_zone = pytz.timezone("Asia/Kolkata")
             now = datetime.now(time_zone)
-            
+
             # Create a single bulk update statement
             stmt = (
                 update(ComplaintModel)
-                .where(ComplaintModel.ticket_no.in_([u['ticket_no'] for u in updates]))
+                .where(ComplaintModel.ticket_no.in_([u["ticket_no"] for u in updates]))
                 .values(
                     local_document_path=case(
-                        *[(ComplaintModel.ticket_no == u['ticket_no'], u['local_path']) 
-                          for u in updates],
-                        else_=ComplaintModel.local_document_path
+                        *[
+                            (
+                                ComplaintModel.ticket_no == u["ticket_no"],
+                                u["local_path"],
+                            )
+                            for u in updates
+                        ],
+                        else_=ComplaintModel.local_document_path,
                     ),
                     document_downloaded=case(
-                        *[(ComplaintModel.ticket_no == u['ticket_no'], u['success']) 
-                          for u in updates],
-                        else_=ComplaintModel.document_downloaded
+                        *[
+                            (ComplaintModel.ticket_no == u["ticket_no"], u["success"])
+                            for u in updates
+                        ],
+                        else_=ComplaintModel.document_downloaded,
                     ),
                     document_download_date=now,
                     document_download_error=case(
-                        *[(ComplaintModel.ticket_no == u['ticket_no'], u['error']) 
-                          for u in updates],
-                        else_=ComplaintModel.document_download_error
-                    )
+                        *[
+                            (ComplaintModel.ticket_no == u["ticket_no"], u["error"])
+                            for u in updates
+                        ],
+                        else_=ComplaintModel.document_download_error,
+                    ),
                 )
             )
-            
+
             result = self.db.execute(stmt)
             self.db.commit()
-            
+
             logger.info(f"Bulk updated {result.rowcount} document statuses")
-            
+
         except Exception as e:
             self.db.rollback()
             logger.error(f"Error in bulk document status update: {e}")

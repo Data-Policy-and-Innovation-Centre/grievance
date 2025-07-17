@@ -342,11 +342,8 @@ async def test_download_document_no_path_logs(doc_service):
         mock_log.assert_any_call("Failed to generate a path for complaint T123")
 
 
-
 @pytest.mark.asyncio
-async def test_download_document_error(
-    doc_service, tmp_path, caplog, db_session
-):
+async def test_download_document_error(doc_service, tmp_path, caplog, db_session):
     test_path = tmp_path / "file.pdf"
     complaint = ComplaintModel(
         ticket_no="T123",
@@ -549,18 +546,14 @@ async def test_batch_download_documents_success(doc_service, db_session):
         # Mock successful downloads
         mock_download.side_effect = [
             "/path/to/doc1.pdf",
-            "/path/to/doc2.pdf", 
-            "/path/to/doc3.pdf"
+            "/path/to/doc2.pdf",
+            "/path/to/doc3.pdf",
         ]
 
         results = await doc_service.batch_download_documents(complaints)
 
         # Verify results
-        assert results == {
-            "T1": "success",
-            "T2": "success", 
-            "T3": "success"
-        }
+        assert results == {"T1": "success", "T2": "success", "T3": "success"}
 
         # Verify download_document was called for each complaint
         assert mock_download.call_count == 3
@@ -572,15 +565,15 @@ async def test_batch_download_documents_success(doc_service, db_session):
         assert mock_bulk_update.call_count == 1
         call_args = mock_bulk_update.call_args[0][0]
         assert len(call_args) == 3
-        
+
         # Check the update data structure
         for update_data in call_args:
-            assert 'ticket_no' in update_data
-            assert 'local_path' in update_data
-            assert 'success' in update_data
-            assert 'error' in update_data
-            assert update_data['success'] is True
-            assert update_data['error'] is None
+            assert "ticket_no" in update_data
+            assert "local_path" in update_data
+            assert "success" in update_data
+            assert "error" in update_data
+            assert update_data["success"] is True
+            assert update_data["error"] is None
 
 
 @pytest.mark.asyncio
@@ -638,9 +631,9 @@ async def test_batch_download_documents_mixed_success_failure(doc_service, db_se
         # Verify results (order-independent)
         expected_results = {
             "T1": "success",
-            "T2": "failed", 
+            "T2": "failed",
             "T3": "success",
-            "T4": "failed"
+            "T4": "failed",
         }
         assert results == expected_results
 
@@ -648,25 +641,25 @@ async def test_batch_download_documents_mixed_success_failure(doc_service, db_se
         assert mock_bulk_update.call_count == 1
         call_args = mock_bulk_update.call_args[0][0]
         assert len(call_args) == 4
-        
+
         # Check success cases (order-independent)
-        success_updates = [u for u in call_args if u['success']]
+        success_updates = [u for u in call_args if u["success"]]
         assert len(success_updates) == 2
-        success_tickets = {u['ticket_no'] for u in success_updates}
+        success_tickets = {u["ticket_no"] for u in success_updates}
         assert success_tickets == {"T1", "T3"}
-        
+
         # Check failure cases (order-independent)
-        failure_updates = [u for u in call_args if not u['success']]
+        failure_updates = [u for u in call_args if not u["success"]]
         assert len(failure_updates) == 2
-        failure_tickets = {u['ticket_no'] for u in failure_updates}
+        failure_tickets = {u["ticket_no"] for u in failure_updates}
         assert failure_tickets == {"T2", "T4"}
-        
+
         # Verify specific error messages
         for update in call_args:
-            if update['ticket_no'] == "T2":
-                assert "Download failed" in update['error']
-            elif update['ticket_no'] == "T4":
-                assert "Network error" in update['error']
+            if update["ticket_no"] == "T2":
+                assert "Download failed" in update["error"]
+            elif update["ticket_no"] == "T4":
+                assert "Network error" in update["error"]
 
 
 @pytest.mark.asyncio
@@ -715,11 +708,11 @@ async def test_batch_download_documents_batch_commits(doc_service, db_session):
 
         # Verify bulk update was called twice (500 + 100)
         assert mock_bulk_update.call_count == 2
-        
+
         # Check first batch (500 items)
         first_batch = mock_bulk_update.call_args_list[0][0][0]
         assert len(first_batch) == 500
-        
+
         # Check second batch (100 items)
         second_batch = mock_bulk_update.call_args_list[1][0][0]
         assert len(second_batch) == 100
@@ -775,15 +768,15 @@ async def test_batch_download_documents_skipped_documents(doc_service, db_sessio
         results = await doc_service.batch_download_documents([complaint])
 
         assert results == {"T123": "skipped"}
-        
+
         # Verify bulk update was called with skipped data
         mock_bulk_update.assert_called_once()
         call_args = mock_bulk_update.call_args[0][0]
         assert len(call_args) == 1
-        assert call_args[0]['ticket_no'] == "T123"
-        assert call_args[0]['local_path'] is None
-        assert call_args[0]['success'] is False
-        assert call_args[0]['error'] is None
+        assert call_args[0]["ticket_no"] == "T123"
+        assert call_args[0]["local_path"] is None
+        assert call_args[0]["success"] is False
+        assert call_args[0]["error"] is None
 
 
 # Tests for _bulk_update_document_status
@@ -818,30 +811,31 @@ async def test_bulk_update_document_status_success(doc_service, db_session):
     # Prepare update data
     updates = [
         {
-            'ticket_no': 'T1',
-            'local_path': '/path/to/doc1.pdf',
-            'success': True,
-            'error': None
+            "ticket_no": "T1",
+            "local_path": "/path/to/doc1.pdf",
+            "success": True,
+            "error": None,
         },
         {
-            'ticket_no': 'T2',
-            'local_path': None,
-            'success': False,
-            'error': 'Download failed'
+            "ticket_no": "T2",
+            "local_path": None,
+            "success": False,
+            "error": "Download failed",
         },
         {
-            'ticket_no': 'T3',
-            'local_path': '/path/to/doc3.pdf',
-            'success': True,
-            'error': None
-        }
+            "ticket_no": "T3",
+            "local_path": "/path/to/doc3.pdf",
+            "success": True,
+            "error": None,
+        },
     ]
 
     # Mock the database execute and commit
-    with patch.object(doc_service.db, 'execute') as mock_execute, \
-         patch.object(doc_service.db, 'commit') as mock_commit, \
-         patch.object(doc_service.db, 'rollback') as mock_rollback, \
-         patch('app.ingestion.document_ingestion.logger.info') as mock_logger:
+    with patch.object(doc_service.db, "execute") as mock_execute, patch.object(
+        doc_service.db, "commit"
+    ) as mock_commit, patch.object(doc_service.db, "rollback") as mock_rollback, patch(
+        "app.ingestion.document_ingestion.logger.info"
+    ) as mock_logger:
 
         # Mock the result object
         mock_result = MagicMock()
@@ -852,13 +846,13 @@ async def test_bulk_update_document_status_success(doc_service, db_session):
 
         # Verify execute was called
         mock_execute.assert_called_once()
-        
+
         # Verify commit was called
         mock_commit.assert_called_once()
-        
+
         # Verify rollback was not called
         mock_rollback.assert_not_called()
-        
+
         # Verify logging
         mock_logger.assert_called_with("Bulk updated 3 document statuses")
 
@@ -868,38 +862,45 @@ async def test_bulk_update_document_status_database_error(doc_service, db_sessio
     """Test bulk update when database operation fails."""
     updates = [
         {
-            'ticket_no': 'T1',
-            'local_path': '/path/to/doc1.pdf',
-            'success': True,
-            'error': None
+            "ticket_no": "T1",
+            "local_path": "/path/to/doc1.pdf",
+            "success": True,
+            "error": None,
         }
     ]
 
     # Mock database error
-    with patch.object(doc_service.db, 'execute', side_effect=Exception("Database error")), \
-         patch.object(doc_service.db, 'commit') as mock_commit, \
-         patch.object(doc_service.db, 'rollback') as mock_rollback, \
-         patch('app.ingestion.document_ingestion.logger.error') as mock_logger:
+    with patch.object(
+        doc_service.db, "execute", side_effect=Exception("Database error")
+    ), patch.object(doc_service.db, "commit") as mock_commit, patch.object(
+        doc_service.db, "rollback"
+    ) as mock_rollback, patch(
+        "app.ingestion.document_ingestion.logger.error"
+    ) as mock_logger:
 
         with pytest.raises(Exception, match="Database error"):
             await doc_service._bulk_update_document_status(updates)
 
         # Verify rollback was called
         mock_rollback.assert_called_once()
-        
+
         # Verify commit was not called
         mock_commit.assert_not_called()
-        
+
         # Verify error logging
-        mock_logger.assert_called_with("Error in bulk document status update: Database error")
+        mock_logger.assert_called_with(
+            "Error in bulk document status update: Database error"
+        )
 
 
 @pytest.mark.asyncio
 async def test_bulk_update_document_status_empty_updates(doc_service):
     """Test bulk update with empty updates list."""
-    with patch.object(doc_service.db, 'execute') as mock_execute, \
-         patch.object(doc_service.db, 'commit') as mock_commit, \
-         patch('app.ingestion.document_ingestion.logger.info') as mock_logger:
+    with patch.object(doc_service.db, "execute") as mock_execute, patch.object(
+        doc_service.db, "commit"
+    ) as mock_commit, patch(
+        "app.ingestion.document_ingestion.logger.info"
+    ) as mock_logger:
 
         mock_result = MagicMock()
         mock_result.rowcount = 0
@@ -909,10 +910,10 @@ async def test_bulk_update_document_status_empty_updates(doc_service):
 
         # Verify execute was called (even with empty list)
         mock_execute.assert_called_once()
-        
+
         # Verify commit was called
         mock_commit.assert_called_once()
-        
+
         # Verify logging
         mock_logger.assert_called_with("Bulk updated 0 document statuses")
 
@@ -948,16 +949,20 @@ async def test_bulk_update_document_status_large_batch(doc_service, db_session):
     # Prepare large update data
     updates = []
     for i in range(100):
-        updates.append({
-            'ticket_no': f'T{i+1:03d}',
-            'local_path': f'/path/to/doc{i+1:03d}.pdf',
-            'success': i % 2 == 0,  # Alternate success/failure
-            'error': f'Error {i}' if i % 2 == 1 else None
-        })
+        updates.append(
+            {
+                "ticket_no": f"T{i+1:03d}",
+                "local_path": f"/path/to/doc{i+1:03d}.pdf",
+                "success": i % 2 == 0,  # Alternate success/failure
+                "error": f"Error {i}" if i % 2 == 1 else None,
+            }
+        )
 
-    with patch.object(doc_service.db, 'execute') as mock_execute, \
-         patch.object(doc_service.db, 'commit') as mock_commit, \
-         patch('app.ingestion.document_ingestion.logger.info') as mock_logger:
+    with patch.object(doc_service.db, "execute") as mock_execute, patch.object(
+        doc_service.db, "commit"
+    ) as mock_commit, patch(
+        "app.ingestion.document_ingestion.logger.info"
+    ) as mock_logger:
 
         mock_result = MagicMock()
         mock_result.rowcount = 100
@@ -967,16 +972,18 @@ async def test_bulk_update_document_status_large_batch(doc_service, db_session):
 
         # Verify execute was called
         mock_execute.assert_called_once()
-        
+
         # Verify commit was called
         mock_commit.assert_called_once()
-        
+
         # Verify logging
         mock_logger.assert_called_with("Bulk updated 100 document statuses")
 
 
 @pytest.mark.asyncio
-async def test_bulk_update_document_status_verifies_database_changes(doc_service, db_session):
+async def test_bulk_update_document_status_verifies_database_changes(
+    doc_service, db_session
+):
     """Test that bulk update actually changes the database."""
     # Create test complaint
     complaint = ComplaintModel(
@@ -1006,12 +1013,14 @@ async def test_bulk_update_document_status_verifies_database_changes(doc_service
     assert complaint.document_download_error is None
 
     # Prepare update data
-    updates = [{
-        'ticket_no': 'T123',
-        'local_path': '/path/to/updated.pdf',
-        'success': True,
-        'error': None
-    }]
+    updates = [
+        {
+            "ticket_no": "T123",
+            "local_path": "/path/to/updated.pdf",
+            "success": True,
+            "error": None,
+        }
+    ]
 
     # Perform bulk update
     await doc_service._bulk_update_document_status(updates)
@@ -1020,7 +1029,7 @@ async def test_bulk_update_document_status_verifies_database_changes(doc_service
     db_session.refresh(complaint)
 
     # Verify the changes were applied
-    assert complaint.local_document_path == '/path/to/updated.pdf'
+    assert complaint.local_document_path == "/path/to/updated.pdf"
     assert complaint.document_downloaded is True
     assert complaint.document_download_error is None
     assert complaint.document_download_date is not None
@@ -1028,7 +1037,9 @@ async def test_bulk_update_document_status_verifies_database_changes(doc_service
 
 # Integration tests
 @pytest.mark.asyncio
-async def test_batch_download_documents_integration_with_bulk_update(doc_service, db_session):
+async def test_batch_download_documents_integration_with_bulk_update(
+    doc_service, db_session
+):
     """Test integration between batch_download_documents and _bulk_update_document_status."""
     # Create test complaints
     complaints = []
@@ -1059,7 +1070,7 @@ async def test_batch_download_documents_integration_with_bulk_update(doc_service
     with patch.object(
         doc_service, "download_document", new_callable=AsyncMock
     ) as mock_download:
-        
+
         def mock_download_side_effect(complaint):
             if complaint.ticket_no == "T1":
                 return "/path/to/doc1.pdf"
@@ -1073,15 +1084,15 @@ async def test_batch_download_documents_integration_with_bulk_update(doc_service
                 raise Exception("Network error")
             else:
                 return None
-        
+
         mock_download.side_effect = mock_download_side_effect
 
         # Mock the bulk update to capture what it receives
         bulk_updates_received = []
-        
+
         async def mock_bulk_update(updates):
             bulk_updates_received.extend(updates)
-        
+
         doc_service._bulk_update_document_status = mock_bulk_update
 
         results = await doc_service.batch_download_documents(complaints)
@@ -1092,29 +1103,35 @@ async def test_batch_download_documents_integration_with_bulk_update(doc_service
             "T2": "failed",
             "T3": "success",
             "T4": "skipped",
-            "T5": "failed"
+            "T5": "failed",
         }
 
         # Verify bulk updates were captured correctly
         assert len(bulk_updates_received) == 5
-        
+
         # Check success case
-        success_update = next(u for u in bulk_updates_received if u['ticket_no'] == 'T1')
-        assert success_update['local_path'] == '/path/to/doc1.pdf'
-        assert success_update['success'] is True
-        assert success_update['error'] is None
-        
+        success_update = next(
+            u for u in bulk_updates_received if u["ticket_no"] == "T1"
+        )
+        assert success_update["local_path"] == "/path/to/doc1.pdf"
+        assert success_update["success"] is True
+        assert success_update["error"] is None
+
         # Check failure case
-        failure_update = next(u for u in bulk_updates_received if u['ticket_no'] == 'T2')
-        assert failure_update['local_path'] is None
-        assert failure_update['success'] is False
-        assert 'Download failed' in failure_update['error']
-        
+        failure_update = next(
+            u for u in bulk_updates_received if u["ticket_no"] == "T2"
+        )
+        assert failure_update["local_path"] is None
+        assert failure_update["success"] is False
+        assert "Download failed" in failure_update["error"]
+
         # Check skipped case
-        skipped_update = next(u for u in bulk_updates_received if u['ticket_no'] == 'T4')
-        assert skipped_update['local_path'] is None
-        assert skipped_update['success'] is False
-        assert skipped_update['error'] is None
+        skipped_update = next(
+            u for u in bulk_updates_received if u["ticket_no"] == "T4"
+        )
+        assert skipped_update["local_path"] is None
+        assert skipped_update["success"] is False
+        assert skipped_update["error"] is None
 
 
 @pytest.mark.asyncio
@@ -1148,28 +1165,30 @@ async def test_batch_download_documents_in_chunks(doc_service, db_session):
     # Mock batch_download_documents
     with patch.object(
         doc_service, "batch_download_documents", new_callable=AsyncMock
-    ) as mock_batch_download, \
-         patch('app.ingestion.document_ingestion.logger.info') as mock_logger, \
-         patch('app.ingestion.document_ingestion.logger.success') as mock_success_logger:
+    ) as mock_batch_download, patch(
+        "app.ingestion.document_ingestion.logger.info"
+    ) as mock_logger, patch(
+        "app.ingestion.document_ingestion.logger.success"
+    ) as mock_success_logger:
 
         # Mock results for each chunk
         mock_batch_download.side_effect = [
             {f"T{i+1:03d}": "success" for i in range(100)},  # First chunk
             {f"T{i+1:03d}": "success" for i in range(100, 200)},  # Second chunk
-            {f"T{i+1:03d}": "success" for i in range(200, 250)}  # Third chunk
+            {f"T{i+1:03d}": "success" for i in range(200, 250)},  # Third chunk
         ]
 
-        results = await doc_service.batch_download_documents_in_chunks(complaints, chunk_size=100)
+        results = await doc_service.batch_download_documents_in_chunks(
+            complaints, chunk_size=100
+        )
 
         # Verify batch_download_documents was called 3 times
         assert mock_batch_download.call_count == 3
-        
+
         # Verify logging
         assert mock_logger.call_count == 3  # One for each chunk
         assert mock_success_logger.call_count == 3  # One for each chunk completion
-        
+
         # Verify final results
         assert len(results) == 250
         assert all(status == "success" for status in results.values())
-
-

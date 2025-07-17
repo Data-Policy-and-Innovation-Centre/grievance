@@ -46,44 +46,6 @@ class DocumentService:
         if not os.path.exists(settings.LOCAL_STORAGE_PATH):
             os.mkdir(settings.LOCAL_STORAGE_PATH)
 
-    async def update_document_status_for_all_complaints(
-        self, only_without_documents: bool = False
-    ):
-        """
-        Update the document status for all complaints whose documents are already downloaded
-        """
-        logger.info(f"Updating document status for existing complaints in database")
-        if only_without_documents:
-            complaints = get_complaints_without_documents(self.db)
-        else:
-            complaints = get_complaints_with_document_urls(self.db)
-
-        with tqdm(
-            total=len(complaints),
-            desc="Updating document status",
-            position=1,
-            leave=False,
-        ) as pbar:
-            for complaint in complaints:
-                pbar.set_description(f"Processing {complaint.ticket_no}")
-                path = self.get_document_path(complaint.ticket_no, "complaint")
-                downloaded = any(
-                    self.document_already_downloaded(
-                        complaint.ticket_no, "complaint", ext
-                    )
-                    for ext in ["pdf", "jpeg", "docx", "doc", "png", "bin", "jpg"]
-                )
-
-                if downloaded:
-                    update_document_status(
-                        self.db, complaint.ticket_no, local_path=path, success=True
-                    )
-                    pbar.update(1)
-                else:
-                    await self.download_document(complaint)
-
-                # TODO: Add as needed for other document types
-
     def get_document_path(self, ticket_no: str, document_type: str) -> str:
         """
         Generates a local file path to store a document related to a complaint.
@@ -193,26 +155,12 @@ class DocumentService:
 
         if not url or not url.lower().startswith(("http://", "https://")):
             logger.warning(f"Complaint {ticket_no} does not have a valid document URL.")
-            update_document_status(
-                self.db,
-                ticket_no,
-                local_path=None,
-                success=False,
-                error=f"Error: Invalid URL for ticket {ticket_no}",
-            )
             return None
 
         path = self.get_document_path(ticket_no, document_type)
 
         if path is None:
             logger.warning(f"Failed to generate a path for complaint {ticket_no}")
-            update_document_status(
-                self.db,
-                ticket_no,
-                local_path=None,
-                success=False,
-                error=f"Error: No document path for {ticket_no}",
-            )
             return None
 
         extension = os.path.splitext(path)[1][1:].lower()
@@ -232,51 +180,51 @@ class DocumentService:
                     else:
                         self.s3_service.upload_fileobj(response.content, path)
                 logger.info(f"Downloaded document for complaint {ticket_no} to {path}")
-                update_document_status(
-                    self.db, ticket_no, local_path=path, success=True
-                )
             return path
         except Exception as e:
             error_msg = str(e)
             logger.error(f"Error downloading document for {ticket_no}: {error_msg}")
-            update_document_status(
-                self.db,
-                ticket_no,
-                local_path=None,
-                success=False,
-                error=f"Error: {error_msg}",
-            )
-            return "Error"
+            raise
 
     async def batch_download_documents(
-        self, complaints: List[Complaint]
+        self, complaints: List[Complaint], batch_size: int = 500
     ) -> Dict[str, str]:
+        """
+        Batch download documents with optimized database operations.
+        """
         results = {}
-        updated_complaints = []
+        batch_updates = []
 
-        async def process(complaint: Complaint) -> Tuple[str, str]:
+        async def process(complaint: Complaint) -> Tuple[str, str, Dict]:
+            """Process a single document download."""
             try:
                 path = await self.download_document(complaint)
                 status = "success" if path else "skipped"
-                updated = update_document_status(
-                    self.db,
-                    complaint.ticket_no,
-                    local_path=path,
-                    success=(status == "success"),
-                )
-                return complaint.ticket_no, status, updated
+                
+                # Return update data instead of calling update_document_status
+                update_data = {
+                    'ticket_no': complaint.ticket_no,
+                    'local_path': path,
+                    'success': (status == "success"),
+                    'error': None
+                }
+                
+                return complaint.ticket_no, status, update_data
+                
             except Exception as e:
-                updated = update_document_status(
-                    self.db,
-                    complaint.ticket_no,
-                    local_path=None,
-                    success=False,
-                    error=str(e),
-                )
-                return complaint.ticket_no, "failed", updated
+                # Return error update data
+                update_data = {
+                    'ticket_no': complaint.ticket_no,
+                    'local_path': None,
+                    'success': False,
+                    'error': str(e)
+                }
+                
+                return complaint.ticket_no, "failed", update_data
 
+        # Process all complaints concurrently
         tasks = [process(c) for c in complaints]
-
+        
         counter = 0
         for coro in tqdm(
             asyncio.as_completed(tasks),
@@ -285,20 +233,20 @@ class DocumentService:
             position=1,
             leave=False,
         ):
-            ticket_no, status, updated = await coro
-            # print(ticket_no)
+            ticket_no, status, update_data = await coro
             results[ticket_no] = status
-            if updated:
-                updated_complaints.append(updated)
+            batch_updates.append(update_data)
 
-            # Commits to db every 500 tasks
+            # Batch commit every batch_size tasks
             counter += 1
-            if counter % 500 == 0:
-                self.db.commit()
+            if counter % batch_size == 0:
+                await self._bulk_update_document_status(batch_updates)
+                batch_updates = []  # Clear the batch
 
-        if updated_complaints:
-            self.db.add_all(updated_complaints)
-        self.db.commit()
+        # Commit any remaining updates
+        if batch_updates:
+            await self._bulk_update_document_status(batch_updates)
+
         return results
 
     async def batch_download_documents_in_chunks(
@@ -313,6 +261,52 @@ class DocumentService:
             logger.success(f"✅ Finished chunk {i}: {len(chunk_result)} processed")
 
         return results
+
+    async def _bulk_update_document_status(self, updates: List[Dict]):
+        """
+        Bulk update document status using SQLAlchemy Core for maximum performance.
+        """
+        try:
+            import pytz
+            from sqlalchemy import update, case
+            from app.db.models import Complaint as ComplaintModel
+            
+            time_zone = pytz.timezone("Asia/Kolkata")
+            now = datetime.now(time_zone)
+            
+            # Create a single bulk update statement
+            stmt = (
+                update(ComplaintModel)
+                .where(ComplaintModel.ticket_no.in_([u['ticket_no'] for u in updates]))
+                .values(
+                    local_document_path=case(
+                        *[(ComplaintModel.ticket_no == u['ticket_no'], u['local_path']) 
+                          for u in updates],
+                        else_=ComplaintModel.local_document_path
+                    ),
+                    document_downloaded=case(
+                        *[(ComplaintModel.ticket_no == u['ticket_no'], u['success']) 
+                          for u in updates],
+                        else_=ComplaintModel.document_downloaded
+                    ),
+                    document_download_date=now,
+                    document_download_error=case(
+                        *[(ComplaintModel.ticket_no == u['ticket_no'], u['error']) 
+                          for u in updates],
+                        else_=ComplaintModel.document_download_error
+                    )
+                )
+            )
+            
+            result = self.db.execute(stmt)
+            self.db.commit()
+            
+            logger.info(f"Bulk updated {result.rowcount} document statuses")
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error in bulk document status update: {e}")
+            raise
 
 
 async def main():

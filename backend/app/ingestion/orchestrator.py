@@ -122,10 +122,10 @@ class IngestionOrchestrator:
             return []
 
     async def ingest_documents(
-        self, complaints: List[Complaint], doc_service: DocumentService
+        self, complaints: List[Complaint]
     ) -> Dict[str, str]:
         """Ingest documents data"""
-        results = await doc_service.batch_download_documents(complaints)
+        results = await self.doc_service.batch_download_documents(complaints)
         return results
 
 
@@ -254,7 +254,7 @@ async def run_ingestion_service(
                     mode="w", filename=directories.LOGS / "ingest_documents.log"
                 )
                 doc_tasks = [
-                    orchestrator.ingest_documents(chunk, orchestrator.doc_service)
+                    orchestrator.ingest_documents(chunk)
                     for chunk in chunked(complaints, 10)
                 ]
                 doc_results = await track_with_progress(

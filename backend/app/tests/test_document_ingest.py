@@ -33,7 +33,7 @@ def db_session():
         Base.metadata.drop_all(engine)
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def sample_complaint_data(db_session):
     complaint = ComplaintModel(
         ticket_no="T123",
@@ -198,20 +198,20 @@ async def test_download_document_success(
     complaint = ComplaintModel(
         ticket_no="T123",
         document_url="http://example.com/file~pdf",
-        grievance="Test grievance",  # Required field
-        office="Test Office",  # Required field
-        received_by="Test Officer",  # Required field
-        district="Test District",  # Required field
-        mode="Online",  # Required field
-        status="Pending",  # Required field
-        govt_ticket=True,  # Required field
-        created_on=datetime(2024, 1, 1, 12, 0),  # Required field
-        category="Test Category",  # Required field
-        state="Test State",  # Required field
-        petitioner_gender="Male",  # Required field
-        transfer_status="None",  # Required field
-        urgent="No",  # Required field
-        assigned_on=datetime(2024, 1, 1, 12, 0),  # Required field
+        grievance="Test grievance",
+        office="Test Office",
+        received_by="Test Officer",
+        district="Test District",
+        mode="Online",
+        status="Pending",
+        govt_ticket=True,
+        created_on=datetime(2024, 1, 1, 12, 0),
+        category="Test Category",
+        state="Test State",
+        petitioner_gender="Male",
+        transfer_status="None",
+        urgent="No",
+        assigned_on=datetime(2024, 1, 1, 12, 0),
     )
     db_session.add(complaint)
     db_session.commit()
@@ -309,7 +309,7 @@ async def test_download_document_invalid_url(doc_service, tmp_path, db_session):
 
 
 @pytest.mark.asyncio
-async def test_download_document_no_path_logs_and_updates_status(doc_service):
+async def test_download_document_no_path_logs(doc_service):
     complaint = ComplaintModel(
         ticket_no="T123",
         document_url="https://www.example.com/file~pdf",
@@ -330,8 +330,6 @@ async def test_download_document_no_path_logs_and_updates_status(doc_service):
     )
 
     with patch.object(doc_service, "get_document_path", return_value=None), patch(
-        "app.ingestion.document_ingestion.update_document_status"
-    ) as mock_update, patch(
         "app.ingestion.document_ingestion.logger.warning"
     ) as mock_log:
 
@@ -343,122 +341,13 @@ async def test_download_document_no_path_logs_and_updates_status(doc_service):
         # Assert the warning log was called
         mock_log.assert_any_call("Failed to generate a path for complaint T123")
 
-        # Assert update_document_status was called with correct args
-        mock_update.assert_called_once_with(
-            doc_service.db,
-            "T123",
-            local_path=None,
-            success=False,
-            error="Error: No document path for T123",
-        )
-
 
 @pytest.mark.asyncio
-async def test_download_document_error_updates_db(
-    doc_service, tmp_path, caplog, db_session
-):
+async def test_download_document_error(doc_service, tmp_path, caplog, db_session):
     test_path = tmp_path / "file.pdf"
     complaint = ComplaintModel(
         ticket_no="T123",
         document_url="http://example.com/file~pdf",
-        grievance="Test grievance",  # Required field
-        office="Test Office",  # Required field
-        received_by="Test Officer",  # Required field
-        district="Test District",  # Required field
-        mode="Online",  # Required field
-        status="Pending",  # Required field
-        govt_ticket=True,  # Required field
-        created_on=datetime(2024, 1, 1, 12, 0),  # Required field
-        category="Test Category",  # Required field
-        state="Test State",  # Required field
-        petitioner_gender="Male",  # Required field
-        transfer_status="None",  # Required field
-        urgent="No",  # Required field
-        assigned_on=datetime(2024, 1, 1, 12, 0),  # Required field
-    )
-    db_session.add(complaint)
-    db_session.commit()
-
-    with patch.object(
-        doc_service, "get_document_path", return_value=str(test_path)
-    ), patch.object(
-        doc_service, "document_already_downloaded", return_value=False
-    ), patch(
-        "httpx.AsyncClient.get", side_effect=Exception("Simulated error")
-    ), patch(
-        "app.ingestion.document_ingestion.update_document_status"
-    ) as mock_update_status, patch(
-        "app.ingestion.document_ingestion.logger.error"
-    ) as mock_log_error:
-
-        result = await doc_service.download_document(complaint, "complaint")
-
-        assert result == "Error"
-        mock_update_status.assert_called_once_with(
-            doc_service.db,
-            "T123",
-            local_path=None,
-            success=False,
-            error="Error: Simulated error",
-        )
-        mock_log_error.assert_any_call(
-            "Error downloading document for T123: Simulated error"
-        )
-
-
-@pytest.mark.asyncio
-async def test_batch_download_documents_success(doc_service, db_session):
-    doc_service
-
-    # Mock complaint
-    complaint = ComplaintModel(
-        ticket_no="T123",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",  # Required field
-        office="Test Office",  # Required field
-        received_by="Test Officer",  # Required field
-        district="Test District",  # Required field
-        mode="Online",  # Required field
-        status="Pending",  # Required field
-        govt_ticket=True,  # Required field
-        created_on=datetime(2024, 1, 1, 12, 0),  # Required field
-        category="Test Category",  # Required field
-        state="Test State",  # Required field
-        petitioner_gender="Male",  # Required field
-        transfer_status="None",  # Required field
-        urgent="No",  # Required field
-        assigned_on=datetime(2024, 1, 1, 12, 0),  # Required field
-    )
-    db_session.add(complaint)
-    db_session.commit()
-
-    # Mock db context manager
-    mock_db = MagicMock()
-    doc_service.db = mock_db
-    mock_db_context = AsyncMock()
-    mock_db_context.__aenter__.return_value = mock_db
-
-    # Mock download and update
-    with patch.object(
-        doc_service, "download_document", new_callable=AsyncMock
-    ) as mock_download, patch(
-        "app.ingestion.document_ingestion.update_document_status"
-    ) as mock_update:
-
-        mock_download.return_value = "/mocked/path/file.pdf"
-
-        results = await doc_service.batch_download_documents([complaint])
-
-        assert results == {"T123": "success"}
-        mock_download.assert_called_once_with(complaint)
-
-
-@pytest.mark.asyncio
-async def test_batch_download_documents_handles_exception(doc_service, db_session):
-    # Arrange: un complaint válido
-    complaint = ComplaintModel(
-        ticket_no="T999",
-        document_url="https://example.com/file.pdf",
         grievance="Test grievance",
         office="Test Office",
         received_by="Test Officer",
@@ -478,21 +367,122 @@ async def test_batch_download_documents_handles_exception(doc_service, db_sessio
     db_session.commit()
 
     with patch.object(
-        doc_service, "download_document", side_effect=Exception("Boom!")
+        doc_service, "get_document_path", return_value=str(test_path)
+    ), patch.object(
+        doc_service, "document_already_downloaded", return_value=False
     ), patch(
-        "app.ingestion.document_ingestion.update_document_status"
-    ) as mock_update_status, patch(
-        "app.ingestion.document_ingestion.tqdm"
-    ):  # para evitar output en test
+        "httpx.AsyncClient.get", side_effect=Exception("Simulated error")
+    ), patch(
+        "app.ingestion.document_ingestion.logger.error"
+    ) as mock_log_error:
 
-        # Act
-        result = await doc_service.batch_download_documents([complaint])
+        result = await doc_service.download_document(complaint, "complaint")
 
-        # Assert
-        assert result == {"T999": "failed"}
-        mock_update_status.assert_called_once_with(
-            db_session, "T999", local_path=None, success=False, error="Boom!"
+        assert result is None
+
+        mock_log_error.assert_any_call(
+            "Error downloading document for T123: Simulated error"
         )
+
+
+@pytest.mark.asyncio
+async def test_batch_download_documents_success(doc_service, db_session):
+    doc_service
+
+    # Mock complaint
+    complaint = ComplaintModel(
+        ticket_no="T123",
+        document_url="http://example.com/file~pdf",
+        grievance="Test grievance",
+        office="Test Office",
+        received_by="Test Officer",
+        district="Test District",
+        mode="Online",
+        status="Pending",
+        govt_ticket=True,
+        created_on=datetime(2024, 1, 1, 12, 0),
+        category="Test Category",
+        state="Test State",
+        petitioner_gender="Male",
+        transfer_status="None",
+        urgent="No",
+        assigned_on=datetime(2024, 1, 1, 12, 0),
+    )
+    db_session.add(complaint)
+    db_session.commit()
+
+    # Mock db context manager
+    mock_db = MagicMock()
+    doc_service.db = mock_db
+    mock_db_context = AsyncMock()
+    mock_db_context.__aenter__.return_value = mock_db
+
+    # Mock download and update
+    with patch.object(
+        doc_service, "download_document", new_callable=AsyncMock
+    ) as mock_download:
+
+        mock_download.return_value = "/mocked/path/file.pdf"
+
+        results = await doc_service.batch_download_documents([complaint])
+
+        assert results == {"T123": "success"}
+        mock_download.assert_called_once_with(complaint)
+
+
+@pytest.mark.asyncio
+async def test_batch_download_documents_handles_exception(doc_service, db_session):
+    complaint1 = ComplaintModel(
+        ticket_no="T999",
+        document_url="https://example.com/file.pdf",
+        grievance="Test grievance",
+        office="Test Office",
+        received_by="Test Officer",
+        district="Test District",
+        mode="Online",
+        status="Pending",
+        govt_ticket=True,
+        created_on=datetime(2024, 1, 1, 12, 0),
+        category="Test Category",
+        state="Test State",
+        petitioner_gender="Male",
+        transfer_status="None",
+        urgent="No",
+        assigned_on=datetime(2024, 1, 1, 12, 0),
+    )
+    complaint2 = ComplaintModel(
+        ticket_no="T989",
+        document_url="https://example.com/file.pdf",
+        grievance="Test grievance",
+        office="Test Office",
+        received_by="Test Officer",
+        district="Test District",
+        mode="Online",
+        status="Pending",
+        govt_ticket=True,
+        created_on=datetime(2024, 1, 1, 12, 0),
+        category="Test Category",
+        state="Test State",
+        petitioner_gender="Male",
+        transfer_status="None",
+        urgent="No",
+        assigned_on=datetime(2024, 1, 1, 12, 0),
+    )
+    db_session.add(complaint1)
+    db_session.add(complaint2)
+    db_session.commit()
+
+    doc_service.db = db_session
+
+    doc_service.download_document = AsyncMock(side_effect=Exception("Boom!"))
+    fake_updated_complaint = MagicMock()
+    fake_updated_complaint.ticket_no = "T999"
+
+    with patch(
+        "app.ingestion.document_ingestion.update_document_status", return_value=None
+    ):
+        result = await doc_service.batch_download_documents([complaint1, complaint2])
+        assert result == {"T989": "failed", "T999": "failed"}
 
 
 def test_document_service_uses_env_setting(db_session, monkeypatch):
@@ -517,163 +507,16 @@ def test_document_service_skips_local_folder_when_not_local(db_session, monkeypa
         mock_mkdir.assert_not_called()
 
 
-# Tests for update_document_status_for_all_complaints
+# Updated and new tests for batch_download_documents
 @pytest.mark.asyncio
-async def test_update_document_status_for_all_complaints_no_complaints(
-    doc_service, db_session
-):
-    """Test update_document_status_for_all_complaints when no complaints exist."""
-    from app.db.crud import get_all_complaints
-
-    # Ensure no complaints exist
-    complaints = get_all_complaints(db_session)
-    assert len(complaints) == 0
-
-    # Should not raise any errors
-    await doc_service.update_document_status_for_all_complaints()
-
-    # Verify no complaints were processed
-    complaints_after = get_all_complaints(db_session)
-    assert len(complaints_after) == 0
-
-
-@pytest.mark.asyncio
-async def test_update_document_status_for_all_complaints_with_pdf_document(
-    doc_service, db_session, tmp_path, monkeypatch
-):
-    """Test update_document_status_for_all_complaints with PDF document already downloaded."""
-    from app.config import settings
-    from app.db.crud import get_all_complaints, update_document_status
-
-    # Set up dev environment
-    monkeypatch.setattr(settings, "ENV", "dev")
-    storage_path = tmp_path / "documents"
-    storage_path.mkdir(exist_ok=True)
-    monkeypatch.setattr(settings, "LOCAL_STORAGE_PATH", str(storage_path))
-
-    # Create a complaint with PDF document
-    complaint = ComplaintModel(
-        ticket_no="T123",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",
-        office="Test Office",
-        received_by="Test Officer",
-        district="Test District",
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-        document_downloaded=False,  # Initially not downloaded
-    )
-    db_session.add(complaint)
-    db_session.commit()
-
-    # Create a PDF file that matches the pattern
-    pdf_file = storage_path / "T123_complaint_20240101_120000.pdf"
-    pdf_file.write_text("fake pdf content")
-
-    # Mock the document_already_downloaded method to return True for PDF
-    with patch.object(doc_service, "document_already_downloaded") as mock_downloaded:
-        mock_downloaded.side_effect = lambda ticket, doc_type, ext: ext == "pdf"
-
-        # Call the method
-        await doc_service.update_document_status_for_all_complaints()
-
-        # Verify the method was called for both PDF and JPEG
-        assert mock_downloaded.call_count == 1
-        mock_downloaded.assert_any_call("T123", "complaint", "pdf")
-
-    # Verify the complaint was updated
-    updated_complaint = get_complaint_by_ticket(db_session, "T123")
-    assert updated_complaint.document_downloaded == True
-    assert updated_complaint.local_document_path is not None
-
-
-@pytest.mark.asyncio
-async def test_update_document_status_for_all_complaints_with_jpeg_document(
-    doc_service, db_session, tmp_path, monkeypatch
-):
-    """Test update_document_status_for_all_complaints with JPEG document already downloaded."""
-    from app.config import settings
-    from app.db.crud import get_all_complaints, update_document_status
-
-    # Set up dev environment
-    monkeypatch.setattr(settings, "ENV", "dev")
-    storage_path = tmp_path / "documents"
-    storage_path.mkdir(exist_ok=True)
-    monkeypatch.setattr(settings, "LOCAL_STORAGE_PATH", str(storage_path))
-
-    # Create a complaint with JPEG document
-    complaint = ComplaintModel(
-        ticket_no="T456",
-        document_url="http://example.com/file~jpeg",
-        grievance="Test grievance",
-        office="Test Office",
-        received_by="Test Officer",
-        district="Test District",
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-        document_downloaded=False,  # Initially not downloaded
-    )
-    db_session.add(complaint)
-    db_session.commit()
-
-    # Create a JPEG file that matches the pattern
-    jpeg_file = storage_path / "T456_complaint_20240101_120000.jpeg"
-    jpeg_file.write_text("fake jpeg content")
-
-    # Mock the document_already_downloaded method to return True for JPEG
-    with patch.object(doc_service, "document_already_downloaded") as mock_downloaded:
-        mock_downloaded.side_effect = lambda ticket, doc_type, ext: ext == "jpeg"
-
-        # Call the method
-        await doc_service.update_document_status_for_all_complaints()
-
-        # Verify the method was called for both PDF and JPEG
-        assert mock_downloaded.call_count == 2
-        mock_downloaded.assert_any_call("T456", "complaint", "pdf")
-        mock_downloaded.assert_any_call("T456", "complaint", "jpeg")
-
-    # Verify the complaint was updated
-    updated_complaint = get_complaint_by_ticket(db_session, "T456")
-    assert updated_complaint.document_downloaded == True
-    assert updated_complaint.local_document_path is not None
-
-
-@pytest.mark.asyncio
-async def test_update_document_status_for_all_complaints_multiple_complaints(
-    doc_service, db_session, tmp_path, monkeypatch
-):
-    """Test update_document_status_for_all_complaints with multiple complaints."""
-    from app.config import settings
-    from app.db.crud import get_all_complaints, update_document_status
-
-    # Set up dev environment
-    monkeypatch.setattr(settings, "ENV", "dev")
-    storage_path = tmp_path / "documents"
-    storage_path.mkdir(exist_ok=True)
-    monkeypatch.setattr(settings, "LOCAL_STORAGE_PATH", str(storage_path))
-
-    # Create multiple complaints
+async def test_batch_download_documents_success(doc_service, db_session):
+    """Test batch_download_documents with the new bulk update implementation."""
+    # Create test complaints
     complaints = []
     for i in range(3):
         complaint = ComplaintModel(
-            ticket_no=f"T{i+100}",
-            document_url=f"http://example.com/file{i}~pdf",
+            ticket_no=f"T{i+1}",
+            document_url="http://example.com/file.pdf",
             grievance="Test grievance",
             office="Test Office",
             received_by="Test Officer",
@@ -688,154 +531,60 @@ async def test_update_document_status_for_all_complaints_multiple_complaints(
             transfer_status="None",
             urgent="No",
             assigned_on=datetime(2024, 1, 1, 12, 0),
-            document_downloaded=False,
         )
         complaints.append(complaint)
         db_session.add(complaint)
-
     db_session.commit()
 
-    # Mock the document_already_downloaded method to return True for all
+    # Mock download_document to return success paths
     with patch.object(
-        doc_service, "document_already_downloaded", return_value=True
-    ) as mock_downloaded:
-        # Call the method
-        await doc_service.update_document_status_for_all_complaints()
+        doc_service, "download_document", new_callable=AsyncMock
+    ) as mock_download, patch.object(
+        doc_service, "_bulk_update_document_status", new_callable=AsyncMock
+    ) as mock_bulk_update:
 
-        # Verify the method was called for each complaint
-        assert mock_downloaded.call_count == 3  # Only pdf is checked
+        # Mock successful downloads
+        mock_download.side_effect = [
+            "/path/to/doc1.pdf",
+            "/path/to/doc2.pdf",
+            "/path/to/doc3.pdf",
+        ]
 
-    # Verify all complaints were updated
-    for complaint in complaints:
-        updated_complaint = get_complaint_by_ticket(db_session, complaint.ticket_no)
-        assert updated_complaint.document_downloaded == True
+        results = await doc_service.batch_download_documents(complaints)
+
+        # Verify results
+        assert results == {"T1": "success", "T2": "success", "T3": "success"}
+
+        # Verify download_document was called for each complaint
+        assert mock_download.call_count == 3
+        mock_download.assert_any_call(complaints[0])
+        mock_download.assert_any_call(complaints[1])
+        mock_download.assert_any_call(complaints[2])
+
+        # Verify bulk update was called with correct data
+        assert mock_bulk_update.call_count == 1
+        call_args = mock_bulk_update.call_args[0][0]
+        assert len(call_args) == 3
+
+        # Check the update data structure
+        for update_data in call_args:
+            assert "ticket_no" in update_data
+            assert "local_path" in update_data
+            assert "success" in update_data
+            assert "error" in update_data
+            assert update_data["success"] is True
+            assert update_data["error"] is None
 
 
 @pytest.mark.asyncio
-async def test_update_document_status_for_all_complaints_no_documents_downloaded(
-    doc_service, db_session, tmp_path, monkeypatch
-):
-    """Test update_document_status_for_all_complaints when no documents are downloaded."""
-    from app.config import settings
-    from app.db.crud import get_all_complaints, update_document_status
-
-    # Set up dev environment
-    monkeypatch.setattr(settings, "ENV", "dev")
-    storage_path = tmp_path / "documents"
-    storage_path.mkdir(exist_ok=True)
-    monkeypatch.setattr(settings, "LOCAL_STORAGE_PATH", str(storage_path))
-
-    # Create a complaint
-    complaint = ComplaintModel(
-        ticket_no="T789",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",
-        office="Test Office",
-        received_by="Test Officer",
-        district="Test District",
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-        document_downloaded=False,
-    )
-    db_session.add(complaint)
-    db_session.commit()
-
-    # Mock the document_already_downloaded method to return False for all
-    with patch.object(
-        doc_service, "document_already_downloaded", return_value=False
-    ) as mock_downloaded:
-        # Call the method
-        await doc_service.update_document_status_for_all_complaints()
-
-    # Verify the complaint was NOT updated
-    updated_complaint = get_complaint_by_ticket(db_session, "T789")
-    assert updated_complaint.document_downloaded == False
-
-
-@pytest.mark.asyncio
-async def test_update_document_status_for_all_complaints_already_downloaded(
-    doc_service, db_session, tmp_path, monkeypatch
-):
-    """Test update_document_status_for_all_complaints when documents are already marked as downloaded."""
-    from app.config import settings
-
-    # Set up dev environment
-    monkeypatch.setattr(settings, "ENV", "dev")
-    storage_path = tmp_path / "documents"
-    storage_path.mkdir(exist_ok=True)
-    monkeypatch.setattr(settings, "LOCAL_STORAGE_PATH", str(storage_path))
-
-    # Create a complaint already marked as downloaded
-    complaint = ComplaintModel(
-        ticket_no="T999",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",
-        office="Test Office",
-        received_by="Test Officer",
-        district="Test District",
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-        document_downloaded=True,  # Already downloaded
-        local_document_path="/existing/path/document.pdf",
-    )
-    db_session.add(complaint)
-    db_session.commit()
-
-    # Mock the document_already_downloaded method to return True
-    with patch.object(
-        doc_service, "document_already_downloaded", return_value=True
-    ) as mock_downloaded:
-
-        # Call the method
-        await doc_service.update_document_status_for_all_complaints()
-
-        # Verify the method was called for both PDF and JPEG
-        assert mock_downloaded.call_count == 1
-        mock_downloaded.assert_any_call("T999", "complaint", "pdf")
-
-    # Verify the complaint path was updated (even if already downloaded)
-    updated_complaint = get_complaint_by_ticket(db_session, "T999")
-    assert updated_complaint.document_downloaded == True
-    # The path might be updated to a new one based on current timestamp
-    assert updated_complaint.local_document_path is not None
-
-
-@pytest.mark.asyncio
-async def test_update_document_status_for_all_complaints_mixed_scenarios(
-    doc_service, db_session, tmp_path, monkeypatch
-):
-    """Test update_document_status_for_all_complaints with mixed scenarios."""
-    from app.config import settings
-    from app.db.crud import get_all_complaints, update_document_status
-
-    # Set up dev environment
-    monkeypatch.setattr(settings, "ENV", "dev")
-    storage_path = tmp_path / "documents"
-    storage_path.mkdir(exist_ok=True)
-    monkeypatch.setattr(settings, "LOCAL_STORAGE_PATH", str(storage_path))
-
-    # Create complaints with different scenarios
-    complaints = [
-        # Complaint 1: Has PDF document
-        ComplaintModel(
-            ticket_no="T101",
-            document_url="http://example.com/file1~pdf",
+async def test_batch_download_documents_mixed_success_failure(doc_service, db_session):
+    """Test batch_download_documents with mixed success and failure scenarios."""
+    # Create test complaints
+    complaints = []
+    for i in range(4):
+        complaint = ComplaintModel(
+            ticket_no=f"T{i+1}",
+            document_url="http://example.com/file.pdf",
             grievance="Test grievance",
             office="Test Office",
             received_by="Test Officer",
@@ -850,197 +599,78 @@ async def test_update_document_status_for_all_complaints_mixed_scenarios(
             transfer_status="None",
             urgent="No",
             assigned_on=datetime(2024, 1, 1, 12, 0),
-            document_downloaded=False,
-        ),
-        # Complaint 2: Has JPEG document
-        ComplaintModel(
-            ticket_no="T102",
-            document_url="http://example.com/file2~jpeg",
-            grievance="Test grievance",
-            office="Test Office",
-            received_by="Test Officer",
-            district="Test District",
-            mode="Online",
-            status="Pending",
-            govt_ticket=True,
-            created_on=datetime(2024, 1, 1, 12, 0),
-            category="Test Category",
-            state="Test State",
-            petitioner_gender="Male",
-            transfer_status="None",
-            urgent="No",
-            assigned_on=datetime(2024, 1, 1, 12, 0),
-            document_downloaded=False,
-        ),
-        # Complaint 3: No document downloaded
-        ComplaintModel(
-            ticket_no="T103",
-            document_url="http://example.com/file3~pdf",
-            grievance="Test grievance",
-            office="Test Office",
-            received_by="Test Officer",
-            district="Test District",
-            mode="Online",
-            status="Pending",
-            govt_ticket=True,
-            created_on=datetime(2024, 1, 1, 12, 0),
-            category="Test Category",
-            state="Test State",
-            petitioner_gender="Male",
-            transfer_status="None",
-            urgent="No",
-            assigned_on=datetime(2024, 1, 1, 12, 0),
-            document_downloaded=False,
-        ),
-    ]
-
-    for complaint in complaints:
+        )
+        complaints.append(complaint)
         db_session.add(complaint)
     db_session.commit()
 
-    # Mock the document_already_downloaded method with different responses
-    def mock_downloaded(ticket, doc_type, ext):
-        if ticket == "T101" and ext == "pdf":
-            return True
-        elif ticket == "T102" and ext == "jpeg":
-            return True
-        else:
-            return False
-
+    # Mock download_document with mixed results
     with patch.object(
-        doc_service, "document_already_downloaded", side_effect=mock_downloaded
-    ) as mock_downloaded_func:
-        # Call the method
-        await doc_service.update_document_status_for_all_complaints()
+        doc_service, "download_document", new_callable=AsyncMock
+    ) as mock_download, patch.object(
+        doc_service, "_bulk_update_document_status", new_callable=AsyncMock
+    ) as mock_bulk_update:
 
-    # Verify results
-    complaint_101 = get_complaint_by_ticket(db_session, "T101")
-    complaint_102 = get_complaint_by_ticket(db_session, "T102")
-    complaint_103 = get_complaint_by_ticket(db_session, "T103")
+        # Create a deterministic mock that returns based on ticket_no
+        def mock_download_side_effect(complaint):
+            if complaint.ticket_no == "T1":
+                return "/path/to/doc1.pdf"  # Success
+            elif complaint.ticket_no == "T2":
+                raise Exception("Download failed")  # Failure
+            elif complaint.ticket_no == "T3":
+                return "/path/to/doc3.pdf"  # Success
+            elif complaint.ticket_no == "T4":
+                raise Exception("Network error")  # Failure
+            else:
+                return None
 
-    assert complaint_101.document_downloaded == True  # PDF found
-    assert complaint_102.document_downloaded == True  # JPEG found
-    assert complaint_103.document_downloaded == False  # No document found
+        mock_download.side_effect = mock_download_side_effect
+
+        results = await doc_service.batch_download_documents(complaints)
+
+        # Verify results (order-independent)
+        expected_results = {
+            "T1": "success",
+            "T2": "failed",
+            "T3": "success",
+            "T4": "failed",
+        }
+        assert results == expected_results
+
+        # Verify bulk update was called with correct data
+        assert mock_bulk_update.call_count == 1
+        call_args = mock_bulk_update.call_args[0][0]
+        assert len(call_args) == 4
+
+        # Check success cases (order-independent)
+        success_updates = [u for u in call_args if u["success"]]
+        assert len(success_updates) == 2
+        success_tickets = {u["ticket_no"] for u in success_updates}
+        assert success_tickets == {"T1", "T3"}
+
+        # Check failure cases (order-independent)
+        failure_updates = [u for u in call_args if not u["success"]]
+        assert len(failure_updates) == 2
+        failure_tickets = {u["ticket_no"] for u in failure_updates}
+        assert failure_tickets == {"T2", "T4"}
+
+        # Verify specific error messages
+        for update in call_args:
+            if update["ticket_no"] == "T2":
+                assert "Download failed" in update["error"]
+            elif update["ticket_no"] == "T4":
+                assert "Network error" in update["error"]
 
 
 @pytest.mark.asyncio
-async def test_update_document_status_for_all_complaints_s3_environment(
-    doc_service, db_session, monkeypatch
-):
-    """Test update_document_status_for_all_complaints in S3 environment."""
-    from app.config import settings
-    from app.db.crud import get_all_complaints, update_document_status
-
-    # Set up S3 environment
-    monkeypatch.setattr(settings, "ENV", "main")
-
-    # Create a complaint
-    complaint = ComplaintModel(
-        ticket_no="T200",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",
-        office="Test Office",
-        received_by="Test Officer",
-        district="Test District",
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-        document_downloaded=False,
-    )
-    db_session.add(complaint)
-    db_session.commit()
-
-    # Mock the S3 document check to return True
-    with patch.object(
-        doc_service, "document_already_downloaded", return_value=True
-    ) as mock_downloaded:
-
-        # Call the method
-        await doc_service.update_document_status_for_all_complaints()
-
-        # Verify the method was called for both PDF and JPEG
-        assert mock_downloaded.call_count == 1
-        mock_downloaded.assert_any_call("T200", "complaint", "pdf")
-
-    # Verify the complaint was updated
-    updated_complaint = get_complaint_by_ticket(db_session, "T200")
-    assert updated_complaint.document_downloaded == True
-
-
-@pytest.mark.asyncio
-async def test_update_document_status_for_all_complaints_error_handling(
-    doc_service, db_session, tmp_path, monkeypatch
-):
-    """Test update_document_status_for_all_complaints with error handling."""
-    from app.config import settings
-    from app.db.crud import get_all_complaints, update_document_status
-
-    # Set up dev environment
-    monkeypatch.setattr(settings, "ENV", "dev")
-    storage_path = tmp_path / "documents"
-    storage_path.mkdir(exist_ok=True)
-    monkeypatch.setattr(settings, "LOCAL_STORAGE_PATH", str(storage_path))
-
-    # Create a complaint
-    complaint = ComplaintModel(
-        ticket_no="T300",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",
-        office="Test Office",
-        received_by="Test Officer",
-        district="Test District",
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-        document_downloaded=False,
-    )
-    db_session.add(complaint)
-    db_session.commit()
-
-    # Mock the document_already_downloaded method to raise an exception
-    with patch.object(
-        doc_service, "document_already_downloaded", side_effect=Exception("Test error")
-    ):
-        # Call the method - should raise an exception since there's no error handling
-        with pytest.raises(Exception, match="Test error"):
-            await doc_service.update_document_status_for_all_complaints()
-
-
-@pytest.mark.asyncio
-async def test_update_document_status_for_all_complaints_without_documents(
-    doc_service, db_session, tmp_path, monkeypatch
-):
-    """Test update_document_status_for_all_complaints when only_without_documents is True"""
-    from app.config import settings
-    from app.db.crud import (get_complaints_without_documents,
-                             update_document_status)
-
-    # Set up dev environment
-    monkeypatch.setattr(settings, "ENV", "dev")
-    storage_path = tmp_path / "documents"
-    storage_path.mkdir(exist_ok=True)
-    monkeypatch.setattr(settings, "LOCAL_STORAGE_PATH", str(storage_path))
-
-    # Create complaints with different scenarios
-    complaints = [
-        # Complaint 1: Has PDF document
-        ComplaintModel(
-            ticket_no="T101",
-            document_url="http://example.com/file1~pdf",
+async def test_batch_download_documents_batch_commits(doc_service, db_session):
+    """Test that batch_download_documents commits in batches of 500."""
+    # Create 600 test complaints to test batch processing
+    complaints = []
+    for i in range(600):
+        complaint = ComplaintModel(
+            ticket_no=f"T{i+1:03d}",
+            document_url="http://example.com/file.pdf",
             grievance="Test grievance",
             office="Test Office",
             received_by="Test Officer",
@@ -1055,74 +685,510 @@ async def test_update_document_status_for_all_complaints_without_documents(
             transfer_status="None",
             urgent="No",
             assigned_on=datetime(2024, 1, 1, 12, 0),
-            document_downloaded=False,
-        ),
-        # Complaint 2: Has JPEG document
-        ComplaintModel(
-            ticket_no="T102",
-            document_url="http://example.com/file2~jpeg",
-            grievance="Test grievance",
-            office="Test Office",
-            received_by="Test Officer",
-            district="Test District",
-            mode="Online",
-            status="Pending",
-            govt_ticket=True,
-            created_on=datetime(2024, 1, 1, 12, 0),
-            category="Test Category",
-            state="Test State",
-            petitioner_gender="Male",
-            transfer_status="None",
-            urgent="No",
-            assigned_on=datetime(2024, 1, 1, 12, 0),
-            document_downloaded=False,
-        ),
-        # Complaint 3: No document downloaded
-        ComplaintModel(
-            ticket_no="T103",
-            document_url="http://example.com/file3~pdf",
-            grievance="Test grievance",
-            office="Test Office",
-            received_by="Test Officer",
-            district="Test District",
-            mode="Online",
-            status="Pending",
-            govt_ticket=True,
-            created_on=datetime(2024, 1, 1, 12, 0),
-            category="Test Category",
-            state="Test State",
-            petitioner_gender="Male",
-            transfer_status="None",
-            urgent="No",
-            assigned_on=datetime(2024, 1, 1, 12, 0),
-            document_downloaded=False,
-        ),
-    ]
-
-    for complaint in complaints:
+        )
+        complaints.append(complaint)
         db_session.add(complaint)
     db_session.commit()
 
-    # Mock the document_already_downloaded method with different responses
-    def mock_downloaded(ticket, doc_type, ext):
-        if ticket == "T101" and ext == "pdf":
-            return True
-        elif ticket == "T102" and ext == "jpeg":
-            return True
-        else:
-            return False
-
+    # Mock download_document to return success
     with patch.object(
-        doc_service, "document_already_downloaded", side_effect=mock_downloaded
-    ) as mock_downloaded_func:
-        # Call the method
-        await doc_service.update_document_status_for_all_complaints(True)
+        doc_service, "download_document", new_callable=AsyncMock
+    ) as mock_download, patch.object(
+        doc_service, "_bulk_update_document_status", new_callable=AsyncMock
+    ) as mock_bulk_update:
 
-    # Verify results
-    complaint_101 = get_complaint_by_ticket(db_session, "T101")
-    complaint_102 = get_complaint_by_ticket(db_session, "T102")
-    complaint_103 = get_complaint_by_ticket(db_session, "T103")
+        # Mock successful downloads
+        mock_download.return_value = "/path/to/doc.pdf"
 
-    assert complaint_101.document_downloaded == True  # PDF found
-    assert complaint_102.document_downloaded == True  # JPEG found
-    assert complaint_103.document_downloaded == False  # No document found
+        results = await doc_service.batch_download_documents(complaints)
+
+        # Verify all results are success
+        assert len(results) == 600
+        assert all(status == "success" for status in results.values())
+
+        # Verify bulk update was called twice (500 + 100)
+        assert mock_bulk_update.call_count == 2
+
+        # Check first batch (500 items)
+        first_batch = mock_bulk_update.call_args_list[0][0][0]
+        assert len(first_batch) == 500
+
+        # Check second batch (100 items)
+        second_batch = mock_bulk_update.call_args_list[1][0][0]
+        assert len(second_batch) == 100
+
+
+@pytest.mark.asyncio
+async def test_batch_download_documents_empty_list(doc_service):
+    """Test batch_download_documents with empty complaint list."""
+    with patch.object(
+        doc_service, "_bulk_update_document_status", new_callable=AsyncMock
+    ) as mock_bulk_update:
+
+        results = await doc_service.batch_download_documents([])
+
+        assert results == {}
+        mock_bulk_update.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_batch_download_documents_skipped_documents(doc_service, db_session):
+    """Test batch_download_documents when documents are already downloaded."""
+    # Create test complaint
+    complaint = ComplaintModel(
+        ticket_no="T123",
+        document_url="http://example.com/file.pdf",
+        grievance="Test grievance",
+        office="Test Office",
+        received_by="Test Officer",
+        district="Test District",
+        mode="Online",
+        status="Pending",
+        govt_ticket=True,
+        created_on=datetime(2024, 1, 1, 12, 0),
+        category="Test Category",
+        state="Test State",
+        petitioner_gender="Male",
+        transfer_status="None",
+        urgent="No",
+        assigned_on=datetime(2024, 1, 1, 12, 0),
+    )
+    db_session.add(complaint)
+    db_session.commit()
+
+    # Mock download_document to return None (already downloaded)
+    with patch.object(
+        doc_service, "download_document", new_callable=AsyncMock
+    ) as mock_download, patch.object(
+        doc_service, "_bulk_update_document_status", new_callable=AsyncMock
+    ) as mock_bulk_update:
+
+        mock_download.return_value = None  # Document already downloaded
+
+        results = await doc_service.batch_download_documents([complaint])
+
+        assert results == {"T123": "skipped"}
+
+        # Verify bulk update was called with skipped data
+        mock_bulk_update.assert_called_once()
+        call_args = mock_bulk_update.call_args[0][0]
+        assert len(call_args) == 1
+        assert call_args[0]["ticket_no"] == "T123"
+        assert call_args[0]["local_path"] is None
+        assert call_args[0]["success"] is False
+        assert call_args[0]["error"] is None
+
+
+# Tests for _bulk_update_document_status
+@pytest.mark.asyncio
+async def test_bulk_update_document_status_success(doc_service, db_session):
+    """Test successful bulk update of document status."""
+    # Create test complaints
+    complaints = []
+    for i in range(3):
+        complaint = ComplaintModel(
+            ticket_no=f"T{i+1}",
+            document_url="http://example.com/file.pdf",
+            grievance="Test grievance",
+            office="Test Office",
+            received_by="Test Officer",
+            district="Test District",
+            mode="Online",
+            status="Pending",
+            govt_ticket=True,
+            created_on=datetime(2024, 1, 1, 12, 0),
+            category="Test Category",
+            state="Test State",
+            petitioner_gender="Male",
+            transfer_status="None",
+            urgent="No",
+            assigned_on=datetime(2024, 1, 1, 12, 0),
+        )
+        complaints.append(complaint)
+        db_session.add(complaint)
+    db_session.commit()
+
+    # Prepare update data
+    updates = [
+        {
+            "ticket_no": "T1",
+            "local_path": "/path/to/doc1.pdf",
+            "success": True,
+            "error": None,
+        },
+        {
+            "ticket_no": "T2",
+            "local_path": None,
+            "success": False,
+            "error": "Download failed",
+        },
+        {
+            "ticket_no": "T3",
+            "local_path": "/path/to/doc3.pdf",
+            "success": True,
+            "error": None,
+        },
+    ]
+
+    # Mock the database execute and commit
+    with patch.object(doc_service.db, "execute") as mock_execute, patch.object(
+        doc_service.db, "commit"
+    ) as mock_commit, patch.object(doc_service.db, "rollback") as mock_rollback, patch(
+        "app.ingestion.document_ingestion.logger.info"
+    ) as mock_logger:
+
+        # Mock the result object
+        mock_result = MagicMock()
+        mock_result.rowcount = 3
+        mock_execute.return_value = mock_result
+
+        await doc_service._bulk_update_document_status(updates)
+
+        # Verify execute was called
+        mock_execute.assert_called_once()
+
+        # Verify commit was called
+        mock_commit.assert_called_once()
+
+        # Verify rollback was not called
+        mock_rollback.assert_not_called()
+
+        # Verify logging
+        mock_logger.assert_called_with("Bulk updated 3 document statuses")
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_document_status_database_error(doc_service, db_session):
+    """Test bulk update when database operation fails."""
+    updates = [
+        {
+            "ticket_no": "T1",
+            "local_path": "/path/to/doc1.pdf",
+            "success": True,
+            "error": None,
+        }
+    ]
+
+    # Mock database error
+    with patch.object(
+        doc_service.db, "execute", side_effect=Exception("Database error")
+    ), patch.object(doc_service.db, "commit") as mock_commit, patch.object(
+        doc_service.db, "rollback"
+    ) as mock_rollback, patch(
+        "app.ingestion.document_ingestion.logger.error"
+    ) as mock_logger:
+
+        with pytest.raises(Exception, match="Database error"):
+            await doc_service._bulk_update_document_status(updates)
+
+        # Verify rollback was called
+        mock_rollback.assert_called_once()
+
+        # Verify commit was not called
+        mock_commit.assert_not_called()
+
+        # Verify error logging
+        mock_logger.assert_called_with(
+            "Error in bulk document status update: Database error"
+        )
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_document_status_empty_updates(doc_service):
+    """Test bulk update with empty updates list."""
+    with patch.object(doc_service.db, "execute") as mock_execute, patch.object(
+        doc_service.db, "commit"
+    ) as mock_commit, patch(
+        "app.ingestion.document_ingestion.logger.info"
+    ) as mock_logger:
+
+        mock_result = MagicMock()
+        mock_result.rowcount = 0
+        mock_execute.return_value = mock_result
+
+        await doc_service._bulk_update_document_status([])
+
+        # Verify execute was called (even with empty list)
+        mock_execute.assert_called_once()
+
+        # Verify commit was called
+        mock_commit.assert_called_once()
+
+        # Verify logging
+        mock_logger.assert_called_with("Bulk updated 0 document statuses")
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_document_status_large_batch(doc_service, db_session):
+    """Test bulk update with a large batch of updates."""
+    # Create 100 test complaints
+    complaints = []
+    for i in range(100):
+        complaint = ComplaintModel(
+            ticket_no=f"T{i+1:03d}",
+            document_url="http://example.com/file.pdf",
+            grievance="Test grievance",
+            office="Test Office",
+            received_by="Test Officer",
+            district="Test District",
+            mode="Online",
+            status="Pending",
+            govt_ticket=True,
+            created_on=datetime(2024, 1, 1, 12, 0),
+            category="Test Category",
+            state="Test State",
+            petitioner_gender="Male",
+            transfer_status="None",
+            urgent="No",
+            assigned_on=datetime(2024, 1, 1, 12, 0),
+        )
+        complaints.append(complaint)
+        db_session.add(complaint)
+    db_session.commit()
+
+    # Prepare large update data
+    updates = []
+    for i in range(100):
+        updates.append(
+            {
+                "ticket_no": f"T{i+1:03d}",
+                "local_path": f"/path/to/doc{i+1:03d}.pdf",
+                "success": i % 2 == 0,  # Alternate success/failure
+                "error": f"Error {i}" if i % 2 == 1 else None,
+            }
+        )
+
+    with patch.object(doc_service.db, "execute") as mock_execute, patch.object(
+        doc_service.db, "commit"
+    ) as mock_commit, patch(
+        "app.ingestion.document_ingestion.logger.info"
+    ) as mock_logger:
+
+        mock_result = MagicMock()
+        mock_result.rowcount = 100
+        mock_execute.return_value = mock_result
+
+        await doc_service._bulk_update_document_status(updates)
+
+        # Verify execute was called
+        mock_execute.assert_called_once()
+
+        # Verify commit was called
+        mock_commit.assert_called_once()
+
+        # Verify logging
+        mock_logger.assert_called_with("Bulk updated 100 document statuses")
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_document_status_verifies_database_changes(
+    doc_service, db_session
+):
+    """Test that bulk update actually changes the database."""
+    # Create test complaint
+    complaint = ComplaintModel(
+        ticket_no="T123",
+        document_url="http://example.com/file.pdf",
+        grievance="Test grievance",
+        office="Test Office",
+        received_by="Test Officer",
+        district="Test District",
+        mode="Online",
+        status="Pending",
+        govt_ticket=True,
+        created_on=datetime(2024, 1, 1, 12, 0),
+        category="Test Category",
+        state="Test State",
+        petitioner_gender="Male",
+        transfer_status="None",
+        urgent="No",
+        assigned_on=datetime(2024, 1, 1, 12, 0),
+    )
+    db_session.add(complaint)
+    db_session.commit()
+
+    # Verify initial state
+    assert complaint.local_document_path is None
+    assert complaint.document_downloaded is False
+    assert complaint.document_download_error is None
+
+    # Prepare update data
+    updates = [
+        {
+            "ticket_no": "T123",
+            "local_path": "/path/to/updated.pdf",
+            "success": True,
+            "error": None,
+        }
+    ]
+
+    # Perform bulk update
+    await doc_service._bulk_update_document_status(updates)
+
+    # Refresh the complaint from database
+    db_session.refresh(complaint)
+
+    # Verify the changes were applied
+    assert complaint.local_document_path == "/path/to/updated.pdf"
+    assert complaint.document_downloaded is True
+    assert complaint.document_download_error is None
+    assert complaint.document_download_date is not None
+
+
+# Integration tests
+@pytest.mark.asyncio
+async def test_batch_download_documents_integration_with_bulk_update(
+    doc_service, db_session
+):
+    """Test integration between batch_download_documents and _bulk_update_document_status."""
+    # Create test complaints
+    complaints = []
+    for i in range(5):
+        complaint = ComplaintModel(
+            ticket_no=f"T{i+1}",
+            document_url="http://example.com/file.pdf",
+            grievance="Test grievance",
+            office="Test Office",
+            received_by="Test Officer",
+            district="Test District",
+            mode="Online",
+            status="Pending",
+            govt_ticket=True,
+            created_on=datetime(2024, 1, 1, 12, 0),
+            category="Test Category",
+            state="Test State",
+            petitioner_gender="Male",
+            transfer_status="None",
+            urgent="No",
+            assigned_on=datetime(2024, 1, 1, 12, 0),
+        )
+        complaints.append(complaint)
+        db_session.add(complaint)
+    db_session.commit()
+
+    # Mock download_document with mixed results
+    with patch.object(
+        doc_service, "download_document", new_callable=AsyncMock
+    ) as mock_download:
+
+        def mock_download_side_effect(complaint):
+            if complaint.ticket_no == "T1":
+                return "/path/to/doc1.pdf"
+            elif complaint.ticket_no == "T2":
+                raise Exception("Download failed")
+            elif complaint.ticket_no == "T3":
+                return "/path/to/doc3.pdf"
+            elif complaint.ticket_no == "T4":
+                return None
+            elif complaint.ticket_no == "T5":
+                raise Exception("Network error")
+            else:
+                return None
+
+        mock_download.side_effect = mock_download_side_effect
+
+        # Mock the bulk update to capture what it receives
+        bulk_updates_received = []
+
+        async def mock_bulk_update(updates):
+            bulk_updates_received.extend(updates)
+
+        doc_service._bulk_update_document_status = mock_bulk_update
+
+        results = await doc_service.batch_download_documents(complaints)
+
+        # Verify results
+        assert results == {
+            "T1": "success",
+            "T2": "failed",
+            "T3": "success",
+            "T4": "skipped",
+            "T5": "failed",
+        }
+
+        # Verify bulk updates were captured correctly
+        assert len(bulk_updates_received) == 5
+
+        # Check success case
+        success_update = next(
+            u for u in bulk_updates_received if u["ticket_no"] == "T1"
+        )
+        assert success_update["local_path"] == "/path/to/doc1.pdf"
+        assert success_update["success"] is True
+        assert success_update["error"] is None
+
+        # Check failure case
+        failure_update = next(
+            u for u in bulk_updates_received if u["ticket_no"] == "T2"
+        )
+        assert failure_update["local_path"] is None
+        assert failure_update["success"] is False
+        assert "Download failed" in failure_update["error"]
+
+        # Check skipped case
+        skipped_update = next(
+            u for u in bulk_updates_received if u["ticket_no"] == "T4"
+        )
+        assert skipped_update["local_path"] is None
+        assert skipped_update["success"] is False
+        assert skipped_update["error"] is None
+
+
+@pytest.mark.asyncio
+async def test_batch_download_documents_in_chunks(doc_service, db_session):
+    """Test batch_download_documents_in_chunks functionality."""
+    # Create test complaints
+    complaints = []
+    for i in range(250):  # More than chunk size
+        complaint = ComplaintModel(
+            ticket_no=f"T{i+1:03d}",
+            document_url="http://example.com/file.pdf",
+            grievance="Test grievance",
+            office="Test Office",
+            received_by="Test Officer",
+            district="Test District",
+            mode="Online",
+            status="Pending",
+            govt_ticket=True,
+            created_on=datetime(2024, 1, 1, 12, 0),
+            category="Test Category",
+            state="Test State",
+            petitioner_gender="Male",
+            transfer_status="None",
+            urgent="No",
+            assigned_on=datetime(2024, 1, 1, 12, 0),
+        )
+        complaints.append(complaint)
+        db_session.add(complaint)
+    db_session.commit()
+
+    # Mock batch_download_documents
+    with patch.object(
+        doc_service, "batch_download_documents", new_callable=AsyncMock
+    ) as mock_batch_download, patch(
+        "app.ingestion.document_ingestion.logger.info"
+    ) as mock_logger, patch(
+        "app.ingestion.document_ingestion.logger.success"
+    ) as mock_success_logger:
+
+        # Mock results for each chunk
+        mock_batch_download.side_effect = [
+            {f"T{i+1:03d}": "success" for i in range(100)},  # First chunk
+            {f"T{i+1:03d}": "success" for i in range(100, 200)},  # Second chunk
+            {f"T{i+1:03d}": "success" for i in range(200, 250)},  # Third chunk
+        ]
+
+        results = await doc_service.batch_download_documents_in_chunks(
+            complaints, chunk_size=100
+        )
+
+        # Verify batch_download_documents was called 3 times
+        assert mock_batch_download.call_count == 3
+
+        # Verify logging
+        assert mock_logger.call_count == 3  # One for each chunk
+        assert mock_success_logger.call_count == 3  # One for each chunk completion
+
+        # Verify final results
+        assert len(results) == 250
+        assert all(status == "success" for status in results.values())

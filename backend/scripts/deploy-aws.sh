@@ -112,7 +112,7 @@ build_and_push_images() {
     # Build and push ingestion image
     print_status "Building ingestion image..."
     # Change to backend directory for Docker build
-    cd $HOME_DIR
+    cd "$HOME_DIR"
     # Build for linux/amd64 platform (required for ECS Fargate)
     docker build --platform linux/amd64 -f Dockerfile.ingestion -t grievance-ingestion-$ENVIRONMENT:latest .
     
@@ -190,6 +190,9 @@ apply_terraform() {
 get_outputs() {
     print_status "Getting deployment outputs..."
     
+    # Change directory to terraform
+    cd $TERRAFORM_DIR
+
     # Get ECR repository URL
     ECR_REPO_URL=$($TERRAFORM_CMD output -raw ingestion_ecr_repository_url)
     print_status "ECR Repository URL: $ECR_REPO_URL"

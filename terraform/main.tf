@@ -248,6 +248,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "documents" {
     id     = "document_retention"
     status = "Enabled"
 
+    filter {}  # <-- Applies to all objects
+
     transition {
       days          = 30
       storage_class = "STANDARD_IA"

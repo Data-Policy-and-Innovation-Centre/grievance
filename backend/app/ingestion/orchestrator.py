@@ -11,7 +11,7 @@ from more_itertools import chunked
 from sqlalchemy.orm import Session
 from tqdm.asyncio import tqdm
 
-from app.config import (resume_logging_to_console, settings,
+from app.config import (directories, resume_logging_to_console, settings,
                         stop_logging_to_console)
 
 from ..db.crud import (bulk_load_action_histories, bulk_load_complaints,
@@ -121,11 +121,9 @@ class IngestionOrchestrator:
             mark_action_history_api_request_failed(self.db, ticket_no)
             return []
 
-    async def ingest_documents(
-        self, complaints: List[Complaint], doc_service: DocumentService
-    ) -> Dict[str, str]:
+    async def ingest_documents(self, complaints: List[Complaint]) -> Dict[str, str]:
         """Ingest documents data"""
-        results = await doc_service.batch_download_documents(complaints)
+        results = await self.doc_service.batch_download_documents(complaints)
         return results
 
 
@@ -174,8 +172,8 @@ async def run_ingestion_service(
         # Generate initial set of all possible combinations
         params = [
             (year, district.dist_id, status, office)
-            for year in [2021] # TODO range(2021, datetime.now().year)
-            for district in districts[0:2] # TODO districts
+            for year in [2024]  # TODO: change to range(2021, datetime.now().year)
+            for district in districts
             for status in STATUS.keys()
             for office in OFFICE.keys()
         ]
@@ -198,7 +196,9 @@ async def run_ingestion_service(
 
             logger.info(f"Total complaint requests to process: {len(params)}")
 
-            stop_logging_to_console(mode="w")
+            stop_logging_to_console(
+                mode="w", filename=directories.LOGS / "ingest_complaints.log"
+            )
 
             try:
                 tasks = [orchestrator.ingest_complaints(*param) for param in params]
@@ -248,16 +248,15 @@ async def run_ingestion_service(
                 else:
                     raise ValueError(f"Invalid environment: {settings.ENV}")
 
-                stop_logging_to_console()
+                stop_logging_to_console(
+                    mode="w", filename=directories.LOGS / "ingest_documents.log"
+                )
                 doc_tasks = [
-                    orchestrator.ingest_documents(chunk, orchestrator.doc_service)
+                    orchestrator.ingest_documents(chunk)
                     for chunk in chunked(complaints, 10)
                 ]
                 doc_results = await track_with_progress(
                     doc_tasks, desc="Ingesting documents"
-                )
-                await orchestrator.doc_service.update_document_status_for_all_complaints(
-                    only_without_documents=True
                 )
                 resume_logging_to_console()
                 logger.info(f"Completed {len(doc_results)} document ingestion tasks")
@@ -275,7 +274,9 @@ async def run_ingestion_service(
                     orchestrator.ingest_action_history(ticket_no)
                     for ticket_no in ticket_numbers
                 ]
-                stop_logging_to_console()
+                stop_logging_to_console(
+                    mode="w", filename=directories.LOGS / "ingest_action_history.log"
+                )
                 action_result = await track_with_progress(
                     action_tasks, desc="Ingesting actions"
                 )
@@ -294,7 +295,8 @@ async def run_ingestion_service(
         logger.error(f"Error in ingestion service: {e}")
         return {"statusCode": 500, "body": json.dumps(f"Error: {str(e)}")}
     finally:
-        db.close()
+        if "db" in locals():
+            db.close()
 
 
 def main(args):

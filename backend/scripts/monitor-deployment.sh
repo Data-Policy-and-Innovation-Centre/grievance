@@ -171,7 +171,8 @@ check_s3_bucket() {
     BUCKET_NAME="janasunani-documents-$ENVIRONMENT"
     
     # Check if bucket exists
-    BUCKET_EXISTS=$(aws s3api head-bucket --bucket $BUCKET_NAME --region $AWS_REGION 2>/dev/null && echo "EXISTS" || echo "NOT_FOUND")
+    BUCKET_EXISTS=$(aws s3api head-bucket --bucket $BUCKET_NAME --region $AWS_REGION >/dev/null 2>&1 && echo "EXISTS" || echo "NOT_FOUND")
+
     
     if [ "$BUCKET_EXISTS" = "EXISTS" ]; then
         print_success "S3 Bucket $BUCKET_NAME exists"

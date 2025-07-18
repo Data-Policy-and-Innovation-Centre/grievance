@@ -1230,9 +1230,7 @@ def test_get_complaints_without_documents_edge_case_none_document_url(
 
     # Should not return complaints with None document_url
     result = get_complaints_without_documents(db_session)
-    assert len(result) == 1
-    assert result[0].ticket_no == "T123"
-    assert result[0].document_url == None
+    assert len(result) == 0
 
 
 def test_get_complaints_without_documents_edge_case_empty_document_url(
@@ -1250,3 +1248,377 @@ def test_get_complaints_without_documents_edge_case_empty_document_url(
     # This is the actual behavior of the function
     result = get_complaints_without_documents(db_session)
     assert len(result) == 0
+
+
+# Document Status Update Tests
+def test_update_document_status_success(db_session, sample_complaint_data):
+    """Test successful document status update."""
+    from app.db.crud import create_or_update_complaint, update_document_status
+
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+
+    # Update document status
+    result = update_document_status(
+        db_session,
+        ticket_no="T123",
+        local_path="/path/to/document.pdf",
+        success=True,
+        error=None,
+    )
+
+    assert result is not None
+    assert result.ticket_no == "T123"
+    assert result.local_document_path == "/path/to/document.pdf"
+    assert result.document_downloaded is True
+    assert result.document_download_error is None
+    assert result.document_download_date is not None
+
+
+def test_update_document_status_failure(db_session, sample_complaint_data):
+    """Test document status update for failed download."""
+    from app.db.crud import create_or_update_complaint, update_document_status
+
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+
+    # Update document status for failed download
+    result = update_document_status(
+        db_session,
+        ticket_no="T123",
+        local_path=None,
+        success=False,
+        error="Network timeout",
+    )
+
+    assert result is not None
+    assert result.ticket_no == "T123"
+    assert result.local_document_path is None
+    assert result.document_downloaded is False
+    assert result.document_download_error == "Network timeout"
+    assert result.document_download_date is not None
+
+
+def test_update_document_status_nonexistent_ticket(db_session):
+    """Test document status update for non-existent ticket."""
+    from app.db.crud import update_document_status
+
+    # Try to update status for non-existent ticket
+    result = update_document_status(
+        db_session,
+        ticket_no="NONEXISTENT",
+        local_path="/path/to/document.pdf",
+        success=True,
+        error=None,
+    )
+
+    assert result is None
+
+
+def test_update_document_status_updates_existing_fields(
+    db_session, sample_complaint_data
+):
+    """Test that update_document_status properly updates existing fields."""
+    from app.db.crud import create_or_update_complaint, update_document_status
+
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+
+    # Initial update
+    result1 = update_document_status(
+        db_session,
+        ticket_no="T123",
+        local_path="/path/to/document1.pdf",
+        success=True,
+        error=None,
+    )
+
+    # Second update - should overwrite previous values
+    result2 = update_document_status(
+        db_session,
+        ticket_no="T123",
+        local_path="/path/to/document2.pdf",
+        success=False,
+        error="New error",
+    )
+
+    assert result2 is not None
+    assert result2.ticket_no == "T123"
+    assert result2.local_document_path == "/path/to/document2.pdf"
+    assert result2.document_downloaded is False
+    assert result2.document_download_error == "New error"
+    assert result2.document_download_date is not None
+
+
+def test_update_document_status_preserves_other_fields(
+    db_session, sample_complaint_data
+):
+    """Test that update_document_status doesn't affect other complaint fields."""
+    from app.db.crud import create_or_update_complaint, update_document_status
+
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+
+    # Get original complaint
+    original_complaint = get_complaint_by_ticket(db_session, "T123")
+    original_petitioner_name = original_complaint.petitioner_name
+    original_office = original_complaint.office
+
+    # Update document status
+    result = update_document_status(
+        db_session,
+        ticket_no="T123",
+        local_path="/path/to/document.pdf",
+        success=True,
+        error=None,
+    )
+
+    # Verify other fields are preserved
+    assert result.petitioner_name == original_petitioner_name
+    assert result.office == original_office
+    assert result.grievance == original_complaint.grievance
+    assert result.district == original_complaint.district
+
+
+def test_update_document_status_with_empty_strings(db_session, sample_complaint_data):
+    """Test document status update with empty string values."""
+    from app.db.crud import create_or_update_complaint, update_document_status
+
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+
+    # Update with empty strings
+    result = update_document_status(
+        db_session, ticket_no="T123", local_path="", success=False, error=""
+    )
+
+    assert result is not None
+    assert result.local_document_path == ""
+    assert result.document_downloaded is False
+    assert result.document_download_error == ""
+
+
+def test_update_document_status_multiple_complaints(db_session, sample_complaint_data):
+    """Test updating document status for multiple complaints."""
+    from app.db.crud import create_or_update_complaint, update_document_status
+
+    # Create multiple complaints
+    complaint1 = sample_complaint_data.model_copy(update={"ticket_no": "T123"})
+    complaint2 = sample_complaint_data.model_copy(update={"ticket_no": "T456"})
+    complaint3 = sample_complaint_data.model_copy(update={"ticket_no": "T789"})
+
+    create_or_update_complaint(db_session, complaint1)
+    create_or_update_complaint(db_session, complaint2)
+    create_or_update_complaint(db_session, complaint3)
+
+    # Update each complaint with different statuses
+    result1 = update_document_status(
+        db_session, "T123", "/path/to/doc1.pdf", True, None
+    )
+    result2 = update_document_status(db_session, "T456", None, False, "Download failed")
+    result3 = update_document_status(
+        db_session, "T789", "/path/to/doc3.pdf", True, None
+    )
+
+    # Verify all updates worked
+    assert result1 is not None and result1.document_downloaded is True
+    assert result2 is not None and result2.document_downloaded is False
+    assert result3 is not None and result3.document_downloaded is True
+
+
+def test_update_document_status_database_commit(db_session, sample_complaint_data):
+    """Test that update_document_status properly commits to database."""
+    from app.db.crud import (create_or_update_complaint,
+                             get_complaint_by_ticket, update_document_status)
+
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+
+    # Update document status
+    result = update_document_status(
+        db_session,
+        ticket_no="T123",
+        local_path="/path/to/document.pdf",
+        success=True,
+        error=None,
+    )
+
+    # Verify the update was committed by querying the database again
+    updated_complaint = get_complaint_by_ticket(db_session, "T123")
+    assert updated_complaint is not None
+    assert updated_complaint.local_document_path == "/path/to/document.pdf"
+    assert updated_complaint.document_downloaded is True
+    assert updated_complaint.document_download_error is None
+    assert updated_complaint.document_download_date is not None
+
+
+# TODO: Add this test back in when we have a way to test the timezone since SQLite Datetime does not store timezone information
+# def test_update_document_status_timezone_handling(db_session, sample_complaint_data):
+#     """Test that update_document_status uses correct timezone."""
+#     from app.db.crud import create_or_update_complaint, update_document_status
+#     import pytz
+
+#     # Create a complaint first
+#     create_or_update_complaint(db_session, sample_complaint_data)
+
+#     # Update document status
+#     result = update_document_status(
+#         db_session,
+#         ticket_no="T123",
+#         local_path="/path/to/document.pdf",
+#         success=True,
+#         error=None
+#     )
+
+#     # Verify timezone is Asia/Kolkata
+#     assert result.document_download_date is not None
+#     assert result.document_download_date.tzinfo == pytz.timezone("Asia/Kolkata")
+
+
+def test_update_document_status_deprecation_warning(db_session, sample_complaint_data):
+    """Test that update_document_status raises deprecation warning."""
+    import warnings
+
+    from app.db.crud import create_or_update_complaint, update_document_status
+
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+
+    # Capture warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        result = update_document_status(
+            db_session,
+            ticket_no="T123",
+            local_path="/path/to/document.pdf",
+            success=True,
+            error=None,
+        )
+
+        # Verify deprecation warning was raised
+        assert len(w) == 1
+        assert issubclass(w[0].category, DeprecationWarning)
+        assert "deprecated" in str(w[0].message)
+
+
+def test_update_document_status_error_handling(db_session):
+    """Test error handling in update_document_status."""
+    from app.db.crud import update_document_status
+
+    # Test with invalid database session
+    db_session.bind.dispose()
+
+    # Should handle gracefully or raise appropriate exception
+    try:
+        result = update_document_status(
+            db_session,
+            ticket_no="T123",
+            local_path="/path/to/document.pdf",
+            success=True,
+            error=None,
+        )
+        # If it doesn't raise an exception, result should be None
+        assert result is None
+    except Exception as e:
+        # If it raises an exception, it should be a database-related error
+        assert (
+            "database" in str(e).lower()
+            or "connection" in str(e).lower()
+            or "operationalerror" in str(e).lower()
+        )
+
+
+def test_update_document_status_edge_cases(db_session, sample_complaint_data):
+    """Test edge cases for update_document_status."""
+    from app.db.crud import create_or_update_complaint, update_document_status
+
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+
+    # Test with very long path
+    long_path = "/" + "a" * 1000 + "/document.pdf"
+    result1 = update_document_status(db_session, "T123", long_path, True, None)
+    assert result1.local_document_path == long_path
+
+    # Test with special characters in error message
+    special_error = "Error: File 'test~pdf' not found! @#$%^&*()"
+    result2 = update_document_status(
+        db_session, "T123", "/path/to/doc.pdf", False, special_error
+    )
+    assert result2.document_download_error == special_error
+
+    # Test with None values
+    result3 = update_document_status(db_session, "T123", None, False, None)
+    assert result3.local_document_path is None
+    assert result3.document_download_error is None
+
+
+def test_update_document_status_integration_with_get_complaints_without_documents(
+    db_session, sample_complaint_data
+):
+    """Test integration between update_document_status and get_complaints_without_documents."""
+    from app.db.crud import (create_or_update_complaint,
+                             get_complaints_without_documents,
+                             update_document_status)
+
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+
+    # Initially, complaint should be in the list
+    complaints_before = get_complaints_without_documents(db_session)
+    assert len(complaints_before) == 1
+    assert complaints_before[0].ticket_no == "T123"
+
+    # Update document status to downloaded
+    update_document_status(db_session, "T123", "/path/to/document.pdf", True, None)
+
+    # Now complaint should not be in the list
+    complaints_after = get_complaints_without_documents(db_session)
+    assert len(complaints_after) == 0
+
+    # Update document status to failed
+    update_document_status(db_session, "T123", None, False, "Download failed")
+
+    # Complaint should be back in the list (not downloaded)
+    complaints_failed = get_complaints_without_documents(
+        db_session, get_docs_where_errors_occurred=True
+    )
+    assert len(complaints_failed) == 1
+    assert complaints_failed[0].ticket_no == "T123"
+    assert complaints_failed[0].document_downloaded is False
+
+
+def test_update_document_status_performance(db_session, sample_complaint_data):
+    """Test performance of update_document_status with multiple updates."""
+    import time
+
+    from app.db.crud import create_or_update_complaint, update_document_status
+
+    # Create a complaint first
+    create_or_update_complaint(db_session, sample_complaint_data)
+
+    # Measure time for multiple updates
+    start_time = time.time()
+
+    for i in range(10):
+        update_document_status(
+            db_session,
+            ticket_no="T123",
+            local_path=f"/path/to/document_{i}.pdf",
+            success=(i % 2 == 0),
+            error=f"Error {i}" if i % 2 == 1 else None,
+        )
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+
+    # Verify all updates worked
+    final_complaint = get_complaint_by_ticket(db_session, "T123")
+    assert final_complaint is not None
+    assert final_complaint.local_document_path == "/path/to/document_9.pdf"
+    assert final_complaint.document_downloaded is False
+    assert final_complaint.document_download_error == "Error 9"
+
+    # Performance should be reasonable (less than 1 second for 10 updates)
+    assert execution_time < 1.0

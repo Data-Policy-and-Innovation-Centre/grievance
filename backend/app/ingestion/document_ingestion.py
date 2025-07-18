@@ -153,7 +153,7 @@ class DocumentService:
         """
         url, ticket_no = complaint.document_url, complaint.ticket_no
 
-        if not url or not url.lower().startswith(("http://", "https://")):
+        if not url or not url.lower().startswith(("http://", "https://")): # should also add "N/A"
             logger.warning(f"Complaint {ticket_no} does not have a valid document URL.")
             return None
 
@@ -297,7 +297,13 @@ class DocumentService:
                         ],
                         else_=ComplaintModel.document_downloaded,
                     ),
-                    document_download_date=now,
+                    document_download_date = case(
+                        *[
+                            (ComplaintModel.ticket_no == u["ticket_no"], now if u["success"] else ComplaintModel.document_download_date)
+                            for u in updates
+                        ],
+                        else_=ComplaintModel.document_download_date,
+                    ),  
                     document_download_error=case(
                         *[
                             (ComplaintModel.ticket_no == u["ticket_no"], u["error"])

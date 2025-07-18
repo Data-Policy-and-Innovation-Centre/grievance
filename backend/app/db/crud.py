@@ -346,6 +346,8 @@ def get_complaints_without_documents(
         db.query(ComplaintModel)
         .filter(
             ComplaintModel.document_url.isnot(""),
+            ComplaintModel.document_url.isnot(None),
+            ComplaintModel.document_url.isnot("N/A"),
             ComplaintModel.document_downloaded == False,
             (
                 ComplaintModel.document_download_error.isnot(None)

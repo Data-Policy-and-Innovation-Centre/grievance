@@ -1230,9 +1230,7 @@ def test_get_complaints_without_documents_edge_case_none_document_url(
 
     # Should not return complaints with None document_url
     result = get_complaints_without_documents(db_session)
-    assert len(result) == 1
-    assert result[0].ticket_no == "T123"
-    assert result[0].document_url == None
+    assert len(result) == 0
 
 
 def test_get_complaints_without_documents_edge_case_empty_document_url(

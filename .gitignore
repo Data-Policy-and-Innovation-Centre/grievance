@@ -203,7 +203,7 @@ backend/join_grievance2025.ipynb
 /backend/notebooks
 data/
 *.ipynb
-
+*.tfstate.*
 *.tfstate
 *.tfstate.backup
 terraform/tfplan

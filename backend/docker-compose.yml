@@ -1,0 +1,120 @@
+services:
+  # Test Service - Run tests before other services
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      - ENV=test
+      - DEBUG=True
+      - DB_URL=sqlite:///data/raw/test_grievance.db
+      - JANASUNANI_API_BASE_URL=${JANASUNANI_API_BASE_URL:-https://janasunani.odisha.gov.in/api/DataServices}
+      - JANASUNANI_API_USERNAME=${JANASUNANI_API_USERNAME}
+      - JANASUNANI_API_PASSWORD=${JANASUNANI_API_PASSWORD}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-None}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-None}
+      - AWS_REGION=${AWS_REGION:-ap-south-1}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-janasunani-data}
+      - AWS_S3_DOCUMENTS=${AWS_S3_DOCUMENTS:-janasunani-documents}
+    volumes:
+      - grievance_data:/app/data
+      - grievance_logs:/app/logs
+    profiles:
+      - test
+    command: ["/root/.local/bin/uv", "run", "pytest", "app/tests", "-v", "--tb=short"]
+
+  # Data Ingestion Service - Run once to populate the database
+  ingestion:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    environment:
+      - ENV=${ENV:-dev}
+      - DEBUG=${DEBUG:-True}
+      - DB_URL=sqlite:///data/raw/grievance.db
+      - JANASUNANI_API_BASE_URL=${JANASUNANI_API_BASE_URL:-https://janasunani.odisha.gov.in/api/DataServices}
+      - JANASUNANI_API_USERNAME=${JANASUNANI_API_USERNAME}
+      - JANASUNANI_API_PASSWORD=${JANASUNANI_API_PASSWORD}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-None}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-None}
+      - AWS_REGION=${AWS_REGION:-ap-south-1}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-janasunani-data}
+      - AWS_S3_DOCUMENTS=${AWS_S3_DOCUMENTS:-janasunani-documents}
+      - INGEST_COMPLAINTS=${INGEST_COMPLAINTS:-true}
+      - INGEST_DOCUMENTS=${INGEST_DOCUMENTS:-true}
+      - INGEST_ACTION_HISTORY=${INGEST_ACTION_HISTORY:-true}
+      - FORCE_PARAMS=${FORCE_PARAMS:-false}
+    volumes:
+      - grievance_data:/app/data
+      - grievance_logs:/app/logs
+    profiles:
+      - ingest
+
+  # FastAPI Application Service - Main application server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=${ENV:-dev}
+      - DEBUG=${DEBUG:-True}
+      - DB_URL=sqlite:///data/raw/grievance.db
+      - JANASUNANI_API_BASE_URL=${JANASUNANI_API_BASE_URL:-https://janasunani.odisha.gov.in/api/DataServices}
+      - JANASUNANI_API_USERNAME=${JANASUNANI_API_USERNAME}
+      - JANASUNANI_API_PASSWORD=${JANASUNANI_API_PASSWORD}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-None}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-None}
+      - AWS_REGION=${AWS_REGION:-ap-south-1}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-janasunani-data}
+      - AWS_S3_DOCUMENTS=${AWS_S3_DOCUMENTS:-janasunani-documents}
+    volumes:
+      - grievance_data:/app/data
+      - grievance_logs:/app/logs
+    profiles:
+      - serve
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Development service - For local development with hot reload
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=dev
+      - DEBUG=True
+      - DB_URL=sqlite:///data/raw/grievance.db
+      - JANASUNANI_API_BASE_URL=${JANASUNANI_API_BASE_URL:-https://janasunani.odisha.gov.in/api/DataServices}
+      - JANASUNANI_API_USERNAME=${JANASUNANI_API_USERNAME}
+      - JANASUNANI_API_PASSWORD=${JANASUNANI_API_PASSWORD}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-None}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-None}
+      - AWS_REGION=${AWS_REGION:-ap-south-1}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-janasunani-data}
+      - AWS_S3_DOCUMENTS=${AWS_S3_DOCUMENTS:-janasunani-documents}
+    volumes:
+      - grievance_data:/app/data
+      - grievance_logs:/app/logs
+      - ./app:/app/app  # Mount app code for hot reload
+    profiles:
+      - dev
+    command: ["/root/.local/bin/uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+volumes:
+  grievance_data:
+    driver: local
+  grievance_logs:
+    driver: local
+
+networks:
+  default:
+    name: grievance-network 

@@ -1,6 +1,6 @@
-
-
 # Grievance Analytics
+
+[![Test Coverage](https://codecov.io/gh/Data-Policy-and-Innovation-Centre/grievance/branch/dev/graph/badge.svg)](https://codecov.io/gh/Data-Policy-and-Innovation-Centre/grievance)
 
 An analytics platform for Odisha Janasunani grievance redressal data, featuring robust data ingestion, processing, and API services.
 
@@ -31,32 +31,78 @@ cd grievance
 ```
 
 ### Environment Variables
-
-Create a `.env` file in the `backend/` directory. Example:
+Create a `.env` file in the `backend/` directory:
 
 ```env
-DB_NAME=grievance_db
-DB_USER=postgres
-DB_PASSWORD=your_password
-DB_HOST=db
-DB_PORT=5432
+# Environment and Debug
+ENV=dev
+DEBUG=True
 
+# Janasunani API Configuration
+JANASUNANI_API_BASE_URL=https://janasunani.odisha.gov.in/api/DataServices
+JANASUNANI_API_USERNAME=your_username
+JANASUNANI_API_PASSWORD=your_password
+
+# Database Configuration
+DB_PASSWORD=your_db_password
+
+# AWS Configuration (optional for local development)
 AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key
 AWS_REGION=ap-south-1
-
-ENV=prod
+AWS_S3_BUCKET_NAME=janasunani-data
+AWS_S3_DOCUMENTS=janasunani-documents
 ```
+
+**Note**: The application uses Docker named volumes for data persistence. Data is stored within Docker volumes and not directly in your local filesystem. See [README-DOCKER.md](backend/README-DOCKER.md) for details on accessing data.
 
 ### Build and Run with Docker Compose
 
+#### Quick Start with Convenience Script
 ```bash
 cd backend
-docker-compose up --build
+
+# Make the script executable (first time only)
+chmod +x scripts/docker-run.sh
+
+# Run the full pipeline (test → ingest → serve)
+./scripts/docker-run.sh full
+
+# Or run individual components:
+./scripts/docker-run.sh test     # Run tests only
+./scripts/docker-run.sh ingest   # Run data ingestion
+./scripts/docker-run.sh serve    # Start API server
+./scripts/docker-run.sh dev      # Start development server with hot reload
+```
+
+#### Manual Docker Compose Commands
+```bash
+cd backend
+
+# Run tests first
+docker-compose --profile test up test
+
+# If tests pass, run ingestion
+docker-compose --profile ingest up ingestion
+
+# Finally, serve the application
+docker-compose --profile serve up api
+
+# For development with hot reload
+docker-compose --profile dev up api-dev
 ```
 
 - The API will be available at [http://localhost:8000](http://localhost:8000)
-- Prefect UI (if enabled) will be at [http://localhost:4200](http://localhost:4200)
+- API Documentation at [http://localhost:8000/docs](http://localhost:8000/docs)
+- Health check at [http://localhost:8000/health](http://localhost:8000/health)
+
+#### Available Profiles
+- **`test`**: Run unit tests
+- **`ingest`**: Download and process grievance data
+- **`serve`**: Start production API server
+- **`dev`**: Start development server with hot reload
+
+For detailed Docker Compose documentation, see [README-DOCKER.md](backend/README-DOCKER.md).
 
 ---
 
@@ -73,53 +119,59 @@ backend/
     services/      # Business logic/services
     config.py      # Configuration and settings
     main.py        # FastAPI entrypoint
-  requirements.txt
-  environment.yml
+  pyproject.toml   # Project dependencies and metadata
+  uv.lock         # Locked dependency versions
   Dockerfile.api
   Dockerfile.ingestion
+  Dockerfile.test
   docker-compose.yml
 ```
 
 ### Install for Local Development
 
-1. **Install dependencies** (using [micromamba](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html) or [conda](https://docs.conda.io/en/latest/)):
+1. **Install dependencies** (using [uv](https://docs.astral.sh/uv/)):
    ```bash
-   micromamba create -f environment.yml
-   micromamba activate grievance-analytics
+   # Install uv if you haven't already
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # Install dependencies
+   uv sync
+   
+   # Activate the environment
+   source .venv/bin/activate  # On Unix/macOS
+   # or
+   .venv\Scripts\activate     # On Windows
    ```
 
 2. **Run tests**:
    ```bash
-   pytest
+   uv run pytest
    ```
-
-
 
 ### Contributing
 
-1. Fork the repository and create your branch:
+1. Clone repository and create your branch:
    ```bash
-   git checkout -b feature/your-feature
+   git checkout -b feature
    ```
 2. Make your changes and add tests.
 3. Run tests and ensure all pass.
 4. Commit and push your branch.
-5. Open a Pull Request with a clear description.
+5. Open a Pull Request to branch `dev` with a clear description.
 
 ---
 
 ## ☁️ Cloud Deployment
 
-- **ECS/Fargate**: Build and push Docker images to ECR, then deploy using ECS task definitions and services.
-- **Prefect Cloud**: Register and schedule flows for robust workflow orchestration.
+For detailed deployment instructions and infrastructure setup, please refer to the comprehensive guide in [terraform/README.md](terraform/README.md).
 
 ---
 
-## 📄 License
+<!-- ## 📄 License
 
 [MIT License](LICENSE)
 
----
+--- -->
 
 ## 🙋‍♂️ Support
 

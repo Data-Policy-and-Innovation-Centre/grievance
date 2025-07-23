@@ -1,0 +1,42 @@
+name: CI Unit Tests
+
+on:
+  pull_request:
+    branches: [dev]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build test image
+        run: docker build -f backend/Dockerfile.test -t grievance-app-test backend
+
+      - name: Run tests
+        env:
+          ENV: ${{ secrets.ENV }}
+          DEBUG: ${{ secrets.DEBUG }}
+          JANASUNANI_API_BASE_URL: ${{ secrets.JANASUNANI_API_BASE_URL }}
+          JANASUNANI_API_USERNAME: ${{ secrets.JANASUNANI_API_USERNAME }}
+          JANASUNANI_API_PASSWORD: ${{ secrets.JANASUNANI_API_PASSWORD }}
+          DB_URL: ${{ secrets.DB_TEST_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          docker run --rm \
+            -e ENV \
+            -e DEBUG \
+            -e JANASUNANI_API_BASE_URL \
+            -e JANASUNANI_API_USERNAME \
+            -e JANASUNANI_API_PASSWORD \
+            -e DB_URL \
+            -e AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY \
+            -e AWS_REGION \
+            grievance-app-test 

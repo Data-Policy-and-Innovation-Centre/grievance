@@ -1,0 +1,58 @@
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# Set working directory
+WORKDIR /app
+
+# Install curl + build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files early for cache efficiency
+COPY pyproject.toml uv.lock ./
+
+# Install uv (Astral's ultra-fast dependency manager)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    /root/.local/bin/uv --version && \
+    /root/.local/bin/uv sync
+
+# Copy application code
+COPY . .
+
+# Ensure the data directory exists and has the right permissions
+RUN mkdir -p /app/data
+
+# Set default arguments for ingestion
+ENV INGEST_COMPLAINTS=true
+ENV INGEST_DOCUMENTS=true
+ENV INGEST_ACTION_HISTORY=true
+ENV FORCE_PARAMS=false
+
+# Create an entrypoint script for flexible argument handling
+RUN echo '#!/bin/bash\n\
+# Build command arguments based on environment variables\n\
+args=""\n\
+if [ "$INGEST_COMPLAINTS" = "true" ]; then\n\
+    args="$args --ingest-complaints"\n\
+fi\n\
+if [ "$INGEST_DOCUMENTS" = "true" ]; then\n\
+    args="$args --ingest-documents"\n\
+fi\n\
+if [ "$INGEST_ACTION_HISTORY" = "true" ]; then\n\
+    args="$args --ingest-action-history"\n\
+fi\n\
+if [ "$FORCE_PARAMS" = "true" ]; then\n\
+    args="$args --force-params"\n\
+fi\n\
+\n\
+# Run the orchestrator with built arguments\n\
+exec /root/.local/bin/uv run -m app.ingestion.orchestrator $args "$@"' > /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
+
+# Use the entrypoint script
+ENTRYPOINT ["/app/entrypoint.sh"]

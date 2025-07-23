@@ -1,0 +1,29 @@
+# Use Python slim image as base
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# Set working directory
+WORKDIR /app
+
+# Install curl for uv installation
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files first for better caching
+COPY pyproject.toml uv.lock ./
+
+# Install uv and dependencies
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    /root/.local/bin/uv --version && \
+    /root/.local/bin/uv sync
+
+# Copy application code and tests
+COPY . .
+
+# Run pytest as the default command using uv
+CMD ["/root/.local/bin/uv", "run", "pytest", "app/tests"] 

@@ -192,3 +192,25 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+/.vscode
+.DS_Store
+
+# Others
+backend/JanaSunani_API_document_2.pdf
+backend/data/
+backend/testing.ipynb
+backend/join_grievance2025.ipynb
+/backend/notebooks
+data/
+*.ipynb
+
+*.tfstate
+*.tfstate.backup
+terraform/tfplan
+terraform/.terraform/*
+terraform/.terraform*
+tfplan*
+/backend/logs
+*logs/
+backend/coverage.lcov
+

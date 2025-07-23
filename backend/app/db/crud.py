@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
+import asyncio
 
 import pytz
 from loguru import logger
 from pydantic import ValidationError
-from sqlalchemy import or_
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.ingestion.schemas import ActionHistory as ActionHistorySchema
@@ -21,17 +22,17 @@ from .session import get_db
 
 
 # District CRUD operations
-def get_district_by_id(db: Session, dist_id: int) -> Optional[District]:
+def get_district_by_id(db: AsyncSession, dist_id: int) -> Optional[District]:
     """Get a district by its ID."""
     return db.query(District).filter(District.dist_id == dist_id).first()
 
 
-def get_district_by_name(db: Session, dist_name: str) -> Optional[District]:
+def get_district_by_name(db: AsyncSession, dist_name: str) -> Optional[District]:
     """Get a district by its name."""
     return db.query(District).filter(District.dist_name == dist_name).first()
 
 
-def create_or_update_district(db: Session, district_data: DistrictSchema) -> District:
+def create_or_update_district(db: AsyncSession, district_data: DistrictSchema) -> District:
     """Create or update a district record."""
     # Convert Pydantic model to dict for database operations
     district_data = district_data.model_dump(by_alias=False)
@@ -56,18 +57,19 @@ def create_or_update_district(db: Session, district_data: DistrictSchema) -> Dis
         raise
 
 
-def get_all_districts(db: Session) -> List[District]:
+async def get_all_districts(db: AsyncSession) -> List[District]:
     """Get all districts."""
-    return db.query(District).all()
+    result = await db.execute(select(District))
+    return result.scalars().all()
 
 
 # Complaint CRUD operations
-def get_all_complaints(db: Session) -> List[ComplaintModel]:
+def get_all_complaints(db: AsyncSession) -> List[ComplaintModel]:
     """Get all complaints."""
     return db.query(ComplaintModel).all()
 
 
-def get_complaint_by_ticket(db: Session, ticket_no: str) -> Optional[ComplaintModel]:
+def get_complaint_by_ticket(db: AsyncSession, ticket_no: str) -> Optional[ComplaintModel]:
     """Get a complaint by its ticket number."""
     return (
         db.query(ComplaintModel).filter(ComplaintModel.ticket_no == ticket_no).first()
@@ -75,7 +77,7 @@ def get_complaint_by_ticket(db: Session, ticket_no: str) -> Optional[ComplaintMo
 
 
 def create_or_update_complaint(
-    db: Session, complaint_data: ComplaintSchema
+    db: AsyncSession, complaint_data: ComplaintSchema
 ) -> ComplaintModel | None:
     """Create or update a complaint record."""
 
@@ -104,19 +106,19 @@ def create_or_update_complaint(
         raise
 
 
-def get_complaints_by_district(db: Session, district: str) -> List[ComplaintModel]:
+def get_complaints_by_district(db: AsyncSession, district: str) -> List[ComplaintModel]:
     """Get all complaints for a specific district."""
     return db.query(ComplaintModel).filter(ComplaintModel.district == district).all()
 
 
-def get_complaints_by_status(db: Session, status: str) -> List[ComplaintModel]:
+def get_complaints_by_status(db: AsyncSession, status: str) -> List[ComplaintModel]:
     """Get all complaints with a specific status."""
     return db.query(ComplaintModel).filter(ComplaintModel.status == status).all()
 
 
 # Action History CRUD operations
 def create_action_history(
-    db: Session, action_data: ActionHistorySchema
+    db: AsyncSession, action_data: ActionHistorySchema
 ) -> ActionHistoryModel:
     """Create a new action history record."""
     try:
@@ -134,7 +136,7 @@ def create_action_history(
 
 
 def get_action_history_by_ticket(
-    db: Session, ticket_no: str
+    db: AsyncSession, ticket_no: str
 ) -> List[ActionHistoryModel]:
     """Get all action history records for a specific complaint."""
     return (
@@ -146,7 +148,7 @@ def get_action_history_by_ticket(
 
 # Batch operations for ingestion
 def batch_create_or_update_districts(
-    db: Session, districts_data: List[DistrictSchema]
+    db: AsyncSession, districts_data: List[DistrictSchema]
 ) -> List[District]:
     """Batch create or update multiple districts."""
     logger.info(f"Batch creating or updating {len(districts_data)} districts")
@@ -163,7 +165,7 @@ def batch_create_or_update_districts(
 
 
 def batch_create_or_update_complaints(
-    db: Session, complaints_data: List[ComplaintSchema]
+    db: AsyncSession, complaints_data: List[ComplaintSchema]
 ) -> List[ComplaintModel]:
     """Batch create or update multiple complaints."""
     logger.info(f"Batch creating or updating {len(complaints_data)} complaints")
@@ -180,7 +182,7 @@ def batch_create_or_update_complaints(
 
 
 def batch_create_action_history(
-    db: Session, actions_data: List[ActionHistorySchema]
+    db: AsyncSession, actions_data: List[ActionHistorySchema]
 ) -> List[ActionHistoryModel]:
     """Batch create multiple action history records."""
     logger.info(
@@ -201,7 +203,7 @@ def batch_create_action_history(
 
 
 def bulk_load_districts(
-    db: Session, districts_data: List[DistrictSchema]
+    db: AsyncSession, districts_data: List[DistrictSchema]
 ) -> List[District]:
     """Bulk load districts for fast ingestion."""
     try:
@@ -227,7 +229,7 @@ def bulk_load_districts(
 
 
 def bulk_load_complaints(
-    db: Session, complaints_data: List[ComplaintSchema]
+    db: AsyncSession, complaints_data: List[ComplaintSchema]
 ) -> List[ComplaintModel]:
     """Bulk load complaints for fast ingestion."""
     try:
@@ -273,7 +275,7 @@ def bulk_load_complaints(
 
 
 def bulk_load_action_histories(
-    db: Session, actions_data: List[ActionHistorySchema]
+    db: AsyncSession, actions_data: List[ActionHistorySchema]
 ) -> List[ActionHistoryModel]:
     """Bulk load action histories for fast ingestion."""
     try:
@@ -319,7 +321,7 @@ def bulk_load_action_histories(
 
 
 def update_document_status(
-    db: Session, ticket_no: str, local_path: str, success: bool, error: str = None
+    db: AsyncSession, ticket_no: str, local_path: str, success: bool, error: str = None
 ):
     import warnings
 
@@ -340,7 +342,7 @@ def update_document_status(
 
 
 def get_complaints_without_documents(
-    db: Session, get_docs_where_errors_occurred: bool = False
+    db: AsyncSession, get_docs_where_errors_occurred: bool = False
 ) -> list[ComplaintModel]:
     return (
         db.query(ComplaintModel)
@@ -359,12 +361,12 @@ def get_complaints_without_documents(
     )
 
 
-def get_complaints_with_document_urls(db: Session) -> list[ComplaintModel]:
+def get_complaints_with_document_urls(db: AsyncSession) -> list[ComplaintModel]:
     return db.query(ComplaintModel).filter(ComplaintModel.document_url.isnot("")).all()
 
 
 def record_complaint_api_request_success(
-    db: Session, year: int, dist_id: int, status: int, office: int, record_count: int
+    db: AsyncSession, year: int, dist_id: int, status: int, office: int, record_count: int
 ) -> Optional[APIRequestTracking]:
     """Record a successful API request in db and its results."""
     try:
@@ -408,7 +410,7 @@ def record_complaint_api_request_success(
 
 
 def filter_complaints_api_request(
-    db: Session,
+    db: AsyncSession,
     year: int,
     dist_id: int,
     status: int,
@@ -451,7 +453,7 @@ def filter_complaints_api_request(
 
 
 def mark_complaints_api_request_failed(
-    db: Session, year: int, dist_id: int, status: int, office: int
+    db: AsyncSession, year: int, dist_id: int, status: int, office: int
 ) -> Optional[APIRequestTracking]:
     """Record a failed API request attempt."""
     try:
@@ -488,7 +490,7 @@ def mark_complaints_api_request_failed(
 
 
 def record_action_history_api_request_success(
-    db: Session, ticket_no: str, record_count: int
+    db: AsyncSession, ticket_no: str, record_count: int
 ):
     try:
         time_zone = pytz.timezone("Asia/Kolkata")
@@ -521,7 +523,7 @@ def record_action_history_api_request_success(
         raise
 
 
-def mark_action_history_api_request_failed(db: Session, ticket_no: str):
+def mark_action_history_api_request_failed(db: AsyncSession, ticket_no: str):
     try:
         tracking = (
             db.query(ActionHistoryAPIRequestTracking)
@@ -547,7 +549,7 @@ def mark_action_history_api_request_failed(db: Session, ticket_no: str):
 
 
 def get_tickets_needing_action_history(
-    db: Session, days_threshold: int = 7, failure_threshold: int = 3
+    db: AsyncSession, days_threshold: int = 7, failure_threshold: int = 3
 ) -> List[str]:
     """Get ticket numbers that need action history fetching using existing fields."""
     try:
@@ -597,11 +599,18 @@ def get_tickets_needing_action_history(
         logger.error(f"Error getting complaints needing action history: {e}")
         return []
 
+async def main():
+    gen = get_db()
+    db = await anext(gen)
+    try:
+        districts = await get_all_districts(db)
+        for district in districts:
+            logger.debug(
+                f"District: auto_id: {district.id}, id: {district.dist_id}, name: {district.dist_name}"
+            )
+    finally:
+        await gen.aclose()
 
+        
 if __name__ == "__main__":
-    db = next(get_db())
-    districts = get_all_districts(db)
-    for district in districts:
-        logger.debug(
-            f"District: auto_id: {district.id}, id: {district.dist_id}, name: {district.dist_name}"
-        )
+    asyncio.run(main())

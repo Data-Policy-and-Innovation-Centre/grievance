@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Coroutine, Dict, List, Optional, Tuple, Union
 
 import pytz
 from loguru import logger
@@ -221,7 +221,7 @@ async def batch_create_action_history(
 
 async def bulk_load_districts(
     db: AsyncSession, districts_data: List[DistrictSchema]
-) -> List[District]:
+) -> Union[List[District], Coroutine[Any, Any, List[District]]]:
     """Bulk load districts for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(districts_data)} districts")
@@ -247,7 +247,7 @@ async def bulk_load_districts(
 
 async def bulk_load_complaints(
     db: AsyncSession, complaints_data: List[ComplaintSchema]
-) -> List[ComplaintModel]:
+) -> Union[List[ComplaintModel], Coroutine[Any, Any, List[ComplaintModel]]]:
     """Bulk load complaints for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(complaints_data)} complaints")
@@ -291,7 +291,7 @@ async def bulk_load_complaints(
 
 async def bulk_load_action_histories(
     db: AsyncSession, actions_data: List[ActionHistorySchema]
-) -> List[ActionHistoryModel]:
+) -> Union[List[ActionHistoryModel], Coroutine[Any, Any, List[ActionHistoryModel]]]:
     """Bulk load action histories for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(actions_data)} action histories")

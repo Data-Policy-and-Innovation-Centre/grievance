@@ -216,14 +216,14 @@ async def bulk_load_districts(
         ]
 
         if district_objs:
-            db.bulk_save_objects(district_objs, return_defaults=True)
+            db.add_all(district_objs)
             await db.commit()
         else:
             logger.info("No new districts to insert")
 
         return district_objs
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Bulk load districts failed: {e}")
         return batch_create_or_update_districts(db, districts_data)
 

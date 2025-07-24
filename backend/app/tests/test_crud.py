@@ -262,7 +262,8 @@ def test_get_action_history_by_ticket(db_session, sample_action_history_data):
 
 
 # Batch operations tests
-def test_batch_create_districts(db_session):
+@pytest.mark.asyncio
+async def test_batch_create_districts(db_session):
     """Test batch creating districts."""
     districts_data = [
         DistrictSchema(distName="District 1", distId=1),
@@ -270,7 +271,7 @@ def test_batch_create_districts(db_session):
         DistrictSchema(distName="District 3", distId=3),
     ]
 
-    districts = batch_create_or_update_districts(db_session, districts_data)
+    districts = await batch_create_or_update_districts(db_session, districts_data)
     assert len(districts) == 3
     assert districts[0].dist_name == "District 1"
     assert districts[1].dist_name == "District 2"
@@ -312,17 +313,19 @@ def test_batch_create_action_history(db_session, sample_action_history_data):
     assert actions[2].action_taken_remark == "Third action"
 
 
-def test_bulk_load_districts(db_session):
+@pytest.mark.asyncio
+async def test_bulk_load_districts(db_session):
     """Test bulk loading districts."""
     districts_data = [
         DistrictSchema(distName="Bulk District 1", distId=10),
         DistrictSchema(distName="Bulk District 2", distId=11),
         DistrictSchema(distName="Bulk District 3", distId=12),
     ]
-    count = len(bulk_load_districts(db_session, districts_data))
-    assert count == 3
+    inserted = await bulk_load_districts(db_session, districts_data)
+    assert len(inserted) == 3
+    
     # Check that the districts are in the database
-    all_districts = get_all_districts(db_session)
+    all_districts = await get_all_districts(db_session)
     names = [d.dist_name for d in all_districts]
     assert "Bulk District 1" in names
     assert "Bulk District 2" in names
@@ -365,14 +368,15 @@ def test_bulk_load_action_histories(db_session, sample_action_history_data):
     assert "Bulk third action" in remarks
 
 
-def test_unique_constraint_district_id(db_session, sample_district_data):
+@pytest.mark.asyncio
+async def test_unique_constraint_district_id(db_session, sample_district_data):
     """Test that duplicate district dist_id raises IntegrityError."""
-    create_or_update_district(db_session, sample_district_data)
+    await create_or_update_district(db_session, sample_district_data)
     duplicate = DistrictSchema(distName="Another District", distId=1)
     with pytest.raises(IntegrityError):
         # Directly add to session to test constraint
         db_session.add(District(dist_name="New name", dist_id=duplicate.dist_id))
-        db_session.commit()
+        await db_session.commit()
 
 
 def test_unique_constraint_complaint_ticket_no(db_session, sample_complaint_data):

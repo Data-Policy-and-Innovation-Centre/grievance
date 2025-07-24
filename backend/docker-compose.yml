@@ -7,7 +7,7 @@ services:
     environment:
       - ENV=test
       - DEBUG=True
-      - DB_URL=sqlite:///data/raw/test_grievance.db
+      - DB_URL=sqlite+aiosqlite:///data/raw/test_grievance.db
       - JANASUNANI_API_BASE_URL=${JANASUNANI_API_BASE_URL:-https://janasunani.odisha.gov.in/api/DataServices}
       - JANASUNANI_API_USERNAME=${JANASUNANI_API_USERNAME}
       - JANASUNANI_API_PASSWORD=${JANASUNANI_API_PASSWORD}
@@ -31,7 +31,7 @@ services:
     environment:
       - ENV=${ENV:-dev}
       - DEBUG=${DEBUG:-True}
-      - DB_URL=sqlite:///data/raw/grievance.db
+      - DB_URL=sqlite+aiosqlite:///data/raw/grievance.db
       - JANASUNANI_API_BASE_URL=${JANASUNANI_API_BASE_URL:-https://janasunani.odisha.gov.in/api/DataServices}
       - JANASUNANI_API_USERNAME=${JANASUNANI_API_USERNAME}
       - JANASUNANI_API_PASSWORD=${JANASUNANI_API_PASSWORD}
@@ -60,7 +60,7 @@ services:
     environment:
       - ENV=${ENV:-dev}
       - DEBUG=${DEBUG:-True}
-      - DB_URL=sqlite:///data/raw/grievance.db
+      - DB_URL=sqlite+aiosqlite:///data/raw/grievance.db
       - JANASUNANI_API_BASE_URL=${JANASUNANI_API_BASE_URL:-https://janasunani.odisha.gov.in/api/DataServices}
       - JANASUNANI_API_USERNAME=${JANASUNANI_API_USERNAME}
       - JANASUNANI_API_PASSWORD=${JANASUNANI_API_PASSWORD}

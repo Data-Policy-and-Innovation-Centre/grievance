@@ -402,7 +402,7 @@ async def record_complaint_api_request_success(
         raise
 
 
-def filter_complaints_api_request(
+async def filter_complaints_api_request(
     db: AsyncSession,
     year: int,
     dist_id: int,
@@ -416,16 +416,13 @@ def filter_complaints_api_request(
     cutoff_date = datetime.now(time_zone) - timedelta(days=days_threshold)
 
     try:
-        tracking = (
-            db.query(APIRequestTracking)
-            .filter(
-                APIRequestTracking.year == year,
-                APIRequestTracking.dist_id == dist_id,
-                APIRequestTracking.status == status,
-                APIRequestTracking.office == office,
-            )
-            .first()
-        )
+        query = await db.execute(select(APIRequestTracking).filter(
+            APIRequestTracking.year == year,
+            APIRequestTracking.dist_id == dist_id,
+            APIRequestTracking.status == status,
+            APIRequestTracking.office == office,
+        ))
+        tracking = query.scalars().first()
 
         if tracking is None:
             return False
@@ -445,21 +442,18 @@ def filter_complaints_api_request(
         return False
 
 
-def mark_complaints_api_request_failed(
+async def mark_complaints_api_request_failed(
     db: AsyncSession, year: int, dist_id: int, status: int, office: int
 ) -> Optional[APIRequestTracking]:
     """Record a failed API request attempt."""
     try:
-        tracking = (
-            db.query(APIRequestTracking)
-            .filter(
-                APIRequestTracking.year == year,
-                APIRequestTracking.dist_id == dist_id,
-                APIRequestTracking.status == status,
-                APIRequestTracking.office == office,
-            )
-            .first()
-        )
+        query = await db.execute(select(APIRequestTracking). filter(
+            APIRequestTracking.year == year,
+            APIRequestTracking.dist_id == dist_id,
+            APIRequestTracking.status == status,
+            APIRequestTracking.office == office,
+        ))
+        tracking = query.scalars().first()
 
         if tracking:
             tracking.failure_count += 1
@@ -473,26 +467,25 @@ def mark_complaints_api_request_failed(
             )
             db.add(tracking)
 
-        db.commit()
-        db.refresh(tracking)
+        await db.commit()
+        await db.refresh(tracking)
         return tracking
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Error recording API request failure: {e}")
         raise
 
 
-def record_action_history_api_request_success(
+async def record_action_history_api_request_success(
     db: AsyncSession, ticket_no: str, record_count: int
 ):
     try:
         time_zone = pytz.timezone("Asia/Kolkata")
         now = datetime.now(time_zone)
-        tracking = (
-            db.query(ActionHistoryAPIRequestTracking)
-            .filter(ActionHistoryAPIRequestTracking.ticket_no == ticket_no)
-            .first()
-        )
+        query = await db.execute(select(ActionHistoryAPIRequestTracking).filter(
+            ActionHistoryAPIRequestTracking.ticket_no == ticket_no
+        ))
+        tracking = query.scalars().first() 
 
         if tracking:
             tracking.last_successful_fetch = now
@@ -507,22 +500,21 @@ def record_action_history_api_request_success(
             )
             db.add(tracking)
 
-        db.commit()
-        db.refresh(tracking)
+        await db.commit()
+        await db.refresh(tracking)
         return tracking
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Error recording action history API request success: {e}")
         raise
 
 
-def mark_action_history_api_request_failed(db: AsyncSession, ticket_no: str):
+async def mark_action_history_api_request_failed(db: AsyncSession, ticket_no: str):
     try:
-        tracking = (
-            db.query(ActionHistoryAPIRequestTracking)
-            .filter(ActionHistoryAPIRequestTracking.ticket_no == ticket_no)
-            .first()
-        )
+        query = await db.execute(select(ActionHistoryAPIRequestTracking).filter(
+            ActionHistoryAPIRequestTracking.ticket_no == ticket_no
+        ))
+        tracking = query.scalars().first()
 
         if tracking:
             tracking.failure_count += 1
@@ -532,16 +524,16 @@ def mark_action_history_api_request_failed(db: AsyncSession, ticket_no: str):
             )
             db.add(tracking)
 
-        db.commit()
-        db.refresh(tracking)
+        await db.commit()
+        await db.refresh(tracking)
         return tracking
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Error marking action history API request failed: {e}")
         raise
 
 
-def get_tickets_needing_action_history(
+async def get_tickets_needing_action_history(
     db: AsyncSession, days_threshold: int = 7, failure_threshold: int = 3
 ) -> List[str]:
     """Get ticket numbers that need action history fetching using existing fields."""
@@ -550,18 +542,15 @@ def get_tickets_needing_action_history(
         cutoff_date = datetime.now(time_zone) - timedelta(days=days_threshold)
 
         # Get all complaints
-        all_complaints = get_all_complaints(db)
+        all_complaints = await get_all_complaints(db)
         tickets_needing_fetch = []
 
         for complaint in all_complaints:
             # Check if this ticket needs action history fetching
-            tracking = (
-                db.query(ActionHistoryAPIRequestTracking)
-                .filter(
-                    ActionHistoryAPIRequestTracking.ticket_no == complaint.ticket_no
-                )
-                .first()
-            )
+            query = await db.execute(select(ActionHistoryAPIRequestTracking).filter(
+                ActionHistoryAPIRequestTracking.ticket_no == complaint.ticket_no
+            ))
+            tracking = query.scalars().first()
 
             if tracking is None:
                 tickets_needing_fetch.append(complaint.ticket_no)

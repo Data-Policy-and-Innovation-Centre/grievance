@@ -10,7 +10,7 @@ import httpx
 from botocore.exceptions import ClientError
 from loguru import logger
 from more_itertools import chunked
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from tqdm import tqdm
 
 from app.config import (directories, resume_logging_to_console, settings,
@@ -31,7 +31,7 @@ class DocumentService:
     Async client for Document download service
     """
 
-    def __init__(self, s3_bucket: str = settings.AWS_S3_DOCUMENTS, db: Session = None):
+    def __init__(self, s3_bucket: str = settings.AWS_S3_DOCUMENTS, db: AsyncSession = None):
         self.semaphore = asyncio.Semaphore(15)
         self.db = db or next(get_db())
         if settings.ENV == "dev":
@@ -46,7 +46,7 @@ class DocumentService:
         if not os.path.exists(settings.LOCAL_STORAGE_PATH):
             os.mkdir(settings.LOCAL_STORAGE_PATH)
 
-    def get_document_path(self, ticket_no: str, document_type: str) -> str:
+    async def get_document_path(self, ticket_no: str, document_type: str) -> str:
         """
         Generates a local file path to store a document related to a complaint.
 
@@ -59,7 +59,7 @@ class DocumentService:
                 None if the complaint does not exist or an error occurs.
         """
         type_file_pattern = re.compile(r"~([a-zA-Z]*)$")
-        complaint = get_complaint_by_ticket(self.db, ticket_no)
+        complaint = await get_complaint_by_ticket(self.db, ticket_no)
         if complaint is None:
             logger.error(f"Complaint {ticket_no} does not exist in the database.")
             return None
@@ -159,7 +159,7 @@ class DocumentService:
             logger.warning(f"Complaint {ticket_no} does not have a valid document URL.")
             return None
 
-        path = self.get_document_path(ticket_no, document_type)
+        path = await self.get_document_path(ticket_no, document_type)
 
         if path is None:
             logger.warning(f"Failed to generate a path for complaint {ticket_no}")
@@ -323,13 +323,13 @@ class DocumentService:
                 )
             )
 
-            result = self.db.execute(stmt)
-            self.db.commit()
+            result = await self.db.execute(stmt)
+            await self.db.commit()
 
             logger.info(f"Bulk updated {result.rowcount} document statuses")
 
         except Exception as e:
-            self.db.rollback()
+            await self.db.rollback()
             logger.error(f"Error in bulk document status update: {e}")
             raise
 

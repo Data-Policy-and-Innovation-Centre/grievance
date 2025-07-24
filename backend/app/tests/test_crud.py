@@ -186,77 +186,84 @@ async def test_get_all_districts(db_session, sample_district_data):
 
 
 # Complaint CRUD tests
-def test_create_complaint(db_session, sample_complaint_data):
+@pytest.mark.asyncio
+async def test_create_complaint(db_session, sample_complaint_data):
     """Test creating a new complaint."""
-    complaint = create_or_update_complaint(db_session, sample_complaint_data)
+    complaint = await create_or_update_complaint(db_session, sample_complaint_data)
     assert complaint.ticket_no == "T123"
     assert complaint.petitioner_name == "John Doe"
     assert complaint.office == "Office of Chief Minister"
 
 
-def test_get_complaint_by_ticket(db_session, sample_complaint_data):
+@pytest.mark.asyncio
+async def test_get_complaint_by_ticket(db_session, sample_complaint_data):
     """Test retrieving a complaint by ticket number."""
     # First create a complaint
-    create_or_update_complaint(db_session, sample_complaint_data)
+    await create_or_update_complaint(db_session, sample_complaint_data)
 
     # Then retrieve it
-    complaint = get_complaint_by_ticket(db_session, "T123")
+    complaint = await get_complaint_by_ticket(db_session, "T123")
     assert complaint is not None
     assert complaint.petitioner_name == "John Doe"
     assert complaint.office == "Office of Chief Minister"
 
 
-def test_update_complaint(db_session, sample_complaint_data):
+@pytest.mark.asyncio
+async def test_update_complaint(db_session, sample_complaint_data):
     """Test updating an existing complaint."""
     # First create a complaint
-    create_or_update_complaint(db_session, sample_complaint_data)
+    await create_or_update_complaint(db_session, sample_complaint_data)
 
     # Update the complaint
     updated_data = sample_complaint_data.model_copy(
         update={"petitioner_name": "Jane Doe"}
     )
-    updated_complaint = create_or_update_complaint(db_session, updated_data)
+    updated_complaint = await create_or_update_complaint(db_session, updated_data)
 
     assert updated_complaint.petitioner_name == "Jane Doe"
     assert updated_complaint.ticket_no == "T123"
 
 
-def test_get_complaints_by_district(db_session, sample_complaint_data):
+@pytest.mark.asyncio
+async def test_get_complaints_by_district(db_session, sample_complaint_data):
     """Test retrieving complaints by district."""
     # Create multiple complaints
-    create_or_update_complaint(db_session, sample_complaint_data)
+    await create_or_update_complaint(db_session, sample_complaint_data)
     complaint2 = sample_complaint_data.model_copy(update={"ticket_no": "T124"})
-    create_or_update_complaint(db_session, complaint2)
+    await create_or_update_complaint(db_session, complaint2)
 
-    complaints = get_complaints_by_district(db_session, "Test District")
+    complaints = await get_complaints_by_district(db_session, "Test District")
     assert len(complaints) == 2
 
 
-def test_get_complaints_by_status(db_session, sample_complaint_data):
+@pytest.mark.asyncio
+async def test_get_complaints_by_status(db_session, sample_complaint_data):
     """Test retrieving complaints by status."""
     # Create a complaint
-    create_or_update_complaint(db_session, sample_complaint_data)
+    await create_or_update_complaint(db_session, sample_complaint_data)
 
-    complaints = get_complaints_by_status(db_session, "Pending")
+    complaints = await get_complaints_by_status(db_session, "Pending")
     assert len(complaints) == 1
     assert complaints[0].ticket_no == "T123"
 
 
 # Action History CRUD tests
-def test_create_action_history(db_session, sample_action_history_data):
+@pytest.mark.asyncio
+async def test_create_action_history(db_session, sample_action_history_data):
     """Test creating a new action history record."""
-    action = create_action_history(db_session, sample_action_history_data)
+    action = await create_action_history(db_session, sample_action_history_data)
     assert action.ticket_no == "T123"
     assert action.action_taken_by == "Officer X"
 
 
-def test_get_action_history_by_ticket(db_session, sample_action_history_data):
+@pytest.mark.asyncio
+async def test_get_action_history_by_ticket(db_session, sample_action_history_data):
     """Test retrieving action history by ticket number."""
     # First create an action history record
-    create_action_history(db_session, sample_action_history_data)
+    await create_action_history(db_session, sample_action_history_data)
 
     # Then retrieve it
-    actions = get_action_history_by_ticket(db_session, "T123")
+    actions = await get_action_history_by_ticket(db_session, "T123")
     assert len(actions) == 1
     assert actions[0].action_taken_by == "Officer X"
 
@@ -278,7 +285,8 @@ async def test_batch_create_districts(db_session):
     assert districts[2].dist_name == "District 3"
 
 
-def test_batch_create_complaints(db_session, sample_complaint_data):
+@pytest.mark.asyncio
+async def test_batch_create_complaints(db_session, sample_complaint_data):
     """Test batch creating complaints."""
     complaints_data = [
         sample_complaint_data,
@@ -286,14 +294,15 @@ def test_batch_create_complaints(db_session, sample_complaint_data):
         sample_complaint_data.model_copy(deep=True, update={"ticket_no": "T125"}),
     ]
 
-    complaints = batch_create_or_update_complaints(db_session, complaints_data)
+    complaints = await batch_create_or_update_complaints(db_session, complaints_data)
     assert len(complaints) == 3
     assert complaints[0].ticket_no == "T123"
     assert complaints[1].ticket_no == "T124"
     assert complaints[2].ticket_no == "T125"
 
 
-def test_batch_create_action_history(db_session, sample_action_history_data):
+@pytest.mark.asyncio
+async def test_batch_create_action_history(db_session, sample_action_history_data):
     """Test batch creating action history records."""
     actions_data = [
         sample_action_history_data,
@@ -305,7 +314,7 @@ def test_batch_create_action_history(db_session, sample_action_history_data):
         ),
     ]
     print(actions_data)
-    actions = batch_create_action_history(db_session, actions_data)
+    actions = await batch_create_action_history(db_session, actions_data)
     print(actions)
     assert len(actions) == 3
     assert actions[0].action_taken_remark == "Test action"
@@ -332,23 +341,26 @@ async def test_bulk_load_districts(db_session):
     assert "Bulk District 3" in names
 
 
-def test_bulk_load_complaints(db_session, sample_complaint_data):
+@pytest.mark.asyncio
+async def test_bulk_load_complaints(db_session, sample_complaint_data):
     """Test bulk loading complaints."""
     complaints_data = [
         sample_complaint_data,
         sample_complaint_data.model_copy(deep=True, update={"ticket_no": "T200"}),
         sample_complaint_data.model_copy(deep=True, update={"ticket_no": "T201"}),
     ]
-    count = len(bulk_load_complaints(db_session, complaints_data))
+    count = len(await bulk_load_complaints(db_session, complaints_data))
     assert count == 3
     # Check that the complaints are in the database
-    tickets = [c.ticket_no for c in db_session.query(Complaint).all()]
+    result = await db_session.execute(select(Complaint))
+    tickets = [c.ticket_no for c in result.scalars().all()]
     assert "T123" in tickets
     assert "T200" in tickets
     assert "T201" in tickets
 
 
-def test_bulk_load_action_histories(db_session, sample_action_history_data):
+@pytest.mark.asyncio
+async def test_bulk_load_action_histories(db_session, sample_action_history_data):
     """Test bulk loading action histories."""
     actions_data = [
         sample_action_history_data,
@@ -359,10 +371,11 @@ def test_bulk_load_action_histories(db_session, sample_action_history_data):
             deep=True, update={"action_taken_remark": "Bulk third action"}
         ),
     ]
-    count = len(bulk_load_action_histories(db_session, actions_data))
+    count = len(await bulk_load_action_histories(db_session, actions_data))
     assert count == 3
     # Check that the action histories are in the database
-    remarks = [a.action_taken_remark for a in db_session.query(ActionHistory).all()]
+    result = await db_session.execute(select(ActionHistory))
+    remarks = [a.action_taken_remark for a in result.scalars().all()]
     assert "Test action" in remarks
     assert "Bulk second action" in remarks
     assert "Bulk third action" in remarks
@@ -379,20 +392,22 @@ async def test_unique_constraint_district_id(db_session, sample_district_data):
         await db_session.commit()
 
 
-def test_unique_constraint_complaint_ticket_no(db_session, sample_complaint_data):
+@pytest.mark.asyncio
+async def test_unique_constraint_complaint_ticket_no(db_session, sample_complaint_data):
     """Test that duplicate complaint ticket_no raises IntegrityError."""
-    create_or_update_complaint(db_session, sample_complaint_data)
+    await create_or_update_complaint(db_session, sample_complaint_data)
     duplicate = sample_complaint_data.model_copy(
         deep=True, update={"petitioner_name": "Jane Doe"}
     ).model_dump(by_alias=False)
     with pytest.raises(IntegrityError):
         db_session.add(Complaint(**duplicate))
-        db_session.commit()
+        await db_session.commit()
 
 
-def test_unique_constraint_action_history(db_session, sample_action_history_data):
+@pytest.mark.asyncio
+async def test_unique_constraint_action_history(db_session, sample_action_history_data):
     """Test that duplicate action history (composite unique) raises IntegrityError."""
-    create_action_history(db_session, sample_action_history_data)
+    await create_action_history(db_session, sample_action_history_data)
     duplicate = sample_action_history_data.model_copy(deep=True)
     with pytest.raises(IntegrityError):
         db_session.add(
@@ -405,7 +420,7 @@ def test_unique_constraint_action_history(db_session, sample_action_history_data
                 action_taken_date=duplicate.action_taken_date,
             )
         )
-        db_session.commit()
+        await db_session.commit()
 
 
 # API Request Tracking tests

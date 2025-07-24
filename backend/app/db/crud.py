@@ -64,19 +64,19 @@ async def get_all_districts(db: AsyncSession) -> List[District]:
 
 
 # Complaint CRUD operations
-def get_all_complaints(db: AsyncSession) -> List[ComplaintModel]:
+async def get_all_complaints(db: AsyncSession) -> List[ComplaintModel]:
     """Get all complaints."""
-    return db.query(ComplaintModel).all()
+    result = await db.execute(select(ComplaintModel))
+    return result.scalars().all()
 
 
-def get_complaint_by_ticket(db: AsyncSession, ticket_no: str) -> Optional[ComplaintModel]:
+async def get_complaint_by_ticket(db: AsyncSession, ticket_no: str) -> Optional[ComplaintModel]:
     """Get a complaint by its ticket number."""
-    return (
-        db.query(ComplaintModel).filter(ComplaintModel.ticket_no == ticket_no).first()
-    )
+    result = await db.execute(select(ComplaintModel).filter(ComplaintModel.ticket_no == ticket_no))
+    return result.scalars().first()
 
 
-def create_or_update_complaint(
+async def create_or_update_complaint(
     db: AsyncSession, complaint_data: ComplaintSchema
 ) -> ComplaintModel | None:
     """Create or update a complaint record."""
@@ -86,7 +86,7 @@ def create_or_update_complaint(
     logger.info(f"Creating or updating complaint: {complaint_data['ticket_no']}")
     try:
 
-        complaint = get_complaint_by_ticket(db, complaint_data["ticket_no"])
+        complaint = await get_complaint_by_ticket(db, complaint_data["ticket_no"])
         if complaint:
             # Update existing complaint
             for key, value in complaint_data.items():
@@ -97,27 +97,29 @@ def create_or_update_complaint(
             complaint = ComplaintModel(**complaint_data)
             db.add(complaint)
 
-        db.commit()
-        db.refresh(complaint)
+        await db.commit()
+        await db.refresh(complaint)
         return complaint
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Error creating/updating complaint: {e}")
         raise
 
 
-def get_complaints_by_district(db: AsyncSession, district: str) -> List[ComplaintModel]:
+async def get_complaints_by_district(db: AsyncSession, district: str) -> List[ComplaintModel]:
     """Get all complaints for a specific district."""
-    return db.query(ComplaintModel).filter(ComplaintModel.district == district).all()
+    result = await db.execute(select(ComplaintModel).filter(ComplaintModel.district == district))
+    return result.scalars().all()
 
 
-def get_complaints_by_status(db: AsyncSession, status: str) -> List[ComplaintModel]:
+async def get_complaints_by_status(db: AsyncSession, status: str) -> List[ComplaintModel]:
     """Get all complaints with a specific status."""
-    return db.query(ComplaintModel).filter(ComplaintModel.status == status).all()
+    result = await db.execute(select(ComplaintModel).filter(ComplaintModel.status == status))
+    return result.scalars().all()
 
 
 # Action History CRUD operations
-def create_action_history(
+async def create_action_history(
     db: AsyncSession, action_data: ActionHistorySchema
 ) -> ActionHistoryModel:
     """Create a new action history record."""
@@ -126,24 +128,21 @@ def create_action_history(
         action_data = action_data.model_dump(by_alias=False)
         action = ActionHistoryModel(**action_data)
         db.add(action)
-        db.commit()
-        db.refresh(action)
+        await db.commit()
+        await db.refresh(action)
         return action
     except IntegrityError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Error creating action history: {e}")
         raise
 
 
-def get_action_history_by_ticket(
+async def get_action_history_by_ticket(
     db: AsyncSession, ticket_no: str
 ) -> List[ActionHistoryModel]:
     """Get all action history records for a specific complaint."""
-    return (
-        db.query(ActionHistoryModel)
-        .filter(ActionHistoryModel.ticket_no == ticket_no)
-        .all()
-    )
+    result = await db.execute(select(ActionHistoryModel).filter(ActionHistoryModel.ticket_no == ticket_no))
+    return result.scalars().all()
 
 
 # Batch operations for ingestion
@@ -164,7 +163,7 @@ async def batch_create_or_update_districts(
     return districts
 
 
-def batch_create_or_update_complaints(
+async def batch_create_or_update_complaints(
     db: AsyncSession, complaints_data: List[ComplaintSchema]
 ) -> List[ComplaintModel]:
     """Batch create or update multiple complaints."""
@@ -173,7 +172,7 @@ def batch_create_or_update_complaints(
     complaints = []
     for complaint_data in complaints_data:
         try:
-            complaint = create_or_update_complaint(db, complaint_data)
+            complaint = await create_or_update_complaint(db, complaint_data)
             complaints.append(complaint)
         except Exception as e:
             logger.error(f"Error processing complaint {complaint_data.ticket_no}: {e}")
@@ -181,7 +180,7 @@ def batch_create_or_update_complaints(
     return complaints
 
 
-def batch_create_action_history(
+async def batch_create_action_history(
     db: AsyncSession, actions_data: List[ActionHistorySchema]
 ) -> List[ActionHistoryModel]:
     """Batch create multiple action history records."""
@@ -192,7 +191,7 @@ def batch_create_action_history(
     actions = []
     for action_data in actions_data:
         try:
-            action = create_action_history(db, action_data)
+            action = await create_action_history(db, action_data)
             actions.append(action)
         except Exception as e:
             logger.error(
@@ -228,19 +227,19 @@ async def bulk_load_districts(
         return batch_create_or_update_districts(db, districts_data)
 
 
-def bulk_load_complaints(
+async def bulk_load_complaints(
     db: AsyncSession, complaints_data: List[ComplaintSchema]
 ) -> List[ComplaintModel]:
     """Bulk load complaints for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(complaints_data)} complaints")
+        query = await db.execute(select(ComplaintModel).filter(
+                ComplaintModel.ticket_no.in_([c.ticket_no for c in complaints_data])
+            ))
         existing_tickets = {
             c.ticket_no: c
-            for c in db.query(ComplaintModel)
-            .filter(
-                ComplaintModel.ticket_no.in_([c.ticket_no for c in complaints_data])
-            )
-            .all()
+            for c in 
+            query.scalars().all()
         }
         to_insert = []
         to_update = []
@@ -261,29 +260,28 @@ def bulk_load_complaints(
                     to_update.append(existing_obj)
 
         if to_insert:
-            db.bulk_save_objects(to_insert, return_defaults=True)
+            db.add_all(to_insert)
         if to_update:
             db.add_all(to_update)
 
-        db.commit()
+        await db.commit()
         logger.info(f"{len(to_insert)} new, {len(to_update)} updated complaints")
         return to_insert + to_update
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Bulk load complaints failed: {e}")
         return batch_create_or_update_complaints(db, complaints_data)
 
 
-def bulk_load_action_histories(
+async def bulk_load_action_histories(
     db: AsyncSession, actions_data: List[ActionHistorySchema]
 ) -> List[ActionHistoryModel]:
     """Bulk load action histories for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(actions_data)} action histories")
-
         existing_actions_map = {
             (a.ticket_no, a.action_taken_date): a
-            for a in get_action_history_by_ticket(db, actions_data[0].ticket_no)
+            for a in await get_action_history_by_ticket(db, actions_data[0].ticket_no)
         }
 
         to_insert = []
@@ -306,21 +304,21 @@ def bulk_load_action_histories(
                     to_update.append(exist_action)
 
         if to_insert:
-            db.bulk_save_objects(to_insert, return_defaults=True)
+            db.add_all(to_insert)
         if to_update:
             db.add_all(to_update)
 
-        db.commit()
+        await db.commit()
         logger.info(f"{len(to_insert)} new, {len(to_update)} updated action history")
         return to_insert + to_update
 
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Bulk load action histories failed: {e}")
         return batch_create_action_history(db, actions_data)
 
 
-def update_document_status(
+async def update_document_status(
     db: AsyncSession, ticket_no: str, local_path: str, success: bool, error: str = None
 ):
     import warnings
@@ -328,7 +326,7 @@ def update_document_status(
     warnings.warn(
         "update_document_status is deprecated", DeprecationWarning, stacklevel=2
     )
-    complaint = get_complaint_by_ticket(db, ticket_no=ticket_no)
+    complaint = await get_complaint_by_ticket(db, ticket_no=ticket_no)
     time_zone = pytz.timezone("Asia/Kolkata")
     now = datetime.now(time_zone)
     if complaint:
@@ -336,52 +334,47 @@ def update_document_status(
         complaint.document_downloaded = success
         complaint.document_download_date = now
         complaint.document_download_error = error
-        db.commit()
-        db.refresh(complaint)
+        await db.commit()
+        await db.refresh(complaint)
     return complaint
 
 
-def get_complaints_without_documents(
+async def get_complaints_without_documents(
     db: AsyncSession, get_docs_where_errors_occurred: bool = False
 ) -> list[ComplaintModel]:
-    return (
-        db.query(ComplaintModel)
-        .filter(
-            ComplaintModel.document_url.isnot(""),
-            ComplaintModel.document_url.isnot(None),
-            ComplaintModel.document_url.isnot("N/A"),
-            ComplaintModel.document_downloaded == False,
-            (
-                ComplaintModel.document_download_error.isnot(None)
-                if get_docs_where_errors_occurred
-                else ComplaintModel.document_download_error.is_(None)
+    result = await db.execute(select(ComplaintModel).filter(
+        ComplaintModel.document_url.isnot(""),
+        ComplaintModel.document_url.isnot(None),
+        ComplaintModel.document_url.isnot("N/A"),
+        ComplaintModel.document_downloaded == False,
+        (
+            ComplaintModel.document_download_error.isnot(None)
+            if get_docs_where_errors_occurred
+            else ComplaintModel.document_download_error.is_(None)
             ),
-        )
-        .all()
-    )
+            ))
+    return result.scalars().all()
 
 
-def get_complaints_with_document_urls(db: AsyncSession) -> list[ComplaintModel]:
-    return db.query(ComplaintModel).filter(ComplaintModel.document_url.isnot("")).all()
+async def get_complaints_with_document_urls(db: AsyncSession) -> list[ComplaintModel]:
+    query = await db.execute(select(ComplaintModel).filter(ComplaintModel.document_url.isnot("")))
+    return query.scalars().all()
 
 
-def record_complaint_api_request_success(
+async def record_complaint_api_request_success(
     db: AsyncSession, year: int, dist_id: int, status: int, office: int, record_count: int
 ) -> Optional[APIRequestTracking]:
     """Record a successful API request in db and its results."""
     try:
         time_zone = pytz.timezone("Asia/Kolkata")
         now = datetime.now(time_zone)
-        tracking = (
-            db.query(APIRequestTracking)
-            .filter(
-                APIRequestTracking.year == year,
-                APIRequestTracking.dist_id == dist_id,
-                APIRequestTracking.status == status,
-                APIRequestTracking.office == office,
-            )
-            .first()
-        )
+        query = await db.execute(select(APIRequestTracking).filter(
+            APIRequestTracking.year == year,
+            APIRequestTracking.dist_id == dist_id,
+            APIRequestTracking.status == status,
+            APIRequestTracking.office == office
+        ))
+        tracking = query.scalars().first()
 
         if tracking:
             # time_zone = pytz.timezone('Asia/Kolkata') # not sure what time zone to use here.
@@ -400,11 +393,11 @@ def record_complaint_api_request_success(
             )
             db.add(tracking)
 
-        db.commit()
-        db.refresh(tracking)
+        await db.commit()
+        await db.refresh(tracking)
         return tracking
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Error recording API request success: {e}")
         raise
 

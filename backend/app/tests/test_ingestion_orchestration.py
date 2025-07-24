@@ -3,7 +3,8 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy import create_engine
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.models import Base
@@ -39,20 +40,21 @@ def setup_test_environment():
 
 
 # Test database setup
-@pytest.fixture(scope="function")
-def db_session():
+@pytest_asyncio.fixture(scope="function")
+async def db_session():
     """Create a fresh database for each test."""
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
+    # Create in-memory SQLite database for testing
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-    TestingSessionLocal = sessionmaker(bind=engine)
-    session = TestingSessionLocal()
+    # Create a new session for the test
+    TestingAsyncSessionLocal = sessionmaker(
+        bind=engine, class_=AsyncSession, expire_on_commit=False
+    )
 
-    try:
+    async with TestingAsyncSessionLocal() as session:
         yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(engine)
 
 
 @pytest.fixture

@@ -2,10 +2,9 @@
 import requests
 from app.ingestion.client import JanasunaniAPIClient, JanasunaniAPIError
 from app.ingestion.schemas import validate, validate_action_history, Complaint, District
-from app.ingestion import OFFICE, STATUS
+from app.ingestion import OFFICE
 import pandas as pd
 from pathlib import Path
-import time
 
 # %% [markdown]
 # # Summary of results for status == 1 (Registered and assigned):

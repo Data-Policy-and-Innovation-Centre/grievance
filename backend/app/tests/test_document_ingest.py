@@ -1,17 +1,11 @@
-import asyncio
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-
-import httpx
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-from app.db.crud import get_complaint_by_ticket
 from app.db.models import Base
 from app.db.models import Complaint as ComplaintModel
 from app.ingestion.document_ingestion import DocumentService
-from app.ingestion.schemas import Complaint as ComplaintSchema
 
 
 # Test database setup

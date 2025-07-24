@@ -3,12 +3,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pytz
 from loguru import logger
-from pydantic import ValidationError
-from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
-from app.config import settings
 from app.ingestion.schemas import ActionHistory as ActionHistorySchema
 from app.ingestion.schemas import Complaint as ComplaintSchema
 from app.ingestion.schemas import District as DistrictSchema

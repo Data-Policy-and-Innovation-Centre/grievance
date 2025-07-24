@@ -21,12 +21,8 @@
 # df_subset_complaints = pd.DataFrame(subset_complaints)
 
 # %%
-from pathlib import Path
 import pandas as pd
 from app.ingestion.client import JanasunaniAPIClient
-from app.ingestion.schemas import validate, District, Complaint, validate_action_history
-#from skimpy import skim
-from app.ingestion.client import JanasunaniAPIError
 import pandas as pd
 
 client = JanasunaniAPIClient()

@@ -1,17 +1,12 @@
 import asyncio
 import functools
-import json
-from datetime import datetime
-from itertools import product
 
 import httpx
 from loguru import logger
-from more_itertools import chunked
 
-from app.config import directories, settings
+from app.config import settings
 
 from . import OFFICE, STATUS
-from .schemas import Complaint, District, validate, validate_action_history
 
 RETRY_BACKOFF = 5
 MAX_RETRIES = 10

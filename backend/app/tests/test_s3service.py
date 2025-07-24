@@ -1,13 +1,11 @@
 import io
 import os
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import Mock, patch
 
 import boto3
 import pytest
 from botocore.exceptions import ClientError, NoCredentialsError
 from moto import mock_aws
-
-from app.config import settings
 from app.s3service import S3Service
 
 

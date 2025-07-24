@@ -2,7 +2,6 @@ import argparse
 import asyncio
 import json
 import sys
-from datetime import datetime
 from typing import Coroutine, Dict, List, Tuple
 
 import boto3
@@ -16,7 +15,7 @@ from app.config import (directories, resume_logging_to_console, settings,
 
 from ..db.crud import (bulk_load_action_histories, bulk_load_complaints,
                        bulk_load_districts, filter_complaints_api_request,
-                       get_all_complaints, get_complaints_without_documents,
+                       get_complaints_without_documents,
                        get_tickets_needing_action_history,
                        mark_action_history_api_request_failed,
                        mark_complaints_api_request_failed,

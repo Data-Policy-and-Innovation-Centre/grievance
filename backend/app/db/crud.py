@@ -1,6 +1,6 @@
+import asyncio
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
-import asyncio
 
 import pytz
 from loguru import logger
@@ -27,12 +27,16 @@ async def get_district_by_id(db: AsyncSession, dist_id: int) -> Optional[Distric
     result = await db.execute(select(District).filter(District.dist_id == dist_id))
     return result.scalars().first()
 
+
 async def get_district_by_name(db: AsyncSession, dist_name: str) -> Optional[District]:
     """Get a district by its name."""
     result = await db.execute(select(District).filter(District.dist_name == dist_name))
     return result.scalars().first()
 
-async def create_or_update_district(db: AsyncSession, district_data: DistrictSchema) -> District:
+
+async def create_or_update_district(
+    db: AsyncSession, district_data: DistrictSchema
+) -> District:
     """Create or update a district record."""
     # Convert Pydantic model to dict for database operations
     district_data = district_data.model_dump(by_alias=False)
@@ -69,7 +73,9 @@ def get_all_complaints(db: AsyncSession) -> List[ComplaintModel]:
     return db.query(ComplaintModel).all()
 
 
-def get_complaint_by_ticket(db: AsyncSession, ticket_no: str) -> Optional[ComplaintModel]:
+def get_complaint_by_ticket(
+    db: AsyncSession, ticket_no: str
+) -> Optional[ComplaintModel]:
     """Get a complaint by its ticket number."""
     return (
         db.query(ComplaintModel).filter(ComplaintModel.ticket_no == ticket_no).first()
@@ -366,7 +372,12 @@ def get_complaints_with_document_urls(db: AsyncSession) -> list[ComplaintModel]:
 
 
 def record_complaint_api_request_success(
-    db: AsyncSession, year: int, dist_id: int, status: int, office: int, record_count: int
+    db: AsyncSession,
+    year: int,
+    dist_id: int,
+    status: int,
+    office: int,
+    record_count: int,
 ) -> Optional[APIRequestTracking]:
     """Record a successful API request in db and its results."""
     try:
@@ -599,6 +610,7 @@ def get_tickets_needing_action_history(
         logger.error(f"Error getting complaints needing action history: {e}")
         return []
 
+
 async def main():
     from app.ingestion.client import JanasunaniAPIClient, validate
 
@@ -616,6 +628,6 @@ async def main():
     finally:
         await gen.aclose()
 
-        
+
 if __name__ == "__main__":
     asyncio.run(main())

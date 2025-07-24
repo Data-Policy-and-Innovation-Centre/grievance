@@ -1,12 +1,12 @@
+import asyncio
 from datetime import datetime
 
-import asyncio
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.db.crud import (batch_create_action_history,
                          batch_create_or_update_complaints,
@@ -62,10 +62,12 @@ async def db_session():
         await conn.run_sync(Base.metadata.create_all)
 
     # Create a new session for the test
-    TestingAsyncSessionLocal = sessionmaker(bind = engine, class_=AsyncSession, expire_on_commit=False)
+    TestingAsyncSessionLocal = sessionmaker(
+        bind=engine, class_=AsyncSession, expire_on_commit=False
+    )
 
     async with TestingAsyncSessionLocal() as session:
-        yield session 
+        yield session
 
 
 # Test data fixtures
@@ -131,6 +133,7 @@ async def test_create_district(db_session, sample_district_data):
     district = await create_or_update_district(db_session, sample_district_data)
     assert district.dist_id == 1
     assert district.dist_name == "Test District"
+
 
 @pytest.mark.asyncio
 async def test_get_district_by_id(db_session, sample_district_data):

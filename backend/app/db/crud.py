@@ -74,9 +74,13 @@ async def get_all_complaints(db: AsyncSession) -> List[ComplaintModel]:
     return result.scalars().all()
 
 
-async def get_complaint_by_ticket(db: AsyncSession, ticket_no: str) -> Optional[ComplaintModel]:
+async def get_complaint_by_ticket(
+    db: AsyncSession, ticket_no: str
+) -> Optional[ComplaintModel]:
     """Get a complaint by its ticket number."""
-    result = await db.execute(select(ComplaintModel).filter(ComplaintModel.ticket_no == ticket_no))
+    result = await db.execute(
+        select(ComplaintModel).filter(ComplaintModel.ticket_no == ticket_no)
+    )
     return result.scalars().first()
 
 
@@ -110,15 +114,23 @@ async def create_or_update_complaint(
         raise
 
 
-async def get_complaints_by_district(db: AsyncSession, district: str) -> List[ComplaintModel]:
+async def get_complaints_by_district(
+    db: AsyncSession, district: str
+) -> List[ComplaintModel]:
     """Get all complaints for a specific district."""
-    result = await db.execute(select(ComplaintModel).filter(ComplaintModel.district == district))
+    result = await db.execute(
+        select(ComplaintModel).filter(ComplaintModel.district == district)
+    )
     return result.scalars().all()
 
 
-async def get_complaints_by_status(db: AsyncSession, status: str) -> List[ComplaintModel]:
+async def get_complaints_by_status(
+    db: AsyncSession, status: str
+) -> List[ComplaintModel]:
     """Get all complaints with a specific status."""
-    result = await db.execute(select(ComplaintModel).filter(ComplaintModel.status == status))
+    result = await db.execute(
+        select(ComplaintModel).filter(ComplaintModel.status == status)
+    )
     return result.scalars().all()
 
 
@@ -145,7 +157,9 @@ async def get_action_history_by_ticket(
     db: AsyncSession, ticket_no: str
 ) -> List[ActionHistoryModel]:
     """Get all action history records for a specific complaint."""
-    result = await db.execute(select(ActionHistoryModel).filter(ActionHistoryModel.ticket_no == ticket_no))
+    result = await db.execute(
+        select(ActionHistoryModel).filter(ActionHistoryModel.ticket_no == ticket_no)
+    )
     return result.scalars().all()
 
 
@@ -237,14 +251,12 @@ async def bulk_load_complaints(
     """Bulk load complaints for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(complaints_data)} complaints")
-        query = await db.execute(select(ComplaintModel).filter(
+        query = await db.execute(
+            select(ComplaintModel).filter(
                 ComplaintModel.ticket_no.in_([c.ticket_no for c in complaints_data])
-            ))
-        existing_tickets = {
-            c.ticket_no: c
-            for c in 
-            query.scalars().all()
-        }
+            )
+        )
+        existing_tickets = {c.ticket_no: c for c in query.scalars().all()}
         to_insert = []
         to_update = []
 
@@ -346,38 +358,49 @@ async def update_document_status(
 async def get_complaints_without_documents(
     db: AsyncSession, get_docs_where_errors_occurred: bool = False
 ) -> list[ComplaintModel]:
-    result = await db.execute(select(ComplaintModel).filter(
-        ComplaintModel.document_url.isnot(""),
-        ComplaintModel.document_url.isnot(None),
-        ComplaintModel.document_url.isnot("N/A"),
-        ComplaintModel.document_downloaded == False,
-        (
-            ComplaintModel.document_download_error.isnot(None)
-            if get_docs_where_errors_occurred
-            else ComplaintModel.document_download_error.is_(None)
+    result = await db.execute(
+        select(ComplaintModel).filter(
+            ComplaintModel.document_url.isnot(""),
+            ComplaintModel.document_url.isnot(None),
+            ComplaintModel.document_url.isnot("N/A"),
+            ComplaintModel.document_downloaded == False,
+            (
+                ComplaintModel.document_download_error.isnot(None)
+                if get_docs_where_errors_occurred
+                else ComplaintModel.document_download_error.is_(None)
             ),
-            ))
+        )
+    )
     return result.scalars().all()
 
 
 async def get_complaints_with_document_urls(db: AsyncSession) -> list[ComplaintModel]:
-    query = await db.execute(select(ComplaintModel).filter(ComplaintModel.document_url.isnot("")))
+    query = await db.execute(
+        select(ComplaintModel).filter(ComplaintModel.document_url.isnot(""))
+    )
     return query.scalars().all()
 
 
 async def record_complaint_api_request_success(
-    db: AsyncSession, year: int, dist_id: int, status: int, office: int, record_count: int
+    db: AsyncSession,
+    year: int,
+    dist_id: int,
+    status: int,
+    office: int,
+    record_count: int,
 ) -> Optional[APIRequestTracking]:
     """Record a successful API request in db and its results."""
     try:
         time_zone = pytz.timezone("Asia/Kolkata")
         now = datetime.now(time_zone)
-        query = await db.execute(select(APIRequestTracking).filter(
-            APIRequestTracking.year == year,
-            APIRequestTracking.dist_id == dist_id,
-            APIRequestTracking.status == status,
-            APIRequestTracking.office == office
-        ))
+        query = await db.execute(
+            select(APIRequestTracking).filter(
+                APIRequestTracking.year == year,
+                APIRequestTracking.dist_id == dist_id,
+                APIRequestTracking.status == status,
+                APIRequestTracking.office == office,
+            )
+        )
         tracking = query.scalars().first()
 
         if tracking:
@@ -420,12 +443,14 @@ async def filter_complaints_api_request(
     cutoff_date = datetime.now(time_zone) - timedelta(days=days_threshold)
 
     try:
-        query = await db.execute(select(APIRequestTracking).filter(
-            APIRequestTracking.year == year,
-            APIRequestTracking.dist_id == dist_id,
-            APIRequestTracking.status == status,
-            APIRequestTracking.office == office,
-        ))
+        query = await db.execute(
+            select(APIRequestTracking).filter(
+                APIRequestTracking.year == year,
+                APIRequestTracking.dist_id == dist_id,
+                APIRequestTracking.status == status,
+                APIRequestTracking.office == office,
+            )
+        )
         tracking = query.scalars().first()
 
         if tracking is None:
@@ -451,12 +476,14 @@ async def mark_complaints_api_request_failed(
 ) -> Optional[APIRequestTracking]:
     """Record a failed API request attempt."""
     try:
-        query = await db.execute(select(APIRequestTracking). filter(
-            APIRequestTracking.year == year,
-            APIRequestTracking.dist_id == dist_id,
-            APIRequestTracking.status == status,
-            APIRequestTracking.office == office,
-        ))
+        query = await db.execute(
+            select(APIRequestTracking).filter(
+                APIRequestTracking.year == year,
+                APIRequestTracking.dist_id == dist_id,
+                APIRequestTracking.status == status,
+                APIRequestTracking.office == office,
+            )
+        )
         tracking = query.scalars().first()
 
         if tracking:
@@ -486,10 +513,12 @@ async def record_action_history_api_request_success(
     try:
         time_zone = pytz.timezone("Asia/Kolkata")
         now = datetime.now(time_zone)
-        query = await db.execute(select(ActionHistoryAPIRequestTracking).filter(
-            ActionHistoryAPIRequestTracking.ticket_no == ticket_no
-        ))
-        tracking = query.scalars().first() 
+        query = await db.execute(
+            select(ActionHistoryAPIRequestTracking).filter(
+                ActionHistoryAPIRequestTracking.ticket_no == ticket_no
+            )
+        )
+        tracking = query.scalars().first()
 
         if tracking:
             tracking.last_successful_fetch = now
@@ -515,9 +544,11 @@ async def record_action_history_api_request_success(
 
 async def mark_action_history_api_request_failed(db: AsyncSession, ticket_no: str):
     try:
-        query = await db.execute(select(ActionHistoryAPIRequestTracking).filter(
-            ActionHistoryAPIRequestTracking.ticket_no == ticket_no
-        ))
+        query = await db.execute(
+            select(ActionHistoryAPIRequestTracking).filter(
+                ActionHistoryAPIRequestTracking.ticket_no == ticket_no
+            )
+        )
         tracking = query.scalars().first()
 
         if tracking:
@@ -551,9 +582,11 @@ async def get_tickets_needing_action_history(
 
         for complaint in all_complaints:
             # Check if this ticket needs action history fetching
-            query = await db.execute(select(ActionHistoryAPIRequestTracking).filter(
-                ActionHistoryAPIRequestTracking.ticket_no == complaint.ticket_no
-            ))
+            query = await db.execute(
+                select(ActionHistoryAPIRequestTracking).filter(
+                    ActionHistoryAPIRequestTracking.ticket_no == complaint.ticket_no
+                )
+            )
             tracking = query.scalars().first()
 
             if tracking is None:

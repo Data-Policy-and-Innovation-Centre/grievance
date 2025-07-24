@@ -31,7 +31,9 @@ class DocumentService:
     Async client for Document download service
     """
 
-    def __init__(self, s3_bucket: str = settings.AWS_S3_DOCUMENTS, db: AsyncSession = None):
+    def __init__(
+        self, s3_bucket: str = settings.AWS_S3_DOCUMENTS, db: AsyncSession = None
+    ):
         self.semaphore = asyncio.Semaphore(15)
         self.db = db or next(get_db())
         if settings.ENV == "dev":

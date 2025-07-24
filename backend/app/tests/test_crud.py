@@ -335,7 +335,7 @@ async def test_bulk_load_districts(db_session):
     ]
     inserted = await bulk_load_districts(db_session, districts_data)
     assert len(inserted) == 3
-    
+
     # Check that the districts are in the database
     all_districts = await get_all_districts(db_session)
     names = [d.dist_name for d in all_districts]
@@ -486,12 +486,14 @@ async def test_record_api_request_success_resets_failure_count(db_session):
     )
 
     # Check failure count
-    query = await db_session.execute(select(APIRequestTracking).filter(
+    query = await db_session.execute(
+        select(APIRequestTracking).filter(
             APIRequestTracking.year == 2026,
             APIRequestTracking.dist_id == 1,
             APIRequestTracking.status == 1,
             APIRequestTracking.office == 1,
-    ))
+        )
+    )
     tracking = query.scalars().first()
     assert tracking.failure_count == 2
 
@@ -584,12 +586,14 @@ async def test_filter_api_request_too_many_failures(db_session):
         )
 
     # Get record from db
-    query = await db_session.execute(select(APIRequestTracking).filter(
+    query = await db_session.execute(
+        select(APIRequestTracking).filter(
             APIRequestTracking.year == 2026,
             APIRequestTracking.dist_id == 1,
             APIRequestTracking.status == 1,
-            APIRequestTracking.office == 1,        
-    ))
+            APIRequestTracking.office == 1,
+        )
+    )
     tracking = query.scalars().first()
     assert tracking.failure_count == 4
 
@@ -810,7 +814,9 @@ async def test_record_action_history_api_request_success_update(db_session):
 
 
 @pytest.mark.asyncio
-async def test_record_action_history_api_request_success_resets_failure_count(db_session):
+async def test_record_action_history_api_request_success_resets_failure_count(
+    db_session,
+):
     """Test that successful API request resets failure count."""
     from app.db.crud import (mark_action_history_api_request_failed,
                              record_action_history_api_request_success)
@@ -858,13 +864,17 @@ async def test_mark_action_history_api_request_failed_increment(db_session):
 
 
 @pytest.mark.asyncio
-async def test_mark_action_history_api_request_failed_preserves_success_data(db_session):
+async def test_mark_action_history_api_request_failed_preserves_success_data(
+    db_session,
+):
     """Test that marking failure preserves existing success data."""
     from app.db.crud import (mark_action_history_api_request_failed,
                              record_action_history_api_request_success)
 
     # First record success
-    success_tracking = await record_action_history_api_request_success(db_session, "T123", 5)
+    success_tracking = await record_action_history_api_request_success(
+        db_session, "T123", 5
+    )
     original_success_time = success_tracking.last_successful_fetch
     original_records_count = success_tracking.records_count
 
@@ -1444,7 +1454,9 @@ async def test_update_document_status_preserves_other_fields(
 
 
 @pytest.mark.asyncio
-async def test_update_document_status_with_empty_strings(db_session, sample_complaint_data):
+async def test_update_document_status_with_empty_strings(
+    db_session, sample_complaint_data
+):
     """Test document status update with empty string values."""
     from app.db.crud import create_or_update_complaint, update_document_status
 
@@ -1463,7 +1475,9 @@ async def test_update_document_status_with_empty_strings(db_session, sample_comp
 
 
 @pytest.mark.asyncio
-async def test_update_document_status_multiple_complaints(db_session, sample_complaint_data):
+async def test_update_document_status_multiple_complaints(
+    db_session, sample_complaint_data
+):
     """Test updating document status for multiple complaints."""
     from app.db.crud import create_or_update_complaint, update_document_status
 
@@ -1480,7 +1494,9 @@ async def test_update_document_status_multiple_complaints(db_session, sample_com
     result1 = await update_document_status(
         db_session, "T123", "/path/to/doc1.pdf", True, None
     )
-    result2 = await update_document_status(db_session, "T456", None, False, "Download failed")
+    result2 = await update_document_status(
+        db_session, "T456", None, False, "Download failed"
+    )
     result3 = await update_document_status(
         db_session, "T789", "/path/to/doc3.pdf", True, None
     )
@@ -1492,7 +1508,9 @@ async def test_update_document_status_multiple_complaints(db_session, sample_com
 
 
 @pytest.mark.asyncio
-async def test_update_document_status_database_commit(db_session, sample_complaint_data):
+async def test_update_document_status_database_commit(
+    db_session, sample_complaint_data
+):
     """Test that update_document_status properly commits to database."""
     from app.db.crud import (create_or_update_complaint,
                              get_complaint_by_ticket, update_document_status)
@@ -1542,7 +1560,9 @@ async def test_update_document_status_database_commit(db_session, sample_complai
 
 
 @pytest.mark.asyncio
-async def test_update_document_status_deprecation_warning(db_session, sample_complaint_data):
+async def test_update_document_status_deprecation_warning(
+    db_session, sample_complaint_data
+):
     """Test that update_document_status raises deprecation warning."""
     import warnings
 
@@ -1641,7 +1661,9 @@ async def test_update_document_status_integration_with_get_complaints_without_do
     assert complaints_before[0].ticket_no == "T123"
 
     # Update document status to downloaded
-    await update_document_status(db_session, "T123", "/path/to/document.pdf", True, None)
+    await update_document_status(
+        db_session, "T123", "/path/to/document.pdf", True, None
+    )
 
     # Now complaint should not be in the list
     complaints_after = await get_complaints_without_documents(db_session)

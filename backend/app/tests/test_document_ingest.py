@@ -7,8 +7,8 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.db.crud import get_complaint_by_ticket
 from app.db.models import Base
@@ -27,10 +27,12 @@ async def db_session():
         await conn.run_sync(Base.metadata.create_all)
 
     # Create a new session for the test
-    TestingAsyncSessionLocal = sessionmaker(bind = engine, class_=AsyncSession, expire_on_commit=False)
+    TestingAsyncSessionLocal = sessionmaker(
+        bind=engine, class_=AsyncSession, expire_on_commit=False
+    )
 
     async with TestingAsyncSessionLocal() as session:
-        yield session 
+        yield session
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -130,7 +132,9 @@ async def test_get_document_path_ticket_no(doc_service):
 
 @pytest.mark.parametrize("environment", ["dev", "main"])
 @pytest.mark.asyncio
-async def test_document_exists_returns_true(db_session, tmp_path, monkeypatch, environment):
+async def test_document_exists_returns_true(
+    db_session, tmp_path, monkeypatch, environment
+):
     from app.config import settings
 
     if environment == "dev":

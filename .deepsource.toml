@@ -17,6 +17,6 @@ enabled = true
   type_checker = "mypy"
 
   [[analyzers.python.denylist]]
-  pattern = "tests/**"
+  pattern = "backend/app/tests/*"
   ignore_codes = ["PYL-W0404"]
   reason = "Allow import errors in tests"

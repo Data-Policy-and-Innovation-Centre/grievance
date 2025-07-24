@@ -221,7 +221,7 @@ async def batch_create_action_history(
 
 async def bulk_load_districts(
     db: AsyncSession, districts_data: List[DistrictSchema]
-) -> Union[List[District], Coroutine[Any, Any, List[District]]]:
+) -> List[District]:
     """Bulk load districts for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(districts_data)} districts")
@@ -242,12 +242,12 @@ async def bulk_load_districts(
     except Exception as e:
         await db.rollback()
         logger.error(f"Bulk load districts failed: {e}")
-        return batch_create_or_update_districts(db, districts_data)
+        return await batch_create_or_update_districts(db, districts_data)
 
 
 async def bulk_load_complaints(
     db: AsyncSession, complaints_data: List[ComplaintSchema]
-) -> Union[List[ComplaintModel], Coroutine[Any, Any, List[ComplaintModel]]]:
+) -> List[ComplaintModel]:
     """Bulk load complaints for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(complaints_data)} complaints")
@@ -286,12 +286,12 @@ async def bulk_load_complaints(
     except Exception as e:
         await db.rollback()
         logger.error(f"Bulk load complaints failed: {e}")
-        return batch_create_or_update_complaints(db, complaints_data)
+        return await batch_create_or_update_complaints(db, complaints_data)
 
 
 async def bulk_load_action_histories(
     db: AsyncSession, actions_data: List[ActionHistorySchema]
-) -> Union[List[ActionHistoryModel], Coroutine[Any, Any, List[ActionHistoryModel]]]:
+) -> List[ActionHistoryModel]:
     """Bulk load action histories for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(actions_data)} action histories")
@@ -331,7 +331,7 @@ async def bulk_load_action_histories(
     except Exception as e:
         await db.rollback()
         logger.error(f"Bulk load action histories failed: {e}")
-        return batch_create_action_history(db, actions_data)
+        return await batch_create_action_history(db, actions_data)
 
 
 async def update_document_status(

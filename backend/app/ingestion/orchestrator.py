@@ -163,7 +163,7 @@ async def run_ingestion_service(
 ):
     """Main async ingestion service runner."""
     days_threshold = 7
-    max_retries = 1
+    max_retries = 3
     try:
 
         gen = get_db()

@@ -3,7 +3,7 @@ name: Test and Coverage with uv
 on: [push, pull_request]
 
 jobs:
-  test:
+  coverage:
     runs-on: ubuntu-latest
     permissions:
       contents: read

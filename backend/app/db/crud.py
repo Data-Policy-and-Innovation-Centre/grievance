@@ -1,6 +1,6 @@
+import asyncio
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
-import asyncio
 
 import pytz
 from loguru import logger
@@ -27,12 +27,16 @@ async def get_district_by_id(db: AsyncSession, dist_id: int) -> Optional[Distric
     result = await db.execute(select(District).filter(District.dist_id == dist_id))
     return result.scalars().first()
 
+
 async def get_district_by_name(db: AsyncSession, dist_name: str) -> Optional[District]:
     """Get a district by its name."""
     result = await db.execute(select(District).filter(District.dist_name == dist_name))
     return result.scalars().first()
 
-async def create_or_update_district(db: AsyncSession, district_data: DistrictSchema) -> District:
+
+async def create_or_update_district(
+    db: AsyncSession, district_data: DistrictSchema
+) -> District:
     """Create or update a district record."""
     # Convert Pydantic model to dict for database operations
     district_data = district_data.model_dump(by_alias=False)
@@ -581,6 +585,7 @@ async def get_tickets_needing_action_history(
         logger.error(f"Error getting complaints needing action history: {e}")
         return []
 
+
 async def main():
     from app.ingestion.client import JanasunaniAPIClient, validate
 
@@ -598,6 +603,6 @@ async def main():
     finally:
         await gen.aclose()
 
-        
+
 if __name__ == "__main__":
     asyncio.run(main())

@@ -60,7 +60,7 @@ class IngestionOrchestrator:
 
     async def ingest_complaints(
         self, year: int, distId: int, status: int, office: int
-    ) -> Union[list[Complaint], Coroutine[Any, Any, list[Complaint]]]:
+    ) -> Union[List[Complaint], Dict[str, Any], List[Any]]:
         """Ingest complaint data."""
         try:
             complaints = await self.client.get_complaints(
@@ -90,7 +90,7 @@ class IngestionOrchestrator:
 
     async def ingest_action_history(
         self, ticket_no: str
-    ) -> Union[list[ActionHistory], Coroutine[Any, Any, list[ActionHistory]]]:
+    ) -> Union[List[ActionHistory], Dict[str, Any], List[Any]]:
         """Ingest action history data."""
         try:
             action_history = await self.client.get_action_history(

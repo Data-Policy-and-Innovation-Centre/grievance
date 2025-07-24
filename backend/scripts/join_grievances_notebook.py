@@ -43,7 +43,7 @@ for status in range(0,3):
        'tagged_to', 'tagged_by', 'tagged_date', 'category', 'dept',
        'subcategory', 'state', 'petitioner_gender', 'transfer_status',
        'urgent']
-    if status == 1 or status == 2:
+    if status in (1, 2):
         # Convert all date columns from string to datetime (auto-detect format)
         date_cols = ['created_on', 'tagged_date', 'assigned_on', 'escalation_date', 'resolved_on']
 

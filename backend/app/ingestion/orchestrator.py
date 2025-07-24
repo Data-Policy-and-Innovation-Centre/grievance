@@ -40,14 +40,14 @@ class IngestionOrchestrator:
         self.semaphore = asyncio.Semaphore(semaphore_value)
         self.doc_service = DocumentService(db=self.db)
 
-    def ingest_districts(self):
+    async def ingest_districts(self):
         """Ingest district data."""
         try:
             districts = self.client.get_districts()
             districts_validated = validate(districts, District, dict_mode=False)
 
             # Store data in database using CRUD operations
-            stored_districts = bulk_load_districts(self.db, districts_validated)
+            stored_districts = await bulk_load_districts(self.db, districts_validated)
             logger.info(
                 f"Successfully stored {len(stored_districts)} districts in database"
             )
@@ -73,7 +73,7 @@ class IngestionOrchestrator:
             complaints_validated = validate(complaints, Complaint, dict_mode=False)
 
             # Store data in database using CRUD operations
-            stored_complaints = bulk_load_complaints(self.db, complaints_validated)
+            stored_complaints = await bulk_load_complaints(self.db, complaints_validated)
             logger.info(
                 f"Successfully stored {len(stored_complaints)} complaints in database"
             )
@@ -94,10 +94,10 @@ class IngestionOrchestrator:
 
             if action_history is None:
                 logger.warning(f"No action history received for ticket={ticket_no}")
-                mark_action_history_api_request_failed(self.db, ticket_no)
+                await mark_action_history_api_request_failed(self.db, ticket_no)
                 return []
 
-            record_action_history_api_request_success(
+            await record_action_history_api_request_success(
                 self.db, ticket_no, len(action_history)
             )
 
@@ -106,7 +106,7 @@ class IngestionOrchestrator:
             )
 
             # Store data in database using CRUD operations
-            stored_action_history = bulk_load_action_histories(
+            stored_action_history = await bulk_load_action_histories(
                 self.db, action_history_validated
             )
             logger.info(
@@ -118,7 +118,7 @@ class IngestionOrchestrator:
             logger.error(
                 f"Error ingesting action history failed for ticket={ticket_no}: {e}"
             )
-            mark_action_history_api_request_failed(self.db, ticket_no)
+            await mark_action_history_api_request_failed(self.db, ticket_no)
             return []
 
     async def ingest_documents(self, complaints: List[Complaint]) -> Dict[str, str]:

@@ -1,8 +1,10 @@
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from app.db.models import Base
 from app.db.models import Complaint as ComplaintModel
 from app.ingestion.document_ingestion import DocumentService

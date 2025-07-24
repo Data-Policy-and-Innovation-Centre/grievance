@@ -1,9 +1,12 @@
 from datetime import datetime
 
+import asyncio
 import pytest
-from sqlalchemy import create_engine
+import pytest_asyncio
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.db.crud import (batch_create_action_history,
                          batch_create_or_update_complaints,
@@ -50,22 +53,19 @@ def setup_test_environment():
 
 
 # Test database setup
-@pytest.fixture(scope="function")
-def db_session():
+@pytest_asyncio.fixture(scope="function")
+async def db_session():
     """Create a fresh database for each test."""
     # Create in-memory SQLite database for testing
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
     # Create a new session for the test
-    TestingSessionLocal = sessionmaker(bind=engine)
-    session = TestingSessionLocal()
+    TestingAsyncSessionLocal = sessionmaker(bind = engine, class_=AsyncSession, expire_on_commit=False)
 
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(engine)
+    async with TestingAsyncSessionLocal() as session:
+        yield session 
 
 
 # Test data fixtures
@@ -125,57 +125,61 @@ def sample_action_history_data():
 
 
 # District CRUD tests
-def test_create_district(db_session, sample_district_data):
+@pytest.mark.asyncio
+async def test_create_district(db_session, sample_district_data):
     """Test creating a new district."""
-    district = create_or_update_district(db_session, sample_district_data)
+    district = await create_or_update_district(db_session, sample_district_data)
     assert district.dist_id == 1
     assert district.dist_name == "Test District"
 
-
-def test_get_district_by_id(db_session, sample_district_data):
+@pytest.mark.asyncio
+async def test_get_district_by_id(db_session, sample_district_data):
     """Test retrieving a district by ID."""
     # First create a district
-    create_or_update_district(db_session, sample_district_data)
+    await create_or_update_district(db_session, sample_district_data)
 
     # Then retrieve it
-    district = get_district_by_id(db_session, 1)
+    district = await get_district_by_id(db_session, 1)
     assert district is not None
     assert district.dist_name == "Test District"
 
 
-def test_get_district_by_name(db_session, sample_district_data):
+@pytest.mark.asyncio
+async def test_get_district_by_name(db_session, sample_district_data):
     """Test retrieving a district by name."""
     # First create a district
-    create_or_update_district(db_session, sample_district_data)
+    await create_or_update_district(db_session, sample_district_data)
 
     # Then retrieve it
-    district = get_district_by_name(db_session, "Test District")
+    district = await get_district_by_name(db_session, "Test District")
     assert district is not None
     assert district.dist_id == 1
 
 
-def test_update_district(db_session, sample_district_data):
+@pytest.mark.asyncio
+async def test_update_district(db_session, sample_district_data):
     """Test updating an existing district."""
     # First create a district
-    create_or_update_district(db_session, sample_district_data)
+    await create_or_update_district(db_session, sample_district_data)
 
     # Update the district
     updated_data = DistrictSchema(distName="Updated District", distId=1)
-    updated_district = create_or_update_district(db_session, updated_data)
+    updated_district = await create_or_update_district(db_session, updated_data)
 
     assert updated_district.dist_name == "Updated District"
     assert updated_district.dist_id == 1
 
 
-def test_get_all_districts(db_session, sample_district_data):
+@pytest.mark.asyncio
+async def test_get_all_districts(db_session, sample_district_data):
     """Test retrieving all districts."""
     # Create multiple districts
-    district1 = create_or_update_district(db_session, sample_district_data)
-    district2 = create_or_update_district(
+    district1 = await create_or_update_district(db_session, sample_district_data)
+    district2 = await create_or_update_district(
         db_session, DistrictSchema(distName="Test District 2", distId=2)
     )
 
-    districts = get_all_districts(db_session)
+    districts = await get_all_districts(db_session)
     assert len(districts) == 2
     assert districts[0].dist_name == "Test District"
     assert districts[1].dist_name == "Test District 2"

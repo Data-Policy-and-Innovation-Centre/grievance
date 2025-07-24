@@ -22,24 +22,24 @@ from .session import get_db
 
 
 # District CRUD operations
-def get_district_by_id(db: AsyncSession, dist_id: int) -> Optional[District]:
+async def get_district_by_id(db: AsyncSession, dist_id: int) -> Optional[District]:
     """Get a district by its ID."""
-    return db.query(District).filter(District.dist_id == dist_id).first()
+    result = await db.execute(select(District).filter(District.dist_id == dist_id))
+    return result.scalars().first()
 
-
-def get_district_by_name(db: AsyncSession, dist_name: str) -> Optional[District]:
+async def get_district_by_name(db: AsyncSession, dist_name: str) -> Optional[District]:
     """Get a district by its name."""
-    return db.query(District).filter(District.dist_name == dist_name).first()
+    result = await db.execute(select(District).filter(District.dist_name == dist_name))
+    return result.scalars().first()
 
-
-def create_or_update_district(db: AsyncSession, district_data: DistrictSchema) -> District:
+async def create_or_update_district(db: AsyncSession, district_data: DistrictSchema) -> District:
     """Create or update a district record."""
     # Convert Pydantic model to dict for database operations
     district_data = district_data.model_dump(by_alias=False)
 
     try:
         logger.info(f"Creating or updating district: {district_data}")
-        district = get_district_by_id(db, district_data["dist_id"])
+        district = await get_district_by_id(db, district_data["dist_id"])
         if district:
             # Update existing district
             district.dist_name = district_data["dist_name"]
@@ -48,8 +48,8 @@ def create_or_update_district(db: AsyncSession, district_data: DistrictSchema) -
             district = District(**district_data)
             db.add(district)
 
-        db.commit()
-        db.refresh(district)
+        await db.commit()
+        await db.refresh(district)
         return district
     except IntegrityError as e:
         db.rollback()
@@ -147,7 +147,7 @@ def get_action_history_by_ticket(
 
 
 # Batch operations for ingestion
-def batch_create_or_update_districts(
+async def batch_create_or_update_districts(
     db: AsyncSession, districts_data: List[DistrictSchema]
 ) -> List[District]:
     """Batch create or update multiple districts."""
@@ -156,7 +156,7 @@ def batch_create_or_update_districts(
     districts = []
     for district_data in districts_data:
         try:
-            district = create_or_update_district(db, district_data)
+            district = await create_or_update_district(db, district_data)
             districts.append(district)
         except Exception as e:
             logger.error(f"Error processing district {district_data.dist_id}: {e}")
@@ -202,13 +202,13 @@ def batch_create_action_history(
     return actions
 
 
-def bulk_load_districts(
+async def bulk_load_districts(
     db: AsyncSession, districts_data: List[DistrictSchema]
 ) -> List[District]:
     """Bulk load districts for fast ingestion."""
     try:
         logger.info(f"Bulk loading {len(districts_data)} districts")
-        existing_dist = {d.dist_id for d in get_all_districts(db)}
+        existing_dist = {d.dist_id for d in await get_all_districts(db)}
         district_objs = [
             District(**district.model_dump(by_alias=False))
             for district in districts_data
@@ -217,7 +217,7 @@ def bulk_load_districts(
 
         if district_objs:
             db.bulk_save_objects(district_objs, return_defaults=True)
-            db.commit()
+            await db.commit()
         else:
             logger.info("No new districts to insert")
 
@@ -600,14 +600,19 @@ def get_tickets_needing_action_history(
         return []
 
 async def main():
+    from app.ingestion.client import JanasunaniAPIClient, validate
+
     gen = get_db()
     db = await anext(gen)
     try:
-        districts = await get_all_districts(db)
-        for district in districts:
-            logger.debug(
-                f"District: auto_id: {district.id}, id: {district.dist_id}, name: {district.dist_name}"
-            )
+        client = JanasunaniAPIClient()
+
+        districts = client.get_districts()
+        districts_validated = validate(districts, DistrictSchema, dict_mode=False)
+
+        data_dist = await bulk_load_districts(db, districts_validated)
+        print(data_dist)
+
     finally:
         await gen.aclose()
 

@@ -3,7 +3,7 @@ import asyncio
 import json
 import sys
 from datetime import datetime
-from typing import Coroutine, Dict, List, Tuple, Union, Any
+from typing import Any, Coroutine, Dict, List, Tuple, Union
 
 import boto3
 from loguru import logger

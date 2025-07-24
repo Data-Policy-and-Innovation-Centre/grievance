@@ -73,7 +73,9 @@ class IngestionOrchestrator:
             complaints_validated = validate(complaints, Complaint, dict_mode=False)
 
             # Store data in database using CRUD operations
-            stored_complaints = await bulk_load_complaints(self.db, complaints_validated)
+            stored_complaints = await bulk_load_complaints(
+                self.db, complaints_validated
+            )
             logger.info(
                 f"Successfully stored {len(stored_complaints)} complaints in database"
             )

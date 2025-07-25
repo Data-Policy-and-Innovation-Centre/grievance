@@ -3,7 +3,7 @@ import asyncio
 import json
 import sys
 from datetime import datetime
-from typing import Coroutine, Dict, List, Tuple
+from typing import Any, Coroutine, Dict, List, Tuple, Union
 
 import boto3
 from loguru import logger
@@ -60,7 +60,7 @@ class IngestionOrchestrator:
 
     async def ingest_complaints(
         self, year: int, distId: int, status: int, office: int
-    ) -> list[Complaint]:
+    ) -> Union[List[Complaint], Dict[str, Any], List[Any]]:
         """Ingest complaint data."""
         try:
             complaints = await self.client.get_complaints(
@@ -88,7 +88,9 @@ class IngestionOrchestrator:
             )
             return []
 
-    async def ingest_action_history(self, ticket_no: str) -> list[ActionHistory]:
+    async def ingest_action_history(
+        self, ticket_no: str
+    ) -> Union[List[ActionHistory], Dict[str, Any], List[Any]]:
         """Ingest action history data."""
         try:
             action_history = await self.client.get_action_history(
@@ -161,7 +163,7 @@ async def run_ingestion_service(
 ):
     """Main async ingestion service runner."""
     days_threshold = 7
-    max_retries = 1
+    max_retries = 3
     try:
 
         gen = get_db()

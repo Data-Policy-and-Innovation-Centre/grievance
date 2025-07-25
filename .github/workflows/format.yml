@@ -1,0 +1,52 @@
+name: Formatting
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    permissions:
+        contents: write
+        pull-requests: write
+        issues: write
+        actions: read
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install 3.11
+    
+    - name: Install dependencies
+      working-directory: ./backend
+      run: | 
+       uv sync --dev
+       uv add --dev mypy black isort flake8
+    
+    - name: Run Black
+      working-directory: ./backend
+      run: uv run black ./app
+    
+    - name: Run isort
+      working-directory: ./backend
+      run: uv run isort ./app
+      
+    - name: Auto-commit changes
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "Auto-format code with Black and isort"
+        file_pattern: "backend/"
+    
+    
+    
+    
+    

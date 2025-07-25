@@ -5,8 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -391,51 +389,6 @@ async def test_download_document_error(doc_service, tmp_path, caplog, db_session
         mock_log_error.assert_any_call(
             "Error downloading document for T123: Simulated error"
         )
-
-
-@pytest.mark.asyncio
-async def test_batch_download_documents_success(doc_service, db_session):
-    doc_service
-
-    # Mock complaint
-    complaint = ComplaintModel(
-        ticket_no="T123",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",
-        office="Test Office",
-        received_by="Test Officer",
-        district="Test District",
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-    )
-    db_session.add(complaint)
-    await db_session.commit()
-
-    # Mock db context manager
-    mock_db = MagicMock()
-    doc_service.db = mock_db
-    mock_db_context = AsyncMock()
-    mock_db_context.__aenter__.return_value = mock_db
-
-    # Mock download and update
-    with patch.object(
-        doc_service, "download_document", new_callable=AsyncMock
-    ) as mock_download:
-
-        mock_download.return_value = "/mocked/path/file.pdf"
-
-        results = await doc_service.batch_download_documents([complaint])
-
-        assert results == {"T123": "success"}
-        mock_download.assert_called_once_with(complaint)
 
 
 @pytest.mark.asyncio

@@ -43,7 +43,7 @@ JANASUNANI_API_USERNAME=your_username
 JANASUNANI_API_PASSWORD=your_password
 
 # Database Configuration (uses Docker volumes)
-DB_URL=sqlite:///data/raw/grievance.db
+DB_URL=sqlite+aiosqlite:///data/raw/grievance.db
 
 # AWS Configuration (optional for local development)
 AWS_ACCESS_KEY_ID=your_access_key

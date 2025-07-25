@@ -127,8 +127,10 @@ def sample_action_history_data():
         }
     ]
 
+
 async def async_gen_single(value):
-            yield value
+    yield value
+
 
 class TestRunIngestionService:
     """Integration tests for run_ingestion_service function."""

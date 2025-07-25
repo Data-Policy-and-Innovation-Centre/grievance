@@ -103,7 +103,9 @@ class JanasunaniAPIClient:
                         "Neither 'distRes', 'Res' or 'actionHistory' found in response."
                     )
             elif status == 204:
-                pass
+                raise JanasunaniAPIError(
+                    f"Jansunani API returned a 204 No Content: {message}"
+                )
             else:
                 raise JanasunaniAPIError(
                     f"Jansunani API returned an error: {message} (Status: {status})"

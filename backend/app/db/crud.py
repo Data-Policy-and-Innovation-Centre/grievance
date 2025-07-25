@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Coroutine, Dict, List, Optional, Tuple, Union
 
 import pytz
 from loguru import logger
@@ -242,7 +242,7 @@ async def bulk_load_districts(
     except Exception as e:
         await db.rollback()
         logger.error(f"Bulk load districts failed: {e}")
-        return batch_create_or_update_districts(db, districts_data)
+        return await batch_create_or_update_districts(db, districts_data)
 
 
 async def bulk_load_complaints(
@@ -286,7 +286,7 @@ async def bulk_load_complaints(
     except Exception as e:
         await db.rollback()
         logger.error(f"Bulk load complaints failed: {e}")
-        return batch_create_or_update_complaints(db, complaints_data)
+        return await batch_create_or_update_complaints(db, complaints_data)
 
 
 async def bulk_load_action_histories(
@@ -331,7 +331,7 @@ async def bulk_load_action_histories(
     except Exception as e:
         await db.rollback()
         logger.error(f"Bulk load action histories failed: {e}")
-        return batch_create_action_history(db, actions_data)
+        return await batch_create_action_history(db, actions_data)
 
 
 async def update_document_status(

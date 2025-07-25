@@ -187,7 +187,7 @@ async def run_ingestion_service(
 
         if ingest_complaints:
             logger.info(f"Num. possible complaint requests: {len(params)}")
-            if not force_params:
+            if not force_params: # It will only filter if there is no force_params argument
                 params = [
                     param
                     for param in params

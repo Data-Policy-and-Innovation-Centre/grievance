@@ -187,19 +187,19 @@ async def run_ingestion_service(
 
         if ingest_complaints:
             logger.info(f"Num. possible complaint requests: {len(params)}")
-            params = [
-                param
-                for param in params
-                if not await filter_complaints_api_request(
-                    db,
-                    *param,
-                    days_threshold=days_threshold,
-                    failure_threshold=max_retries,
-                )
-            ]
-
-            if force_params:
-                params.extend(force_params)
+            if (
+                not force_params
+            ):  # It will only filter if there is no force_params argument
+                params = [
+                    param
+                    for param in params
+                    if not await filter_complaints_api_request(
+                        db,
+                        *param,
+                        days_threshold=days_threshold,
+                        failure_threshold=max_retries,
+                    )
+                ]
 
             logger.info(f"Total complaint requests to process: {len(params)}")
 

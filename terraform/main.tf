@@ -241,6 +241,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "documents" {
     id     = "document_retention"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     transition {
       days          = 30
       storage_class = "STANDARD_IA"
@@ -253,6 +257,74 @@ resource "aws_s3_bucket_lifecycle_configuration" "documents" {
 
     expiration {
       days = 2555  # 7 years retention
+    }
+  }
+}
+
+# S3 Bucket for database backups
+resource "aws_s3_bucket" "database_backups" {
+  bucket = "grievance-database-backups-${var.environment}"
+
+  tags = {
+    Name        = "grievance-database-backups-${var.environment}"
+    Environment = var.environment
+    Purpose     = "Database backup storage for grievance analytics"
+  }
+}
+
+# S3 Bucket versioning for database backups
+resource "aws_s3_bucket_versioning" "database_backups" {
+  bucket = aws_s3_bucket.database_backups.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# S3 Bucket server-side encryption for database backups
+resource "aws_s3_bucket_server_side_encryption_configuration" "database_backups" {
+  bucket = aws_s3_bucket.database_backups.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# S3 Bucket public access block for database backups
+resource "aws_s3_bucket_public_access_block" "database_backups" {
+  bucket = aws_s3_bucket.database_backups.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# S3 Bucket lifecycle configuration for database backups
+resource "aws_s3_bucket_lifecycle_configuration" "database_backups" {
+  bucket = aws_s3_bucket.database_backups.id
+
+  rule {
+    id     = "database_backup_retention"
+    status = "Enabled"
+
+    filter {
+      prefix = ""
+    }
+
+    transition {
+      days          = 30
+      storage_class = "STANDARD_IA"
+    }
+
+    transition {
+      days          = 90
+      storage_class = "GLACIER"
+    }
+
+    expiration {
+      days = 2555  # 7 years retention for database backups
     }
   }
 }
@@ -373,7 +445,9 @@ resource "aws_iam_role_policy" "ecs_s3_access" {
         ]
         Resource = [
           aws_s3_bucket.documents.arn,
-          "${aws_s3_bucket.documents.arn}/*"
+          "${aws_s3_bucket.documents.arn}/*",
+          aws_s3_bucket.database_backups.arn,
+          "${aws_s3_bucket.database_backups.arn}/*"
         ]
       }
     ]

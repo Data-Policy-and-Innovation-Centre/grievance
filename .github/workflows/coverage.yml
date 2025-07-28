@@ -3,7 +3,7 @@ name: Test and Coverage with uv
 on: [push, pull_request]
 
 jobs:
-  test:
+  coverage:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,7 +37,7 @@ jobs:
         JANASUNANI_API_BASE_URL: ${{ secrets.JANASUNANI_API_BASE_URL }}
         JANASUNANI_API_USERNAME: ${{ secrets.JANASUNANI_API_USERNAME }}
         JANASUNANI_API_PASSWORD: ${{ secrets.JANASUNANI_API_PASSWORD }}
-        DB_URL: ${{ secrets.DB_TEST_URL }}
+        DB_URL: "sqlite+aiosqlite:///:memory:"
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_REGION: ${{ secrets.AWS_REGION }}

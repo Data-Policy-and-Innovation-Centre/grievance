@@ -4,7 +4,8 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy import create_engine
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.models import Base
@@ -39,20 +40,21 @@ def setup_test_environment():
 
 
 # Test database setup
-@pytest.fixture(scope="function")
-def db_session():
+@pytest_asyncio.fixture(scope="function")
+async def db_session():
     """Create a fresh database for each test."""
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
+    # Create in-memory SQLite database for testing
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-    TestingSessionLocal = sessionmaker(bind=engine)
-    session = TestingSessionLocal()
+    # Create a new session for the test
+    TestingAsyncSessionLocal = sessionmaker(
+        bind=engine, class_=AsyncSession, expire_on_commit=False
+    )
 
-    try:
+    async with TestingAsyncSessionLocal() as session:
         yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(engine)
 
 
 @pytest.fixture
@@ -126,6 +128,10 @@ def sample_action_history_data():
     ]
 
 
+async def async_gen_single(value):
+    yield value
+
+
 class TestRunIngestionService:
     """Integration tests for run_ingestion_service function."""
 
@@ -150,12 +156,12 @@ class TestRunIngestionService:
     ):
         """Test run_ingestion_service with complaints ingestion only."""
         # Mock database session
-        mock_get_db.return_value = iter([db_session])
+        mock_get_db.return_value = async_gen_single(db_session)
 
         # Mock district data
         districts = [DistrictModel(**district) for district in sample_district_data]
         db_session.add_all(districts)
-        db_session.commit()
+        await db_session.commit()
 
         # Mock filter to allow all requests
         mock_filter.return_value = False
@@ -206,12 +212,12 @@ class TestRunIngestionService:
     ):
         """Test run_ingestion_service with documents ingestion only."""
         # Mock database session
-        mock_get_db.return_value = iter([db_session])
+        mock_get_db.return_value = async_gen_single(db_session)
 
         # Mock district data
         districts = [DistrictModel(**district) for district in sample_district_data]
         db_session.add_all(districts)
-        db_session.commit()
+        await db_session.commit()
 
         # Mock complaints without documents
         from app.ingestion.schemas import Complaint as ComplaintModel
@@ -269,12 +275,12 @@ class TestRunIngestionService:
     ):
         """Test run_ingestion_service with action history ingestion only."""
         # Mock database session
-        mock_get_db.return_value = iter([db_session])
+        mock_get_db.return_value = async_gen_single(db_session)
 
         # Mock district data
         districts = [DistrictModel(**district) for district in sample_district_data]
         db_session.add_all(districts)
-        db_session.commit()
+        await db_session.commit()
 
         # Mock tickets needing action history
         mock_get_tickets.return_value = ["T123", "T124"]
@@ -335,12 +341,12 @@ class TestRunIngestionService:
     ):
         """Test run_ingestion_service with force parameters."""
         # Mock database session
-        mock_get_db.return_value = iter([db_session])
+        mock_get_db.return_value = async_gen_single(db_session)
 
         # Mock district data
         districts = [DistrictModel(**district) for district in sample_district_data]
         db_session.add_all(districts)
-        db_session.commit()
+        await db_session.commit()
 
         # Mock filter to allow all requests
         mock_filter.return_value = False
@@ -397,12 +403,12 @@ class TestRunIngestionService:
     ):
         """Test run_ingestion_service with mixed success and failure scenarios."""
         # Mock database session
-        mock_get_db.return_value = iter([db_session])
+        mock_get_db.return_value = async_gen_single(db_session)
 
         # Mock district data
         districts = [DistrictModel(**district) for district in sample_district_data]
         db_session.add_all(districts)
-        db_session.commit()
+        await db_session.commit()
 
         # Mock filter to allow all requests
         mock_filter.return_value = False
@@ -477,7 +483,7 @@ class TestRunIngestionService:
     ):
         """Test run_ingestion_service when no districts exist in database."""
         # Mock database session
-        mock_get_db.return_value = iter([db_session])
+        mock_get_db.return_value = async_gen_single(db_session)
 
         # Mock filter to allow all requests
         mock_filter.return_value = False
@@ -491,7 +497,7 @@ class TestRunIngestionService:
 
             # Mock district ingestion (no districts in DB, so this should be called)
             districts = [DistrictModel(**district) for district in sample_district_data]
-            mock_orchestrator.ingest_districts.return_value = districts
+            mock_orchestrator.ingest_districts = AsyncMock(return_value=districts)
 
             # Mock complaint ingestion
             mock_orchestrator.ingest_complaints = AsyncMock(return_value=[])
@@ -527,7 +533,7 @@ class TestRunIngestionService:
     ):
         """Test run_ingestion_service when all requests are filtered out."""
         # Mock database session
-        mock_get_db.return_value = iter([db_session])
+        mock_get_db.return_value = async_gen_single(db_session)
 
         # Mock filter to block all requests
         mock_filter.return_value = True
@@ -541,7 +547,7 @@ class TestRunIngestionService:
 
             # Mock district ingestion
             districts = [DistrictModel(**district) for district in sample_district_data]
-            mock_orchestrator.ingest_districts.return_value = districts
+            mock_orchestrator.ingest_districts = AsyncMock(return_value=districts)
 
             # Execute
             result = await run_ingestion_service(
@@ -580,12 +586,12 @@ class TestRunIngestionService:
     ):
         """Test run_ingestion_service with all components enabled."""
         # Mock database session
-        mock_get_db.return_value = iter([db_session])
+        mock_get_db.return_value = async_gen_single(db_session)
 
         # Mock district data
         districts = [DistrictModel(**district) for district in sample_district_data]
         db_session.add_all(districts)
-        db_session.commit()
+        await db_session.commit()
 
         # Mock filter to allow all requests
         mock_filter.return_value = False
@@ -671,12 +677,12 @@ class TestRunIngestionService:
     ):
         """Test that logging is properly managed during ingestion."""
         # Mock database session
-        mock_get_db.return_value = iter([db_session])
+        mock_get_db.return_value = async_gen_single(db_session)
 
         # Mock district data
         districts = [DistrictModel(**district) for district in sample_district_data]
         db_session.add_all(districts)
-        db_session.commit()
+        await db_session.commit()
 
         # Mock filter to allow all requests
         mock_filter.return_value = False
@@ -727,12 +733,12 @@ class TestRunIngestionService:
     ):
         """Test exception handling during ingestion."""
         # Mock database session
-        mock_get_db.return_value = iter([db_session])
+        mock_get_db.return_value = async_gen_single(db_session)
 
         # Mock district data
         districts = [DistrictModel(**district) for district in sample_district_data]
         db_session.add_all(districts)
-        db_session.commit()
+        await db_session.commit()
 
         # Mock filter to allow all requests
         mock_filter.return_value = False

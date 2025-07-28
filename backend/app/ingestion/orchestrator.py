@@ -3,12 +3,13 @@ import asyncio
 import json
 import sys
 from datetime import datetime
-from typing import Coroutine, Dict, List, Tuple
+from typing import Any, Coroutine, Dict, List, Tuple, Union
 
 import boto3
 from loguru import logger
 from more_itertools import chunked
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from tqdm.asyncio import tqdm
 
 from app.config import (directories, resume_logging_to_console, settings,
@@ -32,7 +33,7 @@ from .schemas import (ActionHistory, Complaint, District, validate,
 
 
 class IngestionOrchestrator:
-    def __init__(self, db: Session, semaphore_value: int = 5):
+    def __init__(self, db: AsyncSession, semaphore_value: int = 5):
         self.client = JanasunaniAPIClient()
         self.s3 = boto3.client("s3")
         self.bucket_name = "grievance-raw-data"
@@ -40,14 +41,14 @@ class IngestionOrchestrator:
         self.semaphore = asyncio.Semaphore(semaphore_value)
         self.doc_service = DocumentService(db=self.db)
 
-    def ingest_districts(self):
+    async def ingest_districts(self):
         """Ingest district data."""
         try:
             districts = self.client.get_districts()
             districts_validated = validate(districts, District, dict_mode=False)
 
             # Store data in database using CRUD operations
-            stored_districts = bulk_load_districts(self.db, districts_validated)
+            stored_districts = await bulk_load_districts(self.db, districts_validated)
             logger.info(
                 f"Successfully stored {len(stored_districts)} districts in database"
             )
@@ -59,7 +60,7 @@ class IngestionOrchestrator:
 
     async def ingest_complaints(
         self, year: int, distId: int, status: int, office: int
-    ) -> list[Complaint]:
+    ) -> Union[List[Complaint], Dict[str, Any], List[Any]]:
         """Ingest complaint data."""
         try:
             complaints = await self.client.get_complaints(
@@ -73,7 +74,9 @@ class IngestionOrchestrator:
             complaints_validated = validate(complaints, Complaint, dict_mode=False)
 
             # Store data in database using CRUD operations
-            stored_complaints = bulk_load_complaints(self.db, complaints_validated)
+            stored_complaints = await bulk_load_complaints(
+                self.db, complaints_validated
+            )
             logger.info(
                 f"Successfully stored {len(stored_complaints)} complaints in database"
             )
@@ -85,7 +88,9 @@ class IngestionOrchestrator:
             )
             return []
 
-    async def ingest_action_history(self, ticket_no: str) -> list[ActionHistory]:
+    async def ingest_action_history(
+        self, ticket_no: str
+    ) -> Union[List[ActionHistory], Dict[str, Any], List[Any]]:
         """Ingest action history data."""
         try:
             action_history = await self.client.get_action_history(
@@ -94,10 +99,10 @@ class IngestionOrchestrator:
 
             if action_history is None:
                 logger.warning(f"No action history received for ticket={ticket_no}")
-                mark_action_history_api_request_failed(self.db, ticket_no)
+                await mark_action_history_api_request_failed(self.db, ticket_no)
                 return []
 
-            record_action_history_api_request_success(
+            await record_action_history_api_request_success(
                 self.db, ticket_no, len(action_history)
             )
 
@@ -106,7 +111,7 @@ class IngestionOrchestrator:
             )
 
             # Store data in database using CRUD operations
-            stored_action_history = bulk_load_action_histories(
+            stored_action_history = await bulk_load_action_histories(
                 self.db, action_history_validated
             )
             logger.info(
@@ -118,7 +123,7 @@ class IngestionOrchestrator:
             logger.error(
                 f"Error ingesting action history failed for ticket={ticket_no}: {e}"
             )
-            mark_action_history_api_request_failed(self.db, ticket_no)
+            await mark_action_history_api_request_failed(self.db, ticket_no)
             return []
 
     async def ingest_documents(self, complaints: List[Complaint]) -> Dict[str, str]:
@@ -158,16 +163,18 @@ async def run_ingestion_service(
 ):
     """Main async ingestion service runner."""
     days_threshold = 7
-    max_retries = 1
+    max_retries = 3
     try:
 
-        db = next(get_db())
+        gen = get_db()
+        db = await anext(gen)
         orchestrator = IngestionOrchestrator(db, 5)
 
         # Load districts from database if exists or ingest
-        districts = db.query(DistrictModel).all()
+        query_dist = await db.execute(select(DistrictModel))
+        districts = query_dist.scalars().all()
         if not districts:
-            districts = orchestrator.ingest_districts()
+            districts = await orchestrator.ingest_districts()
 
         # Generate initial set of all possible combinations
         params = [
@@ -180,19 +187,19 @@ async def run_ingestion_service(
 
         if ingest_complaints:
             logger.info(f"Num. possible complaint requests: {len(params)}")
-            params = [
-                param
-                for param in params
-                if not filter_complaints_api_request(
-                    db,
-                    *param,
-                    days_threshold=days_threshold,
-                    failure_threshold=max_retries,
-                )
-            ]
-
-            if force_params:
-                params.extend(force_params)
+            if (
+                not force_params
+            ):  # It will only filter if there is no force_params argument
+                params = [
+                    param
+                    for param in params
+                    if not await filter_complaints_api_request(
+                        db,
+                        *param,
+                        days_threshold=days_threshold,
+                        failure_threshold=max_retries,
+                    )
+                ]
 
             logger.info(f"Total complaint requests to process: {len(params)}")
 
@@ -212,7 +219,7 @@ async def run_ingestion_service(
                         logger.info(
                             f"Successfully ingested {len(result)} complaints for year={year}, dist={dist_id}, status={status}, office={office}"
                         )
-                        record_complaint_api_request_success(
+                        await record_complaint_api_request_success(
                             db, year, dist_id, status, office, len(result)
                         )
                         success_count += 1
@@ -220,7 +227,7 @@ async def run_ingestion_service(
                         logger.error(
                             f"Failed to process year={year}, dist={dist_id}, status={status}, office={office}: {result}"
                         )
-                        mark_complaints_api_request_failed(
+                        await mark_complaints_api_request_failed(
                             db, year, dist_id, status, office
                         )
                         failure_count += 1
@@ -236,7 +243,7 @@ async def run_ingestion_service(
         # Ingest documents and action history for each complaint
         if ingest_documents:
             try:
-                complaints = get_complaints_without_documents(db)
+                complaints = await get_complaints_without_documents(db)
                 if settings.ENV == "dev":
                     logger.info(
                         f"Processing documents for {len(complaints)} complaints with local path {settings.LOCAL_STORAGE_PATH}"
@@ -265,7 +272,7 @@ async def run_ingestion_service(
 
         if ingest_action_history:
             try:
-                ticket_numbers = get_tickets_needing_action_history(db)
+                ticket_numbers = await get_tickets_needing_action_history(db)
 
                 logger.info(
                     f"Processing action history for {len(ticket_numbers)} complaints"
@@ -296,7 +303,7 @@ async def run_ingestion_service(
         return {"statusCode": 500, "body": json.dumps(f"Error: {str(e)}")}
     finally:
         if "db" in locals():
-            db.close()
+            await gen.aclose()
 
 
 def main(args):

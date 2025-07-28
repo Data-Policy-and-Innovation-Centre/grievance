@@ -43,7 +43,7 @@ JANASUNANI_API_USERNAME=your_username
 JANASUNANI_API_PASSWORD=your_password
 
 # Database Configuration (local SQLite)
-DB_URL=sqlite:///data/raw/grievance.db
+DB_URL=sqlite+aiosqlite:///data/raw/grievance.db
 
 # AWS Configuration (optional for local development)
 AWS_ACCESS_KEY_ID=your_access_key
@@ -85,8 +85,8 @@ run_tests() {
     print_status "Running tests locally..."
     
     # Set test environment
-    export ENV=test
-    export DB_URL=sqlite:///data/raw/test_grievance.db
+    export ENV=dev
+    export DB_URL=sqlite+aiosqlite:///data/raw/test_grievance.db
     
     uv run pytest app/tests -v --tb=short
     
@@ -250,8 +250,8 @@ run_coverage() {
     print_status "Running tests with coverage..."
     
     # Set test environment
-    export ENV=test
-    export DB_URL=sqlite:///data/raw/test_grievance.db
+    export ENV=dev
+    export DB_URL=sqlite+aiosqlite:///data/raw/test_grievance.db
     
     uv run coverage run -m pytest app/tests
     uv run coverage report --show-missing

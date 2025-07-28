@@ -209,7 +209,7 @@ def validate(
 
 def validate_action_history(
     items: list[dict], ticket_no: str, dict_mode: bool = True
-) -> list[ActionHistory]:
+) -> list[dict] | list[ActionHistory]:
     """
     Validates action history data against the ActionHistory model.
 

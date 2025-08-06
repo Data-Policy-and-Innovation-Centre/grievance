@@ -85,6 +85,11 @@ dependencies = [
     "awscli-local>=0.22.0",
     "aiosqlite>=0.21.0",
     "greenlet>=3.2.3",
+    "alembic>=1.16.4",
+    "pymysql>=1.1.1",
+    "mysql>=0.0.3",
+    "mysql-connector-python>=9.4.0",
+    "aiomysql>=0.2.0",
 ]
 
 [tool.setuptools.packages.find]

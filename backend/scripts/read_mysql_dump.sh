@@ -1,4 +1,4 @@
-# Create an empty db
+# READING THE MYSQL DUMP INTO LOCAL
 -- Connect as root or an admin user
 mysql -uroot -p
 
@@ -11,9 +11,10 @@ EXIT;
 mysql -u myapp -pdpic -h127.0.0.1 -P3306 myapp_db
 
 -- At the mysql> prompt:
-SOURCE D:/Dump20250730.sql;
+SOURCE D:/Dump20250730.sql; # Change this to where you have the dump file 
 SHOW TABLES;
 
+#### ANALYSIS
 SELECT COUNT(DISTINCT trackingId) AS distinct_tracking_count FROM t_janasunani_etl_history_pre_data;
 SELECT COUNT(DISTINCT trackingId) AS distinct_tracking_count FROM t_janasunani_etl_pre_data;
 

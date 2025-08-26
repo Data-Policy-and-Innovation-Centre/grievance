@@ -1,43 +1,61 @@
 # READING THE MYSQL DUMP INTO LOCAL
--- Connect as root or an admin user
-mysql -uroot -p
 
--- At the mysql> prompt:
+Connect as root or an admin user
+
+```bash
+mysql -uroot -p
+```
+At the mysql> prompt:
+
+```sql
 DROP DATABASE IF EXISTS myapp_db;
 CREATE DATABASE   myapp_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 EXIT;
+```
 
--- At the command
-mysql -u myapp -pdpic -h127.0.0.1 -P3306 myapp_db
+On the terminal 
 
--- At the mysql> prompt:
-SOURCE D:/Dump20250730.sql; # Change this to where you have the dump file 
+```bash
+mysql -u root -p -h 127.0.0.1 -P 3306 myapp_db
+```
+
+At the mysql> prompt:
+
+```sql
+SOURCE path_to_dump/Dump20250730.sql;  
 SHOW TABLES;
+```
+Change `path_to_dump` to the actual path for the dump
 
-#### ANALYSIS
+# ANALYSIS
+
+Count the number of distinct IDs in the complaints and action history tables
+```sql
 SELECT COUNT(DISTINCT trackingId) AS distinct_tracking_count FROM t_janasunani_etl_history_pre_data;
 SELECT COUNT(DISTINCT trackingId) AS distinct_tracking_count FROM t_janasunani_etl_pre_data;
+```
 
+Count elements at the intersection of the tracking IDs in the two tables
+
+```sql
 WITH actions AS (SELECT DISTINCT trackingId FROM t_janasunani_etl_history_pre_data) SELECT COUNT(*) AS intersecting_rows  FROM t_janasunani_etl_pre_data AS c INNER JOIN actions AS a ON c.trackingId = a.trackingId;
-
-
-# Intersection
+```
+```sql
 SELECT COUNT(DISTINCT c.trackingId) AS intersecting_ids FROM t_janasunani_etl_pre_data AS c INNER JOIN t_janasunani_etl_history_pre_data AS a ON c.trackingId = a.trackingId;
+```
 
-# Only in complaints data
+Check if there are any IDs in the complaints table that are not in the action history tables
+```sql
 SELECT COUNT(*) AS only_in_pre_data FROM t_janasunani_etl_pre_data c WHERE NOT EXISTS (SELECT 1 FROM t_janasunani_etl_history_pre_data a WHERE a.trackingId = c.trackingId);
+```
 
-# Only in action_history data
+Count IDs by year that are in the action history tables but not in the complaints table
+```sql
 SELECT YEAR(action_taken_date) as year, COUNT(DISTINCT a.trackingId) AS only_in_history_pre_data FROM t_janasunani_etl_history_pre_data a WHERE NOT EXISTS (SELECT 1 FROM t_janasunani_etl_pre_data c WHERE c.trackingId = a.trackingId) AND a.action_taken_date IS NOT NULL GROUP BY year;
+```
 
-
-# missing values per column
-SELECT
-  SUM(col1 IS NULL) AS col1_missing,
-  SUM(col2 IS NULL) AS col2_missing,
-  SUM(col3 IS NULL) AS col3_missing
-FROM your_table;
-
+Count missing values in each column
+```sql
 SELECT
   SUM(createdYear            IS NULL) AS createdYear_missing,
   SUM(ticketNumber           IS NULL) AS ticketNumber_missing,
@@ -96,3 +114,4 @@ SELECT
   SUM(vchAccount             IS NULL) AS vchAccount_missing,
   SUM(trackingId             IS NULL) AS trackingId_missing
 FROM t_janasunani_etl_pre_data;
+```

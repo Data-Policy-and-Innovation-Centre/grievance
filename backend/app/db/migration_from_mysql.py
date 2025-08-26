@@ -1,16 +1,18 @@
 import asyncio
-from sqlalchemy import MetaData, Table, select, func, create_engine, distinct, Engine
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.exc import IntegrityError
 from loguru import logger
 from more_itertools import chunked
-from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, create_async_engine
-from app.db.session import get_db
 from typing import Tuple, Dict, Optional
 
+from sqlalchemy import MetaData, Table, select, func, create_engine, distinct, Engine
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, create_async_engine
+
+from app.config import directories
+from app.db.session import get_db
 from app.db.models import Base, Complaint as ComplaintModel, ActionHistory as ActionHistoryModel
 from app.ingestion.schemas import Complaint as ComplaintSchema, ActionHistory as ActionHistorySchema, validate, validate_action_history
-from app.config import directories
 
 MYSQL_URL   = "mysql+pymysql://myapp:dpic@127.0.0.1:3306/myapp_db"
 SQLITE_PATH = directories.PROCESSED_DATA / "myapp.db"
@@ -41,7 +43,7 @@ async def get_existing_trackingId(db: AsyncSession):
     result = await db.execute(select(ActionHistoryModel.trackingId).distinct())
     return result.scalars().all()
 
-async def migrate_complaints(mysql_sess: Engine, sqlite_sess: AsyncEngine) -> Optional[Dict[str, str]]:
+async def migrate_complaints(mysql_sess: Session, sqlite_sess: AsyncSession) -> Optional[Dict[str, str]]:
     meta        = MetaData()
     complaint_t = Table('t_janasunani_etl_pre_data', meta, autoload_with=mysql_sess.bind)
 
@@ -65,7 +67,6 @@ async def migrate_complaints(mysql_sess: Engine, sqlite_sess: AsyncEngine) -> Op
     
     logger.info(f"Starting complaints migration ({total} rows)")
 
-    tracking_map: dict[str,str] = {}
     batch_no = 0
     for chunk in chunked(pending_tickets, CHUNK_SIZE):
         def fetch_chunk():
@@ -73,53 +74,57 @@ async def migrate_complaints(mysql_sess: Engine, sqlite_sess: AsyncEngine) -> Op
             return mysql_sess.execute(stmt).mappings().all()
 
         results: list[dict] = await asyncio.to_thread(fetch_chunk)
-
         logger.info(f"Complaint batch {batch_no}")
-        validated = [ComplaintSchema(**r).model_dump(by_alias=False) for r in results]
 
-        to_insert = [ComplaintModel(**complaint) for complaint in validated]
-        try: 
+        validated = [ComplaintSchema(**r).model_dump(by_alias=False) for r in results]
+        to_insert = [ComplaintModel(**c) for c in validated]
+
+        try:
             sqlite_sess.add_all(to_insert)
             await sqlite_sess.commit()
             logger.info(f"Batch {batch_no} inserted {len(to_insert)} rows")
         except IntegrityError:
             await sqlite_sess.rollback()
-            for complaint in validated:
+            for c in validated:
                 try:
-                    complaint_data = ComplaintModel(**complaint)
-                    sqlite_sess.add(complaint_data)
+                    sqlite_sess.add(ComplaintModel(**c))
                     await sqlite_sess.commit()
                 except IntegrityError:
                     await sqlite_sess.rollback()
-                    logger.warning(f"Skipping duplicated {complaint['ticket_no']}")
-
+                    logger.warning(f"Skipping duplicated {c['ticket_no']}")
         batch_no += 1
 
     # build and return tracking map
-    rows = await sqlite_sess.execute(
-        select(ComplaintModel.trackingId, ComplaintModel.ticket_no)
-    ).all()
+    res = await sqlite_sess.execute(select(ComplaintModel.trackingId, ComplaintModel.ticket_no))
+    rows = res.all()
     tracking_map = {tid: tn for tid, tn in rows}
     logger.info(f"Migrated {len(tracking_map)} complaints")
     return tracking_map
 
-def migrate_action_history(mysql_sess, sqlite_sess, tracking_map):
+async def migrate_action_history(mysql_sess: Session, sqlite_sess: AsyncSession, tracking_map: Optional[Dict[str, str]]):
+    if not tracking_map:
+        logger.info("No action_history to migrate (empty tracking_map).")
+        return
+
     table_name, Schema, Model = (
         "t_janasunani_etl_history_pre_data",
         ActionHistorySchema,
         ActionHistoryModel,
     )
-    meta  = MetaData()
+    meta = MetaData()
     history_t = Table(table_name, meta, autoload_with=mysql_sess.bind)
 
-    # Count only relevant rows
     total = mysql_sess.execute(
         select(func.count()).select_from(history_t)
         .where(history_t.c.trackingId.in_(tracking_map.keys()))
     ).scalar_one()
+
     logger.info(f"Starting action_history migration ({total} rows)")
 
-    offset, batch_no, inserted = 0, 0, 0
+    offset = 0
+    batch_no = 0
+    inserted = 0
+
     while offset < total:
         rows = mysql_sess.execute(
             select(history_t)
@@ -127,58 +132,74 @@ def migrate_action_history(mysql_sess, sqlite_sess, tracking_map):
             .limit(CHUNK_SIZE)
             .offset(offset)
         ).mappings().all()
+
         if not rows:
             break
 
         logger.info(f"History batch {batch_no} (rows {offset}–{offset + len(rows)})")
+
         to_insert = []
         for r in rows:
             rec = Schema(**r).model_dump(by_alias=False)
             rec["ticket_no"] = tracking_map.get(rec["trackingId"])
             to_insert.append(rec)
 
+        # Prefer ON CONFLICT DO NOTHING when you can (requires a unique constraint/index)
+        stmt = sqlite_insert(Model).values(to_insert)
+        stmt = stmt.on_conflict_do_nothing(index_elements=["trackingId", "action_taken_date"]) \
+               if hasattr(stmt, "on_conflict_do_nothing") else stmt
+
         try:
-            sqlite_sess.bulk_insert_mappings(Model, to_insert)
-            sqlite_sess.commit()
+            await sqlite_sess.execute(stmt)
+            await sqlite_sess.commit()
             inserted += len(to_insert)
         except IntegrityError:
-            sqlite_sess.rollback()
+            await sqlite_sess.rollback()
+            # per-row fallback
             for rec in to_insert:
                 try:
-                    sqlite_sess.bulk_insert_mappings(Model, [rec])
-                    sqlite_sess.commit()
+                    one_stmt = sqlite_insert(Model).values(rec)
+                    if hasattr(one_stmt, "on_conflict_do_nothing"):
+                        one_stmt = one_stmt.on_conflict_do_nothing()
+                    await sqlite_sess.execute(one_stmt)
+                    await sqlite_sess.commit()
                     inserted += 1
                 except IntegrityError:
-                    sqlite_sess.rollback()
+                    await sqlite_sess.rollback()
                     logger.warning(f"Skipping bad history record for trackingId {rec.get('trackingId')}")
 
-        offset    += CHUNK_SIZE
-        batch_no  += 1
+        offset   += CHUNK_SIZE
+        batch_no += 1
 
     logger.info(f"Inserted {inserted}/{total} action_history records")
 
+
 async def main():
-    logger.info(f"Starting migration")
+    logger.info("Starting migration")
 
+    mysql_engine, sqlite_engine = setup_engines()
     try:
-        mysql_engine, sqlite_engine = setup_engines()
-        MySQLSession  = sessionmaker(bind=mysql_engine)
-        SQLiteSession = sessionmaker(expire_on_commit=False, bind = sqlite_engine, class_=AsyncSession)
+        await init_db(sqlite_engine)
 
-        mysql_sess  = MySQLSession()
-        gen = get_db(SQLiteSession)
-        sqlite_sess = await anext(gen)
+        MySQLSession  = sessionmaker(bind=mysql_engine, expire_on_commit=False)
+        SQLiteSession = sessionmaker(bind=sqlite_engine, class_=AsyncSession, expire_on_commit=False)
 
-        tracking_map = await migrate_complaints(mysql_sess, sqlite_sess)
-        migrate_action_history(mysql_sess, sqlite_sess, tracking_map)
+        with MySQLSession() as mysql_sess:
+            async with SQLiteSession() as sqlite_sess:
+                tracking_map = await migrate_complaints(mysql_sess, sqlite_sess)
+                await migrate_action_history(mysql_sess, sqlite_sess, tracking_map)
 
-        mysql_sess.close()
+        logger.info(f"Export completed into {SQLITE_PATH}")
 
     finally:
-        if "sqlite_sess" in locals():
-            await gen.aclose()
-
-    logger.info(f"Export completed into {SQLITE_PATH}")
+        try:
+            mysql_engine.dispose()
+        except Exception:
+            pass
+        try:
+            await sqlite_engine.dispose()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     asyncio.run(main())

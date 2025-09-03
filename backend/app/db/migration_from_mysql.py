@@ -6,13 +6,15 @@ from typing import Tuple, Dict, Optional
 from sqlalchemy import MetaData, Table, select, func, create_engine, distinct, Engine
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncEngine, create_async_engine
 
 from app.config import directories
 from app.db.session import get_db
 from app.db.models import Base, Complaint as ComplaintModel, ActionHistory as ActionHistoryModel
 from app.ingestion.schemas import Complaint as ComplaintSchema, ActionHistory as ActionHistorySchema, validate, validate_action_history
+
+from pydantic import ValidationError
 
 MYSQL_URL   = "mysql+pymysql://myapp:dpic@127.0.0.1:3306/myapp_db"
 SQLITE_PATH = directories.RAW_DATA / "grievance.db"
@@ -143,8 +145,13 @@ async def migrate_action_history(mysql_sess: Session, sqlite_sess: AsyncSession,
 
         to_insert = []
         for r in rows:
-            rec = Schema(**r).model_dump(by_alias=False)
-            rec["ticket_no"] = tracking_map.get(rec["trackingId"])
+            r = dict(r)
+            r["ticketNumber"] = tracking_map.get(r["trackingId"])
+            try:
+                rec = Schema(**r).model_dump(by_alias=False)
+            except ValidationError as e:
+                logger.error(f"Validation error for {r['trackingId']}: {e}")
+                continue
             to_insert.append(rec)
 
         # Prefer ON CONFLICT DO NOTHING when you can (requires a unique constraint/index)
@@ -156,7 +163,7 @@ async def migrate_action_history(mysql_sess: Session, sqlite_sess: AsyncSession,
             await sqlite_sess.execute(stmt)
             await sqlite_sess.commit()
             inserted += len(to_insert)
-        except IntegrityError:
+        except (IntegrityError, OperationalError):
             await sqlite_sess.rollback()
             # per-row fallback
             for rec in to_insert:
@@ -167,7 +174,7 @@ async def migrate_action_history(mysql_sess: Session, sqlite_sess: AsyncSession,
                     await sqlite_sess.execute(one_stmt)
                     await sqlite_sess.commit()
                     inserted += 1
-                except IntegrityError:
+                except (IntegrityError, OperationalError):
                     await sqlite_sess.rollback()
                     logger.warning(f"Skipping bad history record for trackingId {rec.get('trackingId')}")
 

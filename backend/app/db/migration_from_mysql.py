@@ -51,6 +51,13 @@ async def migrate_complaints(mysql_sess: Session, sqlite_sess: AsyncSession) -> 
     def fetch_mysql_tickets():
         query = select(distinct(complaint_t.c.ticketNumber))
         return set(mysql_sess.execute(query).scalars().all())
+    
+    async def build_tracking_map() -> Dict[str, str]:
+        res = await sqlite_sess.execute(select(ComplaintModel.trackingId, ComplaintModel.ticket_no))
+        rows = res.all()
+        tracking_map = {tid: tn for tid, tn in rows}
+        logger.info(f"Migrated {len(tracking_map)} complaints")
+        return tracking_map
 
     ticket_nos = await asyncio.to_thread(fetch_mysql_tickets)
 
@@ -63,7 +70,7 @@ async def migrate_complaints(mysql_sess: Session, sqlite_sess: AsyncSession) -> 
     total = len(pending_tickets)
     if total == 0:
         logger.success(f"All complaints already migrated")
-        return None
+        return await build_tracking_map()
     
     logger.info(f"Starting complaints migration ({total} rows)")
 
@@ -95,13 +102,9 @@ async def migrate_complaints(mysql_sess: Session, sqlite_sess: AsyncSession) -> 
         batch_no += 1
 
     # build and return tracking map
-    res = await sqlite_sess.execute(select(ComplaintModel.trackingId, ComplaintModel.ticket_no))
-    rows = res.all()
-    tracking_map = {tid: tn for tid, tn in rows}
-    logger.info(f"Migrated {len(tracking_map)} complaints")
-    return tracking_map
+    return await build_tracking_map()
 
-async def migrate_action_history(mysql_sess: Session, sqlite_sess: AsyncSession, tracking_map: Optional[Dict[str, str]]):
+async def migrate_action_history(mysql_sess: Session, sqlite_sess: AsyncSession, tracking_map: Dict[str, str]):
     if not tracking_map:
         logger.info("No action_history to migrate (empty tracking_map).")
         return

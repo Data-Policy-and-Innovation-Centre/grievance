@@ -15,7 +15,7 @@ from app.db.models import Base, Complaint as ComplaintModel, ActionHistory as Ac
 from app.ingestion.schemas import Complaint as ComplaintSchema, ActionHistory as ActionHistorySchema, validate, validate_action_history
 
 MYSQL_URL   = "mysql+pymysql://myapp:dpic@127.0.0.1:3306/myapp_db"
-SQLITE_PATH = directories.PROCESSED_DATA / "myapp.db"
+SQLITE_PATH = directories.RAW_DATA / "grievance.db"
 CHUNK_SIZE  = 1000
 
 def setup_engines() -> Tuple[Engine, AsyncEngine]:

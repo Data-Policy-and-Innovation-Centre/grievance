@@ -114,7 +114,7 @@ class Complaint(Base):
     resolved_on = Column(DateTime, nullable=True)
     benefitted = Column(String, nullable=True)
     local_document_path = Column(Text, nullable=True)
-    document_downloaded = Column(Boolean, default=True)
+    document_downloaded = Column(Boolean, default=False)
     document_download_date = Column(DateTime, nullable=True)
     document_download_error = Column(Text, nullable=True)
     trackingId = Column(String, nullable = True)

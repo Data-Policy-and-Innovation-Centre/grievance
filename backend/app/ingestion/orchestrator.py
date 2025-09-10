@@ -15,7 +15,7 @@ from tqdm.asyncio import tqdm
 from app.config import (directories, resume_logging_to_console, settings,
                         stop_logging_to_console)
 
-from ..db.crud import (bulk_load_action_histories, bulk_load_complaints,
+from app.db.crud import (bulk_load_action_histories, bulk_load_complaints,
                        bulk_load_districts, filter_complaints_api_request,
                        get_all_complaints, get_complaints_without_documents,
                        get_tickets_needing_action_history,
@@ -23,12 +23,12 @@ from ..db.crud import (bulk_load_action_histories, bulk_load_complaints,
                        mark_complaints_api_request_failed,
                        record_action_history_api_request_success,
                        record_complaint_api_request_success)
-from ..db.models import District as DistrictModel
-from ..db.session import get_db
-from . import OFFICE, STATUS
-from .client import JanasunaniAPIClient
-from .document_ingestion import DocumentService
-from .schemas import (ActionHistory, Complaint, District, validate,
+from app.db.models import District as DistrictModel
+from app.db.session import get_db
+from app.ingestion import OFFICE, STATUS
+from app.ingestion.client import JanasunaniAPIClient
+from app.ingestion.document_ingestion import DocumentService
+from app.ingestion.schemas import (ActionHistory, Complaint, District, validate,
                       validate_action_history)
 
 
@@ -128,6 +128,7 @@ class IngestionOrchestrator:
 
     async def ingest_documents(self, complaints: List[Complaint]) -> Dict[str, str]:
         """Ingest documents data"""
+        logger.debug("HERE")
         results = await self.doc_service.batch_download_documents(complaints)
         return results
 

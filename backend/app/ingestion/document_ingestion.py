@@ -35,7 +35,7 @@ class DocumentService:
         self, s3_bucket: str = settings.AWS_S3_DOCUMENTS, db: AsyncSession = None
     ):
         self.semaphore = asyncio.Semaphore(15)
-        self.db = db or next(get_db())
+        self.db = db
         if settings.ENV == "dev":
             self._create_local_folder()
         else:

@@ -4,6 +4,7 @@ import os
 import re
 from datetime import datetime
 from typing import Dict, List, Tuple
+from io import BytesIO
 
 import aiofiles
 import httpx
@@ -182,7 +183,10 @@ class DocumentService:
                         async with aiofiles.open(path, "wb") as f:
                             await f.write(response.content)
                     else:
-                        self.s3_service.upload_fileobj(response.content, path)
+                        file_obj = BytesIO(response.content)
+                        self.s3_service.upload_fileobj(file_obj, path)
+                        file_obj.close()
+
                 logger.info(f"Downloaded document for complaint {ticket_no} to {path}")
             return path
         except Exception as e:

@@ -136,7 +136,7 @@ class DocumentService:
 
     @with_retry()
     async def download_document(
-        self, complaint: Complaint, document_type: str = "complaint"
+        self, complaint: ComplaintModel, document_type: str = "complaint"
     ) -> str:
         """
         Asynchronously downloads the document associated with a complaint, if not already downloaded.
@@ -147,7 +147,7 @@ class DocumentService:
         - Downloads and saves the document using an async HTTP Client
 
         Args:
-            complaint (Complaint): The complaint object containing the document URL and ticket number.
+            complaint (ComplaintModel): The complaint object containing the document URL and ticket number.
             document_type (str, optional): Label to distinguish types of documents. Defaults to "complaint".
 
         Returns:
@@ -195,7 +195,7 @@ class DocumentService:
             raise
 
     async def batch_download_documents(
-        self, complaints: List[Complaint], batch_size: int = 500
+        self, complaints: List[ComplaintModel], batch_size: int = 500
     ) -> Dict[str, str]:
         """
         Batch download documents with optimized database operations.
@@ -203,7 +203,7 @@ class DocumentService:
         results = {}
         batch_updates = []
 
-        async def process(complaint: Complaint) -> Tuple[str, str, Dict]:
+        async def process(complaint: ComplaintModel) -> Tuple[str, str, Dict]:
             """Process a single document download."""
             try:
                 path = await self.download_document(complaint)
@@ -258,15 +258,15 @@ class DocumentService:
         return results
 
     async def batch_download_documents_in_chunks(
-        self, complaints: List[Complaint], chunk_size: int = 100
+        self, complaints: List[ComplaintModel], chunk_size: int = 100
     ) -> Dict[str, str]:
         results = {}
 
         for i, complaint_chunk in enumerate(chunked(complaints, chunk_size), 1):
-            logger.info(f"📦 Processing chunk {i} ({len(complaint_chunk)} complaints)")
+            logger.info(f" Processing chunk {i} ({len(complaint_chunk)} complaints)")
             chunk_result = await self.batch_download_documents(complaint_chunk)
             results.update(chunk_result)
-            logger.success(f"✅ Finished chunk {i}: {len(chunk_result)} processed")
+            logger.success(f" Finished chunk {i}: {len(chunk_result)} processed")
 
         return results
 

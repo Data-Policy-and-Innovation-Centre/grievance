@@ -37,6 +37,7 @@ class DocumentService:
     ):
         self.semaphore = asyncio.Semaphore(15)
         self.db = db
+        self.async_lock = asyncio.Lock()
         if settings.ENV == "dev":
             self._create_local_folder()
         else:
@@ -172,6 +173,9 @@ class DocumentService:
 
         if self.document_already_downloaded(ticket_no, document_type, extension):
             logger.info(f"Document for complaint {ticket_no} already saved.")
+            async with self.async_lock:
+                complaint = await update_document_status(self.db, ticket_no, path, success=True, error=None)
+                logger.info(f"Document status updated for complaint {ticket_no} to {complaint.document_downloaded}")
             return None
 
         try:
@@ -328,9 +332,9 @@ class DocumentService:
                     ),
                 )
             )
-
-            result = await self.db.execute(stmt)
-            await self.db.commit()
+            async with self.async_lock:
+                result = await self.db.execute(stmt)
+                await self.db.commit()
 
             logger.info(f"Bulk updated {result.rowcount} document statuses")
 

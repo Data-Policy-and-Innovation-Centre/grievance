@@ -5,7 +5,7 @@ from typing import Any, Coroutine, Dict, List, Optional, Tuple, Union
 import pytz
 from loguru import logger
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -356,21 +356,34 @@ async def update_document_status(
 
 
 async def get_complaints_without_documents(
-    db: AsyncSession, get_docs_where_errors_occurred: bool = False
+    db: AsyncSession, 
+    get_docs_where_errors_occurred: bool = False,
+    limit: Optional[int] = None,
+    count: bool = False,
 ) -> list[ComplaintModel]:
-    result = await db.execute(
-        select(ComplaintModel).filter(
-            ComplaintModel.document_url.isnot(""),
-            ComplaintModel.document_url.isnot(None),
-            ComplaintModel.document_url.isnot("N/A"),
-            ComplaintModel.document_downloaded == False,
-            (
-                ComplaintModel.document_download_error.isnot(None)
-                if get_docs_where_errors_occurred
-                else ComplaintModel.document_download_error.is_(None)
-            ),
+    base_query = select(ComplaintModel).filter(
+                ComplaintModel.document_url.isnot(""),
+                ComplaintModel.document_url.isnot(None),
+                ComplaintModel.document_url.isnot("N/A"),
+                ComplaintModel.document_downloaded == False,
+                (
+                    ComplaintModel.document_download_error.isnot(None) | ComplaintModel.document_download_error.is_(None)
+                    if get_docs_where_errors_occurred
+                    else ComplaintModel.document_download_error.is_(None) 
+                ),
         )
-    )
+    
+    if count:
+        count_query = select(func.count()).select_from(base_query.subquery())
+        result = await db.execute(count_query)
+        return result.scalar()
+    
+    if limit is not None:
+        limited_query = base_query.limit(limit)
+        result = await db.execute(limited_query)
+    else:
+        result = await db.execute(base_query)
+
     return result.scalars().all()
 
 

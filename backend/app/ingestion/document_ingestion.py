@@ -18,8 +18,8 @@ from app.config import (directories, resume_logging_to_console, settings,
                         stop_logging_to_console)
 from app.db.crud import (get_complaint_by_ticket,
                          get_complaints_with_document_urls,
-                         get_complaints_without_documents,
-                         update_document_status)
+                         get_complaints_without_documents
+                        )
 from app.db.models import Complaint as ComplaintModel
 from app.db.session import get_db
 from app.ingestion.client import with_retry

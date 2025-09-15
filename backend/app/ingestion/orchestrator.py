@@ -23,7 +23,7 @@ from app.db.crud import (bulk_load_action_histories, bulk_load_complaints,
                        mark_complaints_api_request_failed,
                        record_action_history_api_request_success,
                        record_complaint_api_request_success)
-from app.db.models import District as DistrictModel
+from app.db.models import District as DistrictModel, Complaint as ComplaintModel
 from app.db.session import get_db
 from app.ingestion import OFFICE, STATUS
 from app.ingestion.client import JanasunaniAPIClient
@@ -126,9 +126,8 @@ class IngestionOrchestrator:
             await mark_action_history_api_request_failed(self.db, ticket_no)
             return []
 
-    async def ingest_documents(self, complaints: List[Complaint]) -> Dict[str, str]:
+    async def ingest_documents(self, complaints: List[ComplaintModel]) -> Dict[str, str]:
         """Ingest documents data"""
-        logger.debug("HERE")
         results = await self.doc_service.batch_download_documents(complaints)
         return results
 
@@ -244,30 +243,35 @@ async def run_ingestion_service(
         # Ingest documents and action history for each complaint
         if ingest_documents:
             try:
-                complaints = await get_complaints_without_documents(db)
-                if settings.ENV == "dev":
-                    logger.info(
-                        f"Processing documents for {len(complaints)} complaints with local path {settings.LOCAL_STORAGE_PATH}"
-                    )
-                elif settings.ENV == "main":
-                    logger.info(
-                        f"Processing documents for {len(complaints)} complaints with s3 path {settings.AWS_S3_DOCUMENTS}"
-                    )
-                else:
-                    raise ValueError(f"Invalid environment: {settings.ENV}")
+                count = await get_complaints_without_documents(db, count=True)
+                while count > 0:
+                    complaints = await get_complaints_without_documents(db, limit=5000)
+                    
+                    logger.info(f"{count} complaints with documents currently not downloaded")
+                    if settings.ENV == "dev":
+                        logger.info(
+                            f" Batch processing documents for {len(complaints)} complaints with local path {settings.LOCAL_STORAGE_PATH}"
+                        )
+                    elif settings.ENV == "main":
+                        logger.info(
+                            f"Batch Processing documents for {len(complaints)} complaints with s3 path {settings.AWS_S3_DOCUMENTS}"
+                        )
+                    else:
+                        raise ValueError(f"Invalid environment: {settings.ENV}")
 
-                stop_logging_to_console(
-                    mode="w", filename=directories.LOGS / "ingest_documents.log"
-                )
-                doc_tasks = [
-                    orchestrator.ingest_documents(chunk)
-                    for chunk in chunked(complaints, 10)
-                ]
-                doc_results = await track_with_progress(
-                    doc_tasks, desc="Ingesting documents"
-                )
-                resume_logging_to_console()
-                logger.info(f"Completed {len(doc_results)} document ingestion tasks")
+                    stop_logging_to_console(
+                        mode="w", filename=directories.LOGS / "ingest_documents.log"
+                    )
+                    doc_tasks = [
+                        orchestrator.ingest_documents(chunk)
+                        for chunk in chunked(complaints,10 )
+                    ]
+                    doc_results = await track_with_progress(
+                        doc_tasks, desc="Ingesting documents"
+                    )
+                    resume_logging_to_console()
+                    logger.info(f"Completed {len(doc_results)} document ingestion tasks")
+                    count = await get_complaints_without_documents(db, count=True)
             except Exception as e:
                 logger.error(f"Error in document ingestion: {e}")
 

@@ -176,7 +176,7 @@ class DocumentService:
             async with self.async_lock:
                 complaint = await update_document_status(self.db, ticket_no, path, success=True, error=None)
                 logger.info(f"Document status updated for complaint {ticket_no} to {complaint.document_downloaded}")
-            return None
+            return "s3"
 
         try:
             async with self.semaphore:

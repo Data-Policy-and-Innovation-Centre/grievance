@@ -135,14 +135,14 @@ class IngestionOrchestrator:
 # Wrap each task to update the tqdm bar when done
 async def track_with_progress(
     coros: List[Coroutine], desc: str = "Processing", position: int = 0
-):
+) -> List[Any]:
     results = []
     total = len(coros)
 
     # tqdm.asyncio is smart about async display updates
     with tqdm(total=total, desc=desc, ncols=100, position=position) as pbar:
 
-        async def wrapped(coro):
+        async def wrapped(coro: Coroutine):
             try:
                 result = await coro
                 return result
@@ -264,7 +264,7 @@ async def run_ingestion_service(
                     )
                     doc_tasks = [
                         orchestrator.ingest_documents(chunk)
-                        for chunk in chunked(complaints,10 )
+                        for chunk in chunked(complaints,1000 )
                     ]
                     doc_results = await track_with_progress(
                         doc_tasks, desc="Ingesting documents"
@@ -345,3 +345,15 @@ def main(args):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+
+
+def cli_ingest_documents():
+    """Console entrypoint: run only document ingestion."""
+    asyncio.run(
+        run_ingestion_service(
+            force_params=None,
+            ingest_complaints=False,
+            ingest_documents=True,
+            ingest_action_history=False,
+        )
+    )

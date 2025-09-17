@@ -94,6 +94,9 @@ dependencies = [
     "openpyxl>=3.1.5",
 ]
 
+[project.scripts]
+janasunani-ingest-documents = "app.ingestion.orchestrator:cli_ingest_documents"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*"]

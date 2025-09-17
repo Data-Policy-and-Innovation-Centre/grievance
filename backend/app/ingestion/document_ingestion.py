@@ -35,7 +35,7 @@ class DocumentService:
     def __init__(
         self, s3_bucket: str = settings.AWS_S3_DOCUMENTS, db: AsyncSession = None
     ):
-        self.semaphore = asyncio.Semaphore(15)
+        self.semaphore = asyncio.Semaphore(30)
         self.db = db
         self.async_lock = asyncio.Lock()
         if settings.ENV == "dev":
@@ -188,7 +188,7 @@ class DocumentService:
                             await f.write(response.content)
                     else:
                         file_obj = BytesIO(response.content)
-                        self.s3_service.upload_fileobj(file_obj, path)
+                        await asyncio.to_thread(self.s3_service.upload_fileobj, file_obj, path)
                         file_obj.close()
 
                 logger.info(f"Downloaded document for complaint {ticket_no} to {path}")

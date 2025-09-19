@@ -363,7 +363,7 @@ async def get_complaints_without_documents(
         ComplaintModel.document_url.isnot(""),
         ComplaintModel.document_url.isnot(None),
         ComplaintModel.document_url.isnot("N/A"),
-        ComplaintModel.document_downloaded == False,
+        ComplaintModel.document_downloaded.is_(False),
         (
             ComplaintModel.document_download_error.isnot(None)
             | ComplaintModel.document_download_error.is_(None)

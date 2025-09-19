@@ -23,27 +23,16 @@ jobs:
       with:
         version: "latest"
     
-    - name: Set up Python
-      run: uv python install 3.11
-    
-    - name: Install dependencies
+    - name: Run ruff
       working-directory: ./backend
       run: | 
-       uv sync --dev
-       uv add --dev mypy black isort flake8
-    
-    - name: Run Black
-      working-directory: ./backend
-      run: uv run black ./app
-    
-    - name: Run isort
-      working-directory: ./backend
-      run: uv run isort ./app
+       uvx ruff check app/ --fix
+       uvx ruff format app/
       
     - name: Auto-commit changes
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
-        commit_message: "Auto-format code with Black and isort"
+        commit_message: "style: lint and format code with ruff"
         file_pattern: "backend/"
     
     

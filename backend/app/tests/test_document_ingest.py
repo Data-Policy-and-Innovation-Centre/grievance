@@ -509,7 +509,7 @@ def test_document_service_uses_env_setting(db_session, monkeypatch):
 
     # Mock os.mkdir to verify it's called
     with patch("os.mkdir") as mock_mkdir, patch("os.path.exists", return_value=False):
-        doc_service = DocumentService(db=db_session)
+        DocumentService(db=db_session)
         mock_mkdir.assert_called_once()
 
 
@@ -520,7 +520,7 @@ def test_document_service_skips_local_folder_when_not_local(db_session, monkeypa
 
     # Mock os.mkdir to verify it's NOT called
     with patch("os.mkdir") as mock_mkdir:
-        doc_service = DocumentService(db=db_session)
+        DocumentService(db=db_session)
         mock_mkdir.assert_not_called()
 
 

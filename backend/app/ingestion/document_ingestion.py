@@ -368,7 +368,7 @@ async def main():
     ]
     logger.info("Starting downloading")
     stop_logging_to_console(mode="w")
-    result = await doc_service.batch_download_documents_in_chunks(sample_1000, 100)
+    await doc_service.batch_download_documents_in_chunks(sample_1000, 100)
     resume_logging_to_console()
     logger.info("Finalizing downloading")
 

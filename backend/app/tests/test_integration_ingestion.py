@@ -709,7 +709,7 @@ class TestRunIngestionService:
             mock_orchestrator.ingest_complaints = AsyncMock(return_value=[])
 
             # Execute
-            result = await run_ingestion_service(
+            await run_ingestion_service(
                 force_params=None,
                 ingest_complaints=True,
                 ingest_documents=False,

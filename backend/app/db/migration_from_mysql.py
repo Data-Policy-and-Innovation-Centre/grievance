@@ -16,7 +16,6 @@ from app.config import directories
 from app.db.models import ActionHistory as ActionHistoryModel
 from app.db.models import Base
 from app.db.models import Complaint as ComplaintModel
-from app.db.session import get_db
 from app.ingestion.schemas import ActionHistory as ActionHistorySchema
 from app.ingestion.schemas import Complaint as ComplaintSchema
 

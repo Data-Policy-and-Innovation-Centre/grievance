@@ -186,8 +186,8 @@ async def test_update_district(db_session, sample_district_data):
 async def test_get_all_districts(db_session, sample_district_data):
     """Test retrieving all districts."""
     # Create multiple districts
-    district1 = await create_or_update_district(db_session, sample_district_data)
-    district2 = await create_or_update_district(
+    await create_or_update_district(db_session, sample_district_data)
+    await create_or_update_district(
         db_session, DistrictSchema(distName="Test District 2", distId=2)
     )
 
@@ -1165,7 +1165,7 @@ async def test_get_complaints_without_documents_needs_download(
     assert len(result) == 1
     assert result[0].ticket_no == "T123"
     assert result[0].document_url == "example.pdf"
-    assert result[0].document_downloaded == False
+    assert not result[0].document_downloaded
 
 
 @pytest.mark.asyncio
@@ -1224,7 +1224,7 @@ async def test_get_complaints_without_documents_download_error(
     )
     assert len(result) == 1
     assert result[0].ticket_no == "T123"
-    assert result[0].document_downloaded == False
+    assert not result[0].document_downloaded
     assert result[0].document_download_error == "Network error"
 
     result2 = await get_complaints_without_documents(
@@ -1272,7 +1272,7 @@ async def test_get_complaints_without_documents_multiple_complaints(
     # Verify all returned complaints have document_urls and are not downloaded
     for complaint in result:
         assert complaint.document_url is not None
-        assert complaint.document_downloaded == False
+        assert not complaint.document_downloaded
 
 
 @pytest.mark.asyncio
@@ -1354,7 +1354,7 @@ async def test_update_document_status_failure(db_session, sample_complaint_data)
     assert result is not None
     assert result.ticket_no == "T123"
     assert result.local_document_path is None
-    assert result.document_downloaded is False
+    assert not result.document_downloaded
     assert result.document_download_error == "Network timeout"
     assert result.document_download_date is not None
 
@@ -1386,7 +1386,7 @@ async def test_update_document_status_updates_existing_fields(
     await create_or_update_complaint(db_session, sample_complaint_data)
 
     # Initial update
-    result1 = await update_document_status(
+    await update_document_status(
         db_session,
         ticket_no="T123",
         local_path="/path/to/document1.pdf",
@@ -1406,7 +1406,7 @@ async def test_update_document_status_updates_existing_fields(
     assert result2 is not None
     assert result2.ticket_no == "T123"
     assert result2.local_document_path == "/path/to/document2.pdf"
-    assert result2.document_downloaded is False
+    assert not result2.document_downloaded
     assert result2.document_download_error == "New error"
     assert result2.document_download_date is not None
 
@@ -1459,7 +1459,7 @@ async def test_update_document_status_with_empty_strings(
 
     assert result is not None
     assert result.local_document_path == ""
-    assert result.document_downloaded is False
+    assert not result.document_downloaded
     assert result.document_download_error == ""
 
 
@@ -1507,7 +1507,7 @@ async def test_update_document_status_database_commit(
     await create_or_update_complaint(db_session, sample_complaint_data)
 
     # Update document status
-    result = await update_document_status(
+    await update_document_status(
         db_session,
         ticket_no="T123",
         local_path="/path/to/document.pdf",
@@ -1563,7 +1563,7 @@ async def test_update_document_status_deprecation_warning(
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
 
-        result = await update_document_status(
+        await update_document_status(
             db_session,
             ticket_no="T123",
             local_path="/path/to/document.pdf",

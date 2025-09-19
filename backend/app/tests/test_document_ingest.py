@@ -175,10 +175,12 @@ async def test_document_exists_returns_false(doc_service, tmp_path, monkeypatch)
         "app.ingestion.document_ingestion.settings.LOCAL_STORAGE_PATH", str(tmp_path)
     )
 
-    with patch.object(
-        doc_service, "get_document_path", return_value=str(file_path)
-    ), patch("os.path.exists", return_value=False), patch.object(
-        doc_service, "_document_already_downloaded_s3", return_value=False
+    with (
+        patch.object(doc_service, "get_document_path", return_value=str(file_path)),
+        patch("os.path.exists", return_value=False),
+        patch.object(
+            doc_service, "_document_already_downloaded_s3", return_value=False
+        ),
     ):
         assert (
             doc_service.document_already_downloaded("T123", "complaint", "pdf") is False
@@ -242,14 +244,14 @@ async def test_download_document_success(
         mock_open_ctx = AsyncMock()
         mock_open_ctx.__aenter__.return_value = mock_file
 
-        with patch.object(
-            doc_service, "get_document_path", return_value=str(test_path)
-        ), patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get, patch(
-            "aiofiles.open", return_value=mock_open_ctx
-        ), patch.object(
-            doc_service, "document_already_downloaded", return_value=False
+        with (
+            patch.object(doc_service, "get_document_path", return_value=str(test_path)),
+            patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+            patch("aiofiles.open", return_value=mock_open_ctx),
+            patch.object(
+                doc_service, "document_already_downloaded", return_value=False
+            ),
         ):
-
             # Mock httpx response
             mock_get.return_value.status_code = 200
             mock_get.return_value.content = b"PDF_CONTENT"
@@ -261,16 +263,14 @@ async def test_download_document_success(
             mock_file.write.assert_called_once_with(b"PDF_CONTENT")
     else:
         # For main environment, mock S3 operations
-        with patch.object(
-            doc_service, "get_document_path", return_value=str(test_path)
-        ), patch(
-            "httpx.AsyncClient.get", new_callable=AsyncMock
-        ) as mock_get, patch.object(
-            doc_service.s3_service, "upload_fileobj"
-        ) as mock_upload, patch.object(
-            doc_service, "document_already_downloaded", return_value=False
+        with (
+            patch.object(doc_service, "get_document_path", return_value=str(test_path)),
+            patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+            patch.object(doc_service.s3_service, "upload_fileobj") as mock_upload,
+            patch.object(
+                doc_service, "document_already_downloaded", return_value=False
+            ),
         ):
-
             # Mock httpx response
             mock_get.return_value.status_code = 200
             mock_get.return_value.content = b"PDF_CONTENT"
@@ -318,18 +318,13 @@ async def test_download_document_invalid_url(doc_service, tmp_path, db_session):
     db_session.add(complaint)
     await db_session.commit()
 
-    with patch.object(
-        doc_service, "get_document_path", return_value=str(test_path)
-    ), patch.object(
-        doc_service, "document_already_downloaded", return_value=False
-    ), patch(
-        "httpx.AsyncClient.get", side_effect=Exception("Simulated error")
-    ), patch.object(
-        doc_service, "_bulk_update_document_status", return_value=None
-    ), patch(
-        "app.ingestion.document_ingestion.logger.error"
+    with (
+        patch.object(doc_service, "get_document_path", return_value=str(test_path)),
+        patch.object(doc_service, "document_already_downloaded", return_value=False),
+        patch("httpx.AsyncClient.get", side_effect=Exception("Simulated error")),
+        patch.object(doc_service, "_bulk_update_document_status", return_value=None),
+        patch("app.ingestion.document_ingestion.logger.error"),
     ):
-
         result = await doc_service.download_document(complaint, "complaint")
 
         assert result is None
@@ -366,10 +361,10 @@ async def test_download_document_no_path_logs(doc_service):
         assigned_on=datetime(2024, 1, 1, 12, 0),
     )
 
-    with patch.object(doc_service, "get_document_path", return_value=None), patch(
-        "app.ingestion.document_ingestion.logger.warning"
-    ) as mock_log:
-
+    with (
+        patch.object(doc_service, "get_document_path", return_value=None),
+        patch("app.ingestion.document_ingestion.logger.warning") as mock_log,
+    ):
         result = await doc_service.download_document(complaint, "complaint")
 
         # Assert it returned None
@@ -413,16 +408,12 @@ async def test_download_document_error(doc_service, tmp_path, caplog, db_session
     db_session.add(complaint)
     await db_session.commit()
 
-    with patch.object(
-        doc_service, "get_document_path", return_value=str(test_path)
-    ), patch.object(
-        doc_service, "document_already_downloaded", return_value=False
-    ), patch(
-        "httpx.AsyncClient.get", side_effect=Exception("Simulated error")
-    ), patch(
-        "app.ingestion.document_ingestion.logger.error"
-    ) as mock_log_error:
-
+    with (
+        patch.object(doc_service, "get_document_path", return_value=str(test_path)),
+        patch.object(doc_service, "document_already_downloaded", return_value=False),
+        patch("httpx.AsyncClient.get", side_effect=Exception("Simulated error")),
+        patch("app.ingestion.document_ingestion.logger.error") as mock_log_error,
+    ):
         result = await doc_service.download_document(complaint, "complaint")
 
         assert result is None
@@ -532,7 +523,7 @@ async def test_batch_download_documents_success(doc_service, db_session):
     complaints = []
     for i in range(3):
         complaint = ComplaintModel(
-            ticket_no=f"T{i+1}",
+            ticket_no=f"T{i + 1}",
             document_url="http://example.com/file~pdf",
             grievance="Test grievance",
             office="Test Office",
@@ -564,12 +555,14 @@ async def test_batch_download_documents_success(doc_service, db_session):
     await db_session.commit()
 
     # Mock download_document to return success paths
-    with patch.object(
-        doc_service, "download_document", new_callable=AsyncMock
-    ) as mock_download, patch.object(
-        doc_service, "_bulk_update_document_status", new_callable=AsyncMock
-    ) as mock_bulk_update:
-
+    with (
+        patch.object(
+            doc_service, "download_document", new_callable=AsyncMock
+        ) as mock_download,
+        patch.object(
+            doc_service, "_bulk_update_document_status", new_callable=AsyncMock
+        ) as mock_bulk_update,
+    ):
         # Mock successful downloads
         mock_download.side_effect = [
             "/path/to/doc1.pdf",
@@ -610,7 +603,7 @@ async def test_batch_download_documents_mixed_success_failure(doc_service, db_se
     complaints = []
     for i in range(4):
         complaint = ComplaintModel(
-            ticket_no=f"T{i+1}",
+            ticket_no=f"T{i + 1}",
             document_url="http://example.com/file~pdf",
             grievance="Test grievance",
             office="Test Office",
@@ -642,12 +635,14 @@ async def test_batch_download_documents_mixed_success_failure(doc_service, db_se
     await db_session.commit()
 
     # Mock download_document with mixed results
-    with patch.object(
-        doc_service, "download_document", new_callable=AsyncMock
-    ) as mock_download, patch.object(
-        doc_service, "_bulk_update_document_status", new_callable=AsyncMock
-    ) as mock_bulk_update:
-
+    with (
+        patch.object(
+            doc_service, "download_document", new_callable=AsyncMock
+        ) as mock_download,
+        patch.object(
+            doc_service, "_bulk_update_document_status", new_callable=AsyncMock
+        ) as mock_bulk_update,
+    ):
         # Create a deterministic mock that returns based on ticket_no
         def mock_download_side_effect(complaint):
             if complaint.ticket_no == "T1":
@@ -706,7 +701,7 @@ async def test_batch_download_documents_batch_commits(doc_service, db_session):
     complaints = []
     for i in range(600):
         complaint = ComplaintModel(
-            ticket_no=f"T{i+1:03d}",
+            ticket_no=f"T{i + 1:03d}",
             document_url="http://example.com/file~pdf",
             grievance="Test grievance",
             office="Test Office",
@@ -738,12 +733,14 @@ async def test_batch_download_documents_batch_commits(doc_service, db_session):
     await db_session.commit()
 
     # Mock download_document to return success
-    with patch.object(
-        doc_service, "download_document", new_callable=AsyncMock
-    ) as mock_download, patch.object(
-        doc_service, "_bulk_update_document_status", new_callable=AsyncMock
-    ) as mock_bulk_update:
-
+    with (
+        patch.object(
+            doc_service, "download_document", new_callable=AsyncMock
+        ) as mock_download,
+        patch.object(
+            doc_service, "_bulk_update_document_status", new_callable=AsyncMock
+        ) as mock_bulk_update,
+    ):
         # Mock successful downloads
         mock_download.return_value = "/path/to/doc.pdf"
 
@@ -771,7 +768,6 @@ async def test_batch_download_documents_empty_list(doc_service):
     with patch.object(
         doc_service, "_bulk_update_document_status", new_callable=AsyncMock
     ) as mock_bulk_update:
-
         results = await doc_service.batch_download_documents([])
 
         assert results == {}
@@ -817,12 +813,14 @@ async def test_batch_download_documents_skipped_documents(
     await db_session.commit()
 
     # Mock download_document to return None (already downloaded)
-    with patch.object(
-        doc_service, "download_document", new_callable=AsyncMock
-    ) as mock_download, patch.object(
-        doc_service, "_bulk_update_document_status", new_callable=AsyncMock
-    ) as mock_bulk_update:
-
+    with (
+        patch.object(
+            doc_service, "download_document", new_callable=AsyncMock
+        ) as mock_download,
+        patch.object(
+            doc_service, "_bulk_update_document_status", new_callable=AsyncMock
+        ) as mock_bulk_update,
+    ):
         mock_download.return_value = (
             "s3" if environment == "main" else "local"
         )  # Document already downloaded
@@ -874,12 +872,12 @@ async def test_bulk_update_document_status_success(doc_service, db_session):
     ]
 
     # Mock the database execute and commit
-    with patch.object(doc_service.db, "execute") as mock_execute, patch.object(
-        doc_service.db, "commit"
-    ) as mock_commit, patch.object(doc_service.db, "rollback") as mock_rollback, patch(
-        "app.ingestion.document_ingestion.logger.info"
-    ) as mock_logger:
-
+    with (
+        patch.object(doc_service.db, "execute") as mock_execute,
+        patch.object(doc_service.db, "commit") as mock_commit,
+        patch.object(doc_service.db, "rollback") as mock_rollback,
+        patch("app.ingestion.document_ingestion.logger.info") as mock_logger,
+    ):
         # Mock the result object
         mock_result = AsyncMock()
         mock_result.rowcount = 3
@@ -913,14 +911,14 @@ async def test_bulk_update_document_status_database_error(doc_service, db_sessio
     ]
 
     # Mock database error
-    with patch.object(
-        doc_service.db, "execute", side_effect=Exception("Database error")
-    ), patch.object(doc_service.db, "commit") as mock_commit, patch.object(
-        doc_service.db, "rollback"
-    ) as mock_rollback, patch(
-        "app.ingestion.document_ingestion.logger.error"
-    ) as mock_logger:
-
+    with (
+        patch.object(
+            doc_service.db, "execute", side_effect=Exception("Database error")
+        ),
+        patch.object(doc_service.db, "commit") as mock_commit,
+        patch.object(doc_service.db, "rollback") as mock_rollback,
+        patch("app.ingestion.document_ingestion.logger.error") as mock_logger,
+    ):
         with pytest.raises(Exception, match="Database error"):
             await doc_service._bulk_update_document_status(updates)
 
@@ -939,12 +937,11 @@ async def test_bulk_update_document_status_database_error(doc_service, db_sessio
 @pytest.mark.asyncio
 async def test_bulk_update_document_status_empty_updates(doc_service):
     """Test bulk update with empty updates list."""
-    with patch.object(doc_service.db, "execute") as mock_execute, patch.object(
-        doc_service.db, "commit"
-    ) as mock_commit, patch(
-        "app.ingestion.document_ingestion.logger.info"
-    ) as mock_logger:
-
+    with (
+        patch.object(doc_service.db, "execute") as mock_execute,
+        patch.object(doc_service.db, "commit") as mock_commit,
+        patch("app.ingestion.document_ingestion.logger.info") as mock_logger,
+    ):
         mock_result = MagicMock()
         mock_result.rowcount = 0
         mock_execute.return_value = mock_result
@@ -970,19 +967,18 @@ async def test_bulk_update_document_status_large_batch(doc_service, db_session):
     for i in range(100):
         updates.append(
             {
-                "ticket_no": f"T{i+1:03d}",
-                "local_path": f"/path/to/doc{i+1:03d}.pdf",
+                "ticket_no": f"T{i + 1:03d}",
+                "local_path": f"/path/to/doc{i + 1:03d}.pdf",
                 "success": i % 2 == 0,  # Alternate success/failure
                 "error": f"Error {i}" if i % 2 == 1 else None,
             }
         )
 
-    with patch.object(doc_service.db, "execute") as mock_execute, patch.object(
-        doc_service.db, "commit"
-    ) as mock_commit, patch(
-        "app.ingestion.document_ingestion.logger.info"
-    ) as mock_logger:
-
+    with (
+        patch.object(doc_service.db, "execute") as mock_execute,
+        patch.object(doc_service.db, "commit") as mock_commit,
+        patch("app.ingestion.document_ingestion.logger.info") as mock_logger,
+    ):
         mock_result = MagicMock()
         mock_result.rowcount = 100
         mock_execute.return_value = mock_result
@@ -1074,7 +1070,7 @@ async def test_batch_download_documents_integration_with_bulk_update(
     complaints = []
     for i in range(5):
         complaint = ComplaintModel(
-            ticket_no=f"T{i+1}",
+            ticket_no=f"T{i + 1}",
             document_url="http://example.com/file~pdf",
             grievance="Test grievance",
             office="Test Office",
@@ -1180,7 +1176,7 @@ async def test_batch_download_documents_in_chunks(doc_service, db_session):
     complaints = []
     for i in range(250):  # More than chunk size
         complaint = ComplaintModel(
-            ticket_no=f"T{i+1:03d}",
+            ticket_no=f"T{i + 1:03d}",
             document_url="http://example.com/file~pdf",
             grievance="Test grievance",
             office="Test Office",
@@ -1212,19 +1208,18 @@ async def test_batch_download_documents_in_chunks(doc_service, db_session):
     await db_session.commit()
 
     # Mock batch_download_documents
-    with patch.object(
-        doc_service, "batch_download_documents", new_callable=AsyncMock
-    ) as mock_batch_download, patch(
-        "app.ingestion.document_ingestion.logger.info"
-    ) as mock_logger, patch(
-        "app.ingestion.document_ingestion.logger.success"
-    ) as mock_success_logger:
-
+    with (
+        patch.object(
+            doc_service, "batch_download_documents", new_callable=AsyncMock
+        ) as mock_batch_download,
+        patch("app.ingestion.document_ingestion.logger.info") as mock_logger,
+        patch("app.ingestion.document_ingestion.logger.success") as mock_success_logger,
+    ):
         # Mock results for each chunk
         mock_batch_download.side_effect = [
-            {f"T{i+1:03d}": "success" for i in range(100)},  # First chunk
-            {f"T{i+1:03d}": "success" for i in range(100, 200)},  # Second chunk
-            {f"T{i+1:03d}": "success" for i in range(200, 250)},  # Third chunk
+            {f"T{i + 1:03d}": "success" for i in range(100)},  # First chunk
+            {f"T{i + 1:03d}": "success" for i in range(100, 200)},  # Second chunk
+            {f"T{i + 1:03d}": "success" for i in range(200, 250)},  # Third chunk
         ]
 
         results = await doc_service.batch_download_documents_in_chunks(

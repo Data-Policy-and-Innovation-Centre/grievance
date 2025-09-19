@@ -13,10 +13,13 @@ from more_itertools import chunked
 from sqlalchemy.ext.asyncio import AsyncSession
 from tqdm import tqdm
 
-from app.config import (directories, resume_logging_to_console, settings,
-                        stop_logging_to_console)
-from app.db.crud import (get_complaint_by_ticket,
-                         get_complaints_with_document_urls)
+from app.config import (
+    directories,
+    resume_logging_to_console,
+    settings,
+    stop_logging_to_console,
+)
+from app.db.crud import get_complaint_by_ticket, get_complaints_with_document_urls
 from app.db.models import Complaint as ComplaintModel
 from app.db.session import get_db
 from app.ingestion.client import with_retry

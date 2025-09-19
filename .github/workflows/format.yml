@@ -1,4 +1,4 @@
-name: Formatting
+name: Linting and Formatting
 
 on:
   push:

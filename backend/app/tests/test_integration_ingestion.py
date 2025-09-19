@@ -605,12 +605,14 @@ class TestRunIngestionService:
         mock_filter.return_value = False
 
         # Mock other required functions
-        with patch(
-            "app.ingestion.orchestrator.get_complaints_without_documents"
-        ) as mock_get_complaints, patch(
-            "app.ingestion.orchestrator.get_tickets_needing_action_history"
-        ) as mock_get_tickets:
-
+        with (
+            patch(
+                "app.ingestion.orchestrator.get_complaints_without_documents"
+            ) as mock_get_complaints,
+            patch(
+                "app.ingestion.orchestrator.get_tickets_needing_action_history"
+            ) as mock_get_tickets,
+        ):
             # Mock complaints without documents
             from app.ingestion.schemas import Complaint as ComplaintModel
 

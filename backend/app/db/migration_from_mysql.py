@@ -4,12 +4,10 @@ from typing import Dict, Optional, Tuple
 from loguru import logger
 from more_itertools import chunked
 from pydantic import ValidationError
-from sqlalchemy import (Engine, MetaData, Table, create_engine, distinct, func,
-                        select)
+from sqlalchemy import Engine, MetaData, Table, create_engine, distinct, func, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.ext.asyncio import (AsyncEngine, AsyncSession,
-                                    create_async_engine)
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import directories

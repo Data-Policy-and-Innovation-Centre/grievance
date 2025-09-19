@@ -11,24 +11,37 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tqdm.asyncio import tqdm
 
-from app.config import (directories, resume_logging_to_console, settings,
-                        stop_logging_to_console)
-from app.db.crud import (bulk_load_action_histories, bulk_load_complaints,
-                         bulk_load_districts, filter_complaints_api_request,
-                         get_complaints_without_documents,
-                         get_tickets_needing_action_history,
-                         mark_action_history_api_request_failed,
-                         mark_complaints_api_request_failed,
-                         record_action_history_api_request_success,
-                         record_complaint_api_request_success)
+from app.config import (
+    directories,
+    resume_logging_to_console,
+    settings,
+    stop_logging_to_console,
+)
+from app.db.crud import (
+    bulk_load_action_histories,
+    bulk_load_complaints,
+    bulk_load_districts,
+    filter_complaints_api_request,
+    get_complaints_without_documents,
+    get_tickets_needing_action_history,
+    mark_action_history_api_request_failed,
+    mark_complaints_api_request_failed,
+    record_action_history_api_request_success,
+    record_complaint_api_request_success,
+)
 from app.db.models import Complaint as ComplaintModel
 from app.db.models import District as DistrictModel
 from app.db.session import get_db
 from app.ingestion import OFFICE, STATUS
 from app.ingestion.client import JanasunaniAPIClient
 from app.ingestion.document_ingestion import DocumentService
-from app.ingestion.schemas import (ActionHistory, Complaint, District,
-                                   validate, validate_action_history)
+from app.ingestion.schemas import (
+    ActionHistory,
+    Complaint,
+    District,
+    validate,
+    validate_action_history,
+)
 
 
 class IngestionOrchestrator:
@@ -166,7 +179,6 @@ async def run_ingestion_service(
     days_threshold = 7
     max_retries = 3
     try:
-
         gen = get_db()
         db = await anext(gen)
         orchestrator = IngestionOrchestrator(db, 5)

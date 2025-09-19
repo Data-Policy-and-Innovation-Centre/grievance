@@ -91,7 +91,6 @@ async def create_or_update_complaint(
     complaint_data = complaint_data.model_dump(by_alias=False)
     logger.info(f"Creating or updating complaint: {complaint_data['ticket_no']}")
     try:
-
         complaint = await get_complaint_by_ticket(db, complaint_data["ticket_no"])
         if complaint:
             # Update existing complaint

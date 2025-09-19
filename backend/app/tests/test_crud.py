@@ -8,19 +8,34 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.crud import (batch_create_action_history,
-                         batch_create_or_update_complaints,
-                         batch_create_or_update_districts,
-                         bulk_load_action_histories, bulk_load_complaints,
-                         bulk_load_districts, create_action_history,
-                         create_or_update_complaint, create_or_update_district,
-                         get_action_history_by_ticket, get_all_districts,
-                         get_complaint_by_ticket, get_complaints_by_district,
-                         get_complaints_by_status,
-                         get_complaints_without_documents, get_district_by_id,
-                         get_district_by_name, update_document_status)
-from app.db.models import (ActionHistory, ActionHistoryAPIRequestTracking,
-                           APIRequestTracking, Base, Complaint, District)
+from app.db.crud import (
+    batch_create_action_history,
+    batch_create_or_update_complaints,
+    batch_create_or_update_districts,
+    bulk_load_action_histories,
+    bulk_load_complaints,
+    bulk_load_districts,
+    create_action_history,
+    create_or_update_complaint,
+    create_or_update_district,
+    get_action_history_by_ticket,
+    get_all_districts,
+    get_complaint_by_ticket,
+    get_complaints_by_district,
+    get_complaints_by_status,
+    get_complaints_without_documents,
+    get_district_by_id,
+    get_district_by_name,
+    update_document_status,
+)
+from app.db.models import (
+    ActionHistory,
+    ActionHistoryAPIRequestTracking,
+    APIRequestTracking,
+    Base,
+    Complaint,
+    District,
+)
 from app.ingestion.schemas import ActionHistory as ActionHistorySchema
 from app.ingestion.schemas import Complaint as ComplaintSchema
 from app.ingestion.schemas import District as DistrictSchema
@@ -482,8 +497,10 @@ async def test_record_api_request_success_update(db_session):
 @pytest.mark.asyncio
 async def test_record_api_request_success_resets_failure_count(db_session):
     """Test that successful API request resets failure count."""
-    from app.db.crud import (mark_complaints_api_request_failed,
-                             record_complaint_api_request_success)
+    from app.db.crud import (
+        mark_complaints_api_request_failed,
+        record_complaint_api_request_success,
+    )
 
     # First mark as failed
     await mark_complaints_api_request_failed(
@@ -529,8 +546,10 @@ async def test_filter_api_request_not_processed(db_session):
 @pytest.mark.asyncio
 async def test_filter_api_request_recently_processed(db_session):
     """Test filtering API request that was recently processed successfully."""
-    from app.db.crud import (filter_complaints_api_request,
-                             record_complaint_api_request_success)
+    from app.db.crud import (
+        filter_complaints_api_request,
+        record_complaint_api_request_success,
+    )
 
     # Record a successful request
     await record_complaint_api_request_success(
@@ -583,8 +602,10 @@ async def test_filter_api_request_old_processed(db_session):
 @pytest.mark.asyncio
 async def test_filter_api_request_too_many_failures(db_session):
     """Test filtering API request that has failed too many times."""
-    from app.db.crud import (filter_complaints_api_request,
-                             mark_complaints_api_request_failed)
+    from app.db.crud import (
+        filter_complaints_api_request,
+        mark_complaints_api_request_failed,
+    )
 
     # Mark as failed multiple times
     for _ in range(4):  # More than failure_threshold of 3
@@ -614,8 +635,10 @@ async def test_filter_api_request_too_many_failures(db_session):
 @pytest.mark.asyncio
 async def test_filter_api_request_few_failures(db_session):
     """Test filtering API request that has few failures."""
-    from app.db.crud import (filter_complaints_api_request,
-                             mark_complaints_api_request_failed)
+    from app.db.crud import (
+        filter_complaints_api_request,
+        mark_complaints_api_request_failed,
+    )
 
     # Mark as failed few times
     for _ in range(2):  # Less than failure_threshold of 3
@@ -669,8 +692,10 @@ async def test_mark_api_request_failed_increment(db_session):
 @pytest.mark.asyncio
 async def test_mark_api_request_failed_preserves_success_data(db_session):
     """Test that marking as failed preserves existing success data."""
-    from app.db.crud import (mark_complaints_api_request_failed,
-                             record_complaint_api_request_success)
+    from app.db.crud import (
+        mark_complaints_api_request_failed,
+        record_complaint_api_request_success,
+    )
 
     # First record success
     success_tracking = await record_complaint_api_request_success(
@@ -711,8 +736,10 @@ async def test_api_request_tracking_unique_constraint(db_session):
 @pytest.mark.asyncio
 async def test_api_request_tracking_different_combinations(db_session):
     """Test that different API request combinations are tracked separately."""
-    from app.db.crud import (filter_complaints_api_request,
-                             record_complaint_api_request_success)
+    from app.db.crud import (
+        filter_complaints_api_request,
+        record_complaint_api_request_success,
+    )
 
     # Record different combinations
     await record_complaint_api_request_success(
@@ -757,9 +784,11 @@ async def test_api_request_tracking_error_handling(db_session):
     """Test error handling in API request tracking."""
     from sqlalchemy.exc import OperationalError
 
-    from app.db.crud import (filter_complaints_api_request,
-                             mark_complaints_api_request_failed,
-                             record_complaint_api_request_success)
+    from app.db.crud import (
+        filter_complaints_api_request,
+        mark_complaints_api_request_failed,
+        record_complaint_api_request_success,
+    )
 
     # Test with invalid database session (closed session)
     await db_session.bind.dispose()
@@ -824,8 +853,10 @@ async def test_record_action_history_api_request_success_resets_failure_count(
     db_session,
 ):
     """Test that successful API request resets failure count."""
-    from app.db.crud import (mark_action_history_api_request_failed,
-                             record_action_history_api_request_success)
+    from app.db.crud import (
+        mark_action_history_api_request_failed,
+        record_action_history_api_request_success,
+    )
 
     # First mark as failed multiple times
     await mark_action_history_api_request_failed(db_session, "T123")
@@ -874,8 +905,10 @@ async def test_mark_action_history_api_request_failed_preserves_success_data(
     db_session,
 ):
     """Test that marking failure preserves existing success data."""
-    from app.db.crud import (mark_action_history_api_request_failed,
-                             record_action_history_api_request_success)
+    from app.db.crud import (
+        mark_action_history_api_request_failed,
+        record_action_history_api_request_success,
+    )
 
     # First record success
     success_tracking = await record_action_history_api_request_success(
@@ -908,9 +941,11 @@ async def test_get_complaints_needing_action_history_recent_success(
     db_session, sample_complaint_data
 ):
     """Test that recently successful requests are not returned."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_tickets_needing_action_history,
-                             record_action_history_api_request_success)
+    from app.db.crud import (
+        create_or_update_complaint,
+        get_tickets_needing_action_history,
+        record_action_history_api_request_success,
+    )
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -932,8 +967,10 @@ async def test_get_complaints_needing_action_history_old_success(
 
     import pytz
 
-    from app.db.crud import (create_or_update_complaint,
-                             get_tickets_needing_action_history)
+    from app.db.crud import (
+        create_or_update_complaint,
+        get_tickets_needing_action_history,
+    )
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -964,9 +1001,11 @@ async def test_get_complaints_needing_action_history_too_many_failures(
     db_session, sample_complaint_data
 ):
     """Test that tickets with too many failures are not returned."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_tickets_needing_action_history,
-                             mark_action_history_api_request_failed)
+    from app.db.crud import (
+        create_or_update_complaint,
+        get_tickets_needing_action_history,
+        mark_action_history_api_request_failed,
+    )
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -985,9 +1024,11 @@ async def test_get_complaints_needing_action_history_few_failures(
     db_session, sample_complaint_data
 ):
     """Test that tickets with few failures are returned."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_tickets_needing_action_history,
-                             mark_action_history_api_request_failed)
+    from app.db.crud import (
+        create_or_update_complaint,
+        get_tickets_needing_action_history,
+        mark_action_history_api_request_failed,
+    )
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1011,10 +1052,12 @@ async def test_get_complaints_needing_action_history_mixed_scenarios(
 
     import pytz
 
-    from app.db.crud import (create_or_update_complaint,
-                             get_tickets_needing_action_history,
-                             mark_action_history_api_request_failed,
-                             record_action_history_api_request_success)
+    from app.db.crud import (
+        create_or_update_complaint,
+        get_tickets_needing_action_history,
+        mark_action_history_api_request_failed,
+        record_action_history_api_request_success,
+    )
 
     # Create multiple complaints
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1074,8 +1117,10 @@ async def test_get_complaints_needing_action_history_mixed_scenarios(
 @pytest.mark.asyncio
 async def test_action_history_tracking_error_handling(db_session):
     """Test error handling in action history tracking functions."""
-    from app.db.crud import (mark_action_history_api_request_failed,
-                             record_action_history_api_request_success)
+    from app.db.crud import (
+        mark_action_history_api_request_failed,
+        record_action_history_api_request_success,
+    )
 
     # Test with invalid data - these should handle None values gracefully
     # The functions don't raise exceptions for None values, they handle them
@@ -1261,7 +1306,9 @@ async def test_get_complaints_without_documents_multiple_complaints(
     # Create multiple complaints with document_urls
     complaints = []
     for i in range(5):
-        complaint = sample_complaint_data.model_copy(update={"ticket_no": f"T{i+100}"})
+        complaint = sample_complaint_data.model_copy(
+            update={"ticket_no": f"T{i + 100}"}
+        )
         await create_or_update_complaint(db_session, complaint)
         complaints.append(complaint)
 

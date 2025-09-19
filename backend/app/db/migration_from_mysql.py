@@ -19,7 +19,6 @@ from app.db.models import Complaint as ComplaintModel
 from app.db.session import get_db
 from app.ingestion.schemas import ActionHistory as ActionHistorySchema
 from app.ingestion.schemas import Complaint as ComplaintSchema
-from app.ingestion.schemas import validate, validate_action_history
 
 MYSQL_URL = "mysql+pymysql://myapp:dpic@127.0.0.1:3306/myapp_db"
 SQLITE_PATH = directories.RAW_DATA / "grievance.db"
@@ -88,7 +87,7 @@ async def migrate_complaints(
 
     total = len(pending_tickets)
     if total == 0:
-        logger.success(f"All complaints already migrated")
+        logger.success("All complaints already migrated")
         return await build_tracking_map()
 
     logger.info(f"Starting complaints migration ({total} rows)")

@@ -457,7 +457,6 @@ async def test_record_api_request_success_new(db_session):
 @pytest.mark.asyncio
 async def test_record_api_request_success_update(db_session):
     """Test updating an existing successful API request."""
-    import time
 
     from app.db.crud import record_complaint_api_request_success
 
@@ -548,12 +547,11 @@ async def test_filter_api_request_recently_processed(db_session):
 @pytest.mark.asyncio
 async def test_filter_api_request_old_processed(db_session):
     """Test filtering API request that was processed but is old."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     import pytz
 
-    from app.db.crud import (filter_complaints_api_request,
-                             record_complaint_api_request_success)
+    from app.db.crud import (filter_complaints_api_request)
 
     # Record a successful request with old timestamp
     tracking = APIRequestTracking(
@@ -802,7 +800,6 @@ async def test_record_action_history_api_request_success_new(db_session):
 @pytest.mark.asyncio
 async def test_record_action_history_api_request_success_update(db_session):
     """Test updating existing action history API request tracking."""
-    import time
 
     from app.db.crud import record_action_history_api_request_success
 
@@ -931,7 +928,7 @@ async def test_get_complaints_needing_action_history_old_success(
     db_session, sample_complaint_data
 ):
     """Test that old successful requests are returned."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     import pytz
 
@@ -946,7 +943,6 @@ async def test_get_complaints_needing_action_history_old_success(
     old_time = datetime.now(time_zone) - timedelta(days=10)  # 10 days ago
 
     # Manually create tracking record with old time
-    from app.db.models import ActionHistoryAPIRequestTracking
 
     tracking = ActionHistoryAPIRequestTracking(
         ticket_no="T123",
@@ -1011,7 +1007,7 @@ async def test_get_complaints_needing_action_history_mixed_scenarios(
     db_session, sample_complaint_data
 ):
     """Test multiple scenarios in the same database."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     import pytz
 
@@ -1045,7 +1041,6 @@ async def test_get_complaints_needing_action_history_mixed_scenarios(
     await record_action_history_api_request_success(db_session, "T123", 5)
 
     # Scenario 2: Old success (should be returned)
-    from app.db.models import ActionHistoryAPIRequestTracking
 
     old_tracking = ActionHistoryAPIRequestTracking(
         ticket_no="T456",
@@ -1115,7 +1110,6 @@ async def test_action_history_tracking_database_rollback(db_session):
 @pytest.mark.asyncio
 async def test_get_complaints_without_documents_empty(db_session):
     """Test getting complaints without documents when none exist."""
-    from app.db.crud import get_complaints_without_documents
 
     # Should return empty list when no complaints exist
     result = await get_complaints_without_documents(db_session)
@@ -1127,8 +1121,7 @@ async def test_get_complaints_without_documents_no_document_url(
     db_session, sample_complaint_data
 ):
     """Test that complaints without document_url are not returned."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_complaints_without_documents)
+    from app.db.crud import (create_or_update_complaint)
 
     # Create a complaint without document_url
     complaint_data = sample_complaint_data.model_copy(update={"document_url": ""})
@@ -1144,9 +1137,7 @@ async def test_get_complaints_without_documents_already_downloaded(
     db_session, sample_complaint_data
 ):
     """Test that complaints with already downloaded documents are not returned."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_complaints_without_documents,
-                             update_document_status)
+    from app.db.crud import (create_or_update_complaint)
 
     # Create a complaint with document_url
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1164,8 +1155,7 @@ async def test_get_complaints_without_documents_needs_download(
     db_session, sample_complaint_data
 ):
     """Test that complaints with document_url but not downloaded are returned."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_complaints_without_documents)
+    from app.db.crud import (create_or_update_complaint)
 
     # Create a complaint with document_url
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1183,9 +1173,7 @@ async def test_get_complaints_without_documents_mixed_scenarios(
     db_session, sample_complaint_data
 ):
     """Test multiple scenarios in the same database."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_complaints_without_documents,
-                             update_document_status)
+    from app.db.crud import (create_or_update_complaint)
 
     # Create multiple complaints with different scenarios
     await create_or_update_complaint(
@@ -1222,9 +1210,7 @@ async def test_get_complaints_without_documents_download_error(
     db_session, sample_complaint_data
 ):
     """Test that complaints with download errors are still returned."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_complaints_without_documents,
-                             update_document_status)
+    from app.db.crud import (create_or_update_complaint)
 
     # Create a complaint with document_url
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1252,9 +1238,7 @@ async def test_get_complaints_without_documents_partial_download(
     db_session, sample_complaint_data
 ):
     """Test that complaints with partial download info are handled correctly."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_complaints_without_documents,
-                             update_document_status)
+    from app.db.crud import (create_or_update_complaint)
 
     # Create a complaint with document_url
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1272,8 +1256,7 @@ async def test_get_complaints_without_documents_multiple_complaints(
     db_session, sample_complaint_data
 ):
     """Test with multiple complaints needing document download."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_complaints_without_documents)
+    from app.db.crud import (create_or_update_complaint)
 
     # Create multiple complaints with document_urls
     complaints = []
@@ -1297,8 +1280,7 @@ async def test_get_complaints_without_documents_edge_case_none_document_url(
     db_session, sample_complaint_data
 ):
     """Test edge case where document_url is explicitly None."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_complaints_without_documents)
+    from app.db.crud import (create_or_update_complaint)
 
     # Create a complaint with explicit None document_url
     complaint_data = sample_complaint_data.model_copy(update={"document_url": None})
@@ -1314,8 +1296,7 @@ async def test_get_complaints_without_documents_edge_case_empty_document_url(
     db_session, sample_complaint_data
 ):
     """Test edge case where document_url is empty string."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_complaints_without_documents)
+    from app.db.crud import (create_or_update_complaint)
 
     # Create a complaint with empty document_url
     complaint_data = sample_complaint_data.model_copy(update={"document_url": ""})
@@ -1331,7 +1312,7 @@ async def test_get_complaints_without_documents_edge_case_empty_document_url(
 @pytest.mark.asyncio
 async def test_update_document_status_success(db_session, sample_complaint_data):
     """Test successful document status update."""
-    from app.db.crud import create_or_update_complaint, update_document_status
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1356,7 +1337,7 @@ async def test_update_document_status_success(db_session, sample_complaint_data)
 @pytest.mark.asyncio
 async def test_update_document_status_failure(db_session, sample_complaint_data):
     """Test document status update for failed download."""
-    from app.db.crud import create_or_update_complaint, update_document_status
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1381,7 +1362,6 @@ async def test_update_document_status_failure(db_session, sample_complaint_data)
 @pytest.mark.asyncio
 async def test_update_document_status_nonexistent_ticket(db_session):
     """Test document status update for non-existent ticket."""
-    from app.db.crud import update_document_status
 
     # Try to update status for non-existent ticket
     result = await update_document_status(
@@ -1400,7 +1380,7 @@ async def test_update_document_status_updates_existing_fields(
     db_session, sample_complaint_data
 ):
     """Test that update_document_status properly updates existing fields."""
-    from app.db.crud import create_or_update_complaint, update_document_status
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1436,7 +1416,7 @@ async def test_update_document_status_preserves_other_fields(
     db_session, sample_complaint_data
 ):
     """Test that update_document_status doesn't affect other complaint fields."""
-    from app.db.crud import create_or_update_complaint, update_document_status
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1467,7 +1447,7 @@ async def test_update_document_status_with_empty_strings(
     db_session, sample_complaint_data
 ):
     """Test document status update with empty string values."""
-    from app.db.crud import create_or_update_complaint, update_document_status
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1488,7 +1468,7 @@ async def test_update_document_status_multiple_complaints(
     db_session, sample_complaint_data
 ):
     """Test updating document status for multiple complaints."""
-    from app.db.crud import create_or_update_complaint, update_document_status
+    from app.db.crud import create_or_update_complaint
 
     # Create multiple complaints
     complaint1 = sample_complaint_data.model_copy(update={"ticket_no": "T123"})
@@ -1522,7 +1502,7 @@ async def test_update_document_status_database_commit(
 ):
     """Test that update_document_status properly commits to database."""
     from app.db.crud import (create_or_update_complaint,
-                             get_complaint_by_ticket, update_document_status)
+                             get_complaint_by_ticket)
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1575,7 +1555,7 @@ async def test_update_document_status_deprecation_warning(
     """Test that update_document_status raises deprecation warning."""
     import warnings
 
-    from app.db.crud import create_or_update_complaint, update_document_status
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1601,7 +1581,6 @@ async def test_update_document_status_deprecation_warning(
 @pytest.mark.asyncio
 async def test_update_document_status_error_handling(db_session):
     """Test error handling in update_document_status."""
-    from app.db.crud import update_document_status
 
     # Test with invalid database session
     await db_session.bind.dispose()
@@ -1629,7 +1608,7 @@ async def test_update_document_status_error_handling(db_session):
 @pytest.mark.asyncio
 async def test_update_document_status_edge_cases(db_session, sample_complaint_data):
     """Test edge cases for update_document_status."""
-    from app.db.crud import create_or_update_complaint, update_document_status
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1657,9 +1636,7 @@ async def test_update_document_status_integration_with_get_complaints_without_do
     db_session, sample_complaint_data
 ):
     """Test integration between update_document_status and get_complaints_without_documents."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_complaints_without_documents,
-                             update_document_status)
+    from app.db.crud import (create_or_update_complaint)
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1695,7 +1672,7 @@ async def test_update_document_status_performance(db_session, sample_complaint_d
     """Test performance of update_document_status with multiple updates."""
     import time
 
-    from app.db.crud import create_or_update_complaint, update_document_status
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)

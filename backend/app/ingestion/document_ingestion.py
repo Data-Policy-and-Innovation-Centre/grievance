@@ -8,7 +8,6 @@ from typing import Dict, List, Tuple
 
 import aiofiles
 import httpx
-from botocore.exceptions import ClientError
 from loguru import logger
 from more_itertools import chunked
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,12 +16,10 @@ from tqdm import tqdm
 from app.config import (directories, resume_logging_to_console, settings,
                         stop_logging_to_console)
 from app.db.crud import (get_complaint_by_ticket,
-                         get_complaints_with_document_urls,
-                         get_complaints_without_documents)
+                         get_complaints_with_document_urls)
 from app.db.models import Complaint as ComplaintModel
 from app.db.session import get_db
 from app.ingestion.client import with_retry
-from app.ingestion.schemas import Complaint
 from app.s3service import S3Service
 
 
@@ -369,11 +366,11 @@ async def main():
     sample_1000 = [
         get_complaint_by_ticket(db, ticket_no) for ticket_no in pending_tickets[:50000]
     ]
-    logger.info(f"Starting downloading")
+    logger.info("Starting downloading")
     stop_logging_to_console(mode="w")
     result = await doc_service.batch_download_documents_in_chunks(sample_1000, 100)
     resume_logging_to_console()
-    logger.info(f"Finalizing downloading")
+    logger.info("Finalizing downloading")
 
 
 if __name__ == "__main__":

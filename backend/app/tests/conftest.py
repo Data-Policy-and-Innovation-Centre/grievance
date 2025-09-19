@@ -1,7 +1,5 @@
-import os
 from pathlib import Path
 
-import pytest
 from colorama import Fore, Style
 from tqdm import tqdm
 

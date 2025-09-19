@@ -1,5 +1,4 @@
 import asyncio
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -8,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.models import Base
-from app.db.models import District as DistrictModel
 from app.ingestion.orchestrator import IngestionOrchestrator
 from app.ingestion.schemas import ActionHistory, Complaint, District
 

@@ -1,19 +1,15 @@
-import asyncio
 import io
 from datetime import datetime
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.crud import get_complaint_by_ticket
 from app.db.models import Base
 from app.db.models import Complaint as ComplaintModel
 from app.ingestion.document_ingestion import DocumentService
-from app.ingestion.schemas import Complaint as ComplaintSchema
 
 
 # Test database setup
@@ -37,7 +33,7 @@ async def db_session():
 @pytest_asyncio.fixture(scope="function")
 async def sample_complaint_data(db_session):
     complaint = ComplaintModel(
-        ticket_no=f"T123",
+        ticket_no="T123",
         document_url="http://example.com/file~pdf",
         grievance="Test grievance",
         office="Test Office",
@@ -790,7 +786,7 @@ async def test_batch_download_documents_skipped_documents(
     """Test batch_download_documents when documents are already downloaded."""
     # Create test complaint
     complaint = ComplaintModel(
-        ticket_no=f"T123",
+        ticket_no="T123",
         document_url="http://example.com/file~pdf",
         grievance="Test grievance",
         office="Test Office",
@@ -1010,7 +1006,7 @@ async def test_bulk_update_document_status_verifies_database_changes(
     """Test that bulk update actually changes the database."""
     # Create test complaint
     complaint = ComplaintModel(
-        ticket_no=f"T123",
+        ticket_no="T123",
         document_url="http://example.com/file~pdf",
         grievance="Test grievance",
         office="Test Office",

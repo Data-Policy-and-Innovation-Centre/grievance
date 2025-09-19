@@ -1,15 +1,13 @@
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Coroutine, Dict, List, Optional, Tuple, Union
+from typing import List, Optional
 
 import pytz
 from loguru import logger
-from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.ingestion.schemas import ActionHistory as ActionHistorySchema
 from app.ingestion.schemas import Complaint as ComplaintSchema
 from app.ingestion.schemas import District as DistrictSchema

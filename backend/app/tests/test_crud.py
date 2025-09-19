@@ -551,7 +551,7 @@ async def test_filter_api_request_old_processed(db_session):
 
     import pytz
 
-    from app.db.crud import (filter_complaints_api_request)
+    from app.db.crud import filter_complaints_api_request
 
     # Record a successful request with old timestamp
     tracking = APIRequestTracking(
@@ -1121,7 +1121,7 @@ async def test_get_complaints_without_documents_no_document_url(
     db_session, sample_complaint_data
 ):
     """Test that complaints without document_url are not returned."""
-    from app.db.crud import (create_or_update_complaint)
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint without document_url
     complaint_data = sample_complaint_data.model_copy(update={"document_url": ""})
@@ -1137,7 +1137,7 @@ async def test_get_complaints_without_documents_already_downloaded(
     db_session, sample_complaint_data
 ):
     """Test that complaints with already downloaded documents are not returned."""
-    from app.db.crud import (create_or_update_complaint)
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint with document_url
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1155,7 +1155,7 @@ async def test_get_complaints_without_documents_needs_download(
     db_session, sample_complaint_data
 ):
     """Test that complaints with document_url but not downloaded are returned."""
-    from app.db.crud import (create_or_update_complaint)
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint with document_url
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1173,7 +1173,7 @@ async def test_get_complaints_without_documents_mixed_scenarios(
     db_session, sample_complaint_data
 ):
     """Test multiple scenarios in the same database."""
-    from app.db.crud import (create_or_update_complaint)
+    from app.db.crud import create_or_update_complaint
 
     # Create multiple complaints with different scenarios
     await create_or_update_complaint(
@@ -1210,7 +1210,7 @@ async def test_get_complaints_without_documents_download_error(
     db_session, sample_complaint_data
 ):
     """Test that complaints with download errors are still returned."""
-    from app.db.crud import (create_or_update_complaint)
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint with document_url
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1238,7 +1238,7 @@ async def test_get_complaints_without_documents_partial_download(
     db_session, sample_complaint_data
 ):
     """Test that complaints with partial download info are handled correctly."""
-    from app.db.crud import (create_or_update_complaint)
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint with document_url
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1256,7 +1256,7 @@ async def test_get_complaints_without_documents_multiple_complaints(
     db_session, sample_complaint_data
 ):
     """Test with multiple complaints needing document download."""
-    from app.db.crud import (create_or_update_complaint)
+    from app.db.crud import create_or_update_complaint
 
     # Create multiple complaints with document_urls
     complaints = []
@@ -1280,7 +1280,7 @@ async def test_get_complaints_without_documents_edge_case_none_document_url(
     db_session, sample_complaint_data
 ):
     """Test edge case where document_url is explicitly None."""
-    from app.db.crud import (create_or_update_complaint)
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint with explicit None document_url
     complaint_data = sample_complaint_data.model_copy(update={"document_url": None})
@@ -1296,7 +1296,7 @@ async def test_get_complaints_without_documents_edge_case_empty_document_url(
     db_session, sample_complaint_data
 ):
     """Test edge case where document_url is empty string."""
-    from app.db.crud import (create_or_update_complaint)
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint with empty document_url
     complaint_data = sample_complaint_data.model_copy(update={"document_url": ""})
@@ -1501,8 +1501,7 @@ async def test_update_document_status_database_commit(
     db_session, sample_complaint_data
 ):
     """Test that update_document_status properly commits to database."""
-    from app.db.crud import (create_or_update_complaint,
-                             get_complaint_by_ticket)
+    from app.db.crud import create_or_update_complaint, get_complaint_by_ticket
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)
@@ -1636,7 +1635,7 @@ async def test_update_document_status_integration_with_get_complaints_without_do
     db_session, sample_complaint_data
 ):
     """Test integration between update_document_status and get_complaints_without_documents."""
-    from app.db.crud import (create_or_update_complaint)
+    from app.db.crud import create_or_update_complaint
 
     # Create a complaint first
     await create_or_update_complaint(db_session, sample_complaint_data)

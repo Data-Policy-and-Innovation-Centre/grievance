@@ -5,7 +5,6 @@ from typing import Any, Optional
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
-
 from . import OFFICE
 
 

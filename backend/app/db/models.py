@@ -1,4 +1,3 @@
-
 from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
                         Text, UniqueConstraint)
 from sqlalchemy.orm import declarative_base, relationship

@@ -14,22 +14,22 @@ from tqdm.asyncio import tqdm
 
 from app.config import (directories, resume_logging_to_console, settings,
                         stop_logging_to_console)
-
 from app.db.crud import (bulk_load_action_histories, bulk_load_complaints,
-                       bulk_load_districts, filter_complaints_api_request,
-                       get_all_complaints, get_complaints_without_documents,
-                       get_tickets_needing_action_history,
-                       mark_action_history_api_request_failed,
-                       mark_complaints_api_request_failed,
-                       record_action_history_api_request_success,
-                       record_complaint_api_request_success)
-from app.db.models import District as DistrictModel, Complaint as ComplaintModel
+                         bulk_load_districts, filter_complaints_api_request,
+                         get_all_complaints, get_complaints_without_documents,
+                         get_tickets_needing_action_history,
+                         mark_action_history_api_request_failed,
+                         mark_complaints_api_request_failed,
+                         record_action_history_api_request_success,
+                         record_complaint_api_request_success)
+from app.db.models import Complaint as ComplaintModel
+from app.db.models import District as DistrictModel
 from app.db.session import get_db
 from app.ingestion import OFFICE, STATUS
 from app.ingestion.client import JanasunaniAPIClient
 from app.ingestion.document_ingestion import DocumentService
-from app.ingestion.schemas import (ActionHistory, Complaint, District, validate,
-                      validate_action_history)
+from app.ingestion.schemas import (ActionHistory, Complaint, District,
+                                   validate, validate_action_history)
 
 
 class IngestionOrchestrator:
@@ -126,7 +126,9 @@ class IngestionOrchestrator:
             await mark_action_history_api_request_failed(self.db, ticket_no)
             return []
 
-    async def ingest_documents(self, complaints: List[ComplaintModel]) -> Dict[str, str]:
+    async def ingest_documents(
+        self, complaints: List[ComplaintModel]
+    ) -> Dict[str, str]:
         """Ingest documents data"""
         results = await self.doc_service.batch_download_documents(complaints)
         return results
@@ -246,8 +248,10 @@ async def run_ingestion_service(
                 count = await get_complaints_without_documents(db, count=True)
                 while count > 0:
                     complaints = await get_complaints_without_documents(db, limit=5000)
-                    
-                    logger.info(f"{count} complaints with documents currently not downloaded")
+
+                    logger.info(
+                        f"{count} complaints with documents currently not downloaded"
+                    )
                     if settings.ENV == "dev":
                         logger.info(
                             f" Batch processing documents for {len(complaints)} complaints with local path {settings.LOCAL_STORAGE_PATH}"
@@ -264,13 +268,15 @@ async def run_ingestion_service(
                     )
                     doc_tasks = [
                         orchestrator.ingest_documents(chunk)
-                        for chunk in chunked(complaints,1000 )
+                        for chunk in chunked(complaints, 1000)
                     ]
                     doc_results = await track_with_progress(
                         doc_tasks, desc="Ingesting documents"
                     )
                     resume_logging_to_console()
-                    logger.info(f"Completed {len(doc_results)} document ingestion tasks")
+                    logger.info(
+                        f"Completed {len(doc_results)} document ingestion tasks"
+                    )
                     count = await get_complaints_without_documents(db, count=True)
             except Exception as e:
                 logger.error(f"Error in document ingestion: {e}")

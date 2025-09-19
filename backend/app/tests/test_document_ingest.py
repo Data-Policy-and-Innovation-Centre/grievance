@@ -1,7 +1,7 @@
 import asyncio
-from datetime import datetime
 import io
-from unittest.mock import AsyncMock, MagicMock, patch, ANY
+from datetime import datetime
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -536,33 +536,33 @@ async def test_batch_download_documents_success(doc_service, db_session):
     complaints = []
     for i in range(3):
         complaint = ComplaintModel(
-        ticket_no=f"T{i+1}",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",
-        office="Test Office",
-        office_id=1,
-        received_by="Test Officer",
-        district="Test District",
-        district_id=1,
-        block_id=1,
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        category_id=1,
-        subcategory_id=1,
-        dept_id=1,
-        self_assign="No",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        resolved_by="Test Officer",
-        resolved_on=datetime(2024, 1, 1, 12, 0),
-        benefitted="No",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-    )
+            ticket_no=f"T{i+1}",
+            document_url="http://example.com/file~pdf",
+            grievance="Test grievance",
+            office="Test Office",
+            office_id=1,
+            received_by="Test Officer",
+            district="Test District",
+            district_id=1,
+            block_id=1,
+            mode="Online",
+            status="Pending",
+            govt_ticket=True,
+            created_on=datetime(2024, 1, 1, 12, 0),
+            category="Test Category",
+            category_id=1,
+            subcategory_id=1,
+            dept_id=1,
+            self_assign="No",
+            state="Test State",
+            petitioner_gender="Male",
+            transfer_status="None",
+            resolved_by="Test Officer",
+            resolved_on=datetime(2024, 1, 1, 12, 0),
+            benefitted="No",
+            urgent="No",
+            assigned_on=datetime(2024, 1, 1, 12, 0),
+        )
         complaints.append(complaint)
         db_session.add(complaint)
     await db_session.commit()
@@ -614,33 +614,33 @@ async def test_batch_download_documents_mixed_success_failure(doc_service, db_se
     complaints = []
     for i in range(4):
         complaint = ComplaintModel(
-        ticket_no=f"T{i+1}",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",
-        office="Test Office",
-        office_id=1,
-        received_by="Test Officer",
-        district="Test District",
-        district_id=1,
-        block_id=1,
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        category_id=1,
-        subcategory_id=1,
-        dept_id=1,
-        self_assign="No",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        resolved_by="Test Officer",
-        resolved_on=datetime(2024, 1, 1, 12, 0),
-        benefitted="No",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-    )
+            ticket_no=f"T{i+1}",
+            document_url="http://example.com/file~pdf",
+            grievance="Test grievance",
+            office="Test Office",
+            office_id=1,
+            received_by="Test Officer",
+            district="Test District",
+            district_id=1,
+            block_id=1,
+            mode="Online",
+            status="Pending",
+            govt_ticket=True,
+            created_on=datetime(2024, 1, 1, 12, 0),
+            category="Test Category",
+            category_id=1,
+            subcategory_id=1,
+            dept_id=1,
+            self_assign="No",
+            state="Test State",
+            petitioner_gender="Male",
+            transfer_status="None",
+            resolved_by="Test Officer",
+            resolved_on=datetime(2024, 1, 1, 12, 0),
+            benefitted="No",
+            urgent="No",
+            assigned_on=datetime(2024, 1, 1, 12, 0),
+        )
         complaints.append(complaint)
         db_session.add(complaint)
     await db_session.commit()
@@ -710,33 +710,33 @@ async def test_batch_download_documents_batch_commits(doc_service, db_session):
     complaints = []
     for i in range(600):
         complaint = ComplaintModel(
-        ticket_no=f"T{i+1:03d}",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",
-        office="Test Office",
-        office_id=1,
-        received_by="Test Officer",
-        district="Test District",
-        district_id=1,
-        block_id=1,
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        category_id=1,
-        subcategory_id=1,
-        dept_id=1,
-        self_assign="No",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        resolved_by="Test Officer",
-        resolved_on=datetime(2024, 1, 1, 12, 0),
-        benefitted="No",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-    )
+            ticket_no=f"T{i+1:03d}",
+            document_url="http://example.com/file~pdf",
+            grievance="Test grievance",
+            office="Test Office",
+            office_id=1,
+            received_by="Test Officer",
+            district="Test District",
+            district_id=1,
+            block_id=1,
+            mode="Online",
+            status="Pending",
+            govt_ticket=True,
+            created_on=datetime(2024, 1, 1, 12, 0),
+            category="Test Category",
+            category_id=1,
+            subcategory_id=1,
+            dept_id=1,
+            self_assign="No",
+            state="Test State",
+            petitioner_gender="Male",
+            transfer_status="None",
+            resolved_by="Test Officer",
+            resolved_on=datetime(2024, 1, 1, 12, 0),
+            benefitted="No",
+            urgent="No",
+            assigned_on=datetime(2024, 1, 1, 12, 0),
+        )
         complaints.append(complaint)
         db_session.add(complaint)
     await db_session.commit()
@@ -781,9 +781,12 @@ async def test_batch_download_documents_empty_list(doc_service):
         assert results == {}
         mock_bulk_update.assert_not_called()
 
+
 @pytest.mark.parametrize("environment", ["dev", "main"])
 @pytest.mark.asyncio
-async def test_batch_download_documents_skipped_documents(doc_service, db_session, environment):
+async def test_batch_download_documents_skipped_documents(
+    doc_service, db_session, environment
+):
     """Test batch_download_documents when documents are already downloaded."""
     # Create test complaint
     complaint = ComplaintModel(
@@ -824,7 +827,9 @@ async def test_batch_download_documents_skipped_documents(doc_service, db_sessio
         doc_service, "_bulk_update_document_status", new_callable=AsyncMock
     ) as mock_bulk_update:
 
-        mock_download.return_value = "s3" if environment == "main" else "local"  # Document already downloaded
+        mock_download.return_value = (
+            "s3" if environment == "main" else "local"
+        )  # Document already downloaded
 
         results = await doc_service.batch_download_documents([complaint])
 
@@ -843,7 +848,7 @@ async def test_batch_download_documents_skipped_documents(doc_service, db_sessio
 # Tests for _bulk_update_document_status
 @pytest.mark.asyncio
 async def test_bulk_update_document_status_success(doc_service, db_session):
-    """Test successful bulk update of document status.""" 
+    """Test successful bulk update of document status."""
     # Prepare update data
     updates = [
         {
@@ -1073,33 +1078,33 @@ async def test_batch_download_documents_integration_with_bulk_update(
     complaints = []
     for i in range(5):
         complaint = ComplaintModel(
-        ticket_no=f"T{i+1}",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",
-        office="Test Office",
-        office_id=1,
-        received_by="Test Officer",
-        district="Test District",
-        district_id=1,
-        block_id=1,
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        category_id=1,
-        subcategory_id=1,
-        dept_id=1,
-        self_assign="No",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        resolved_by="Test Officer",
-        resolved_on=datetime(2024, 1, 1, 12, 0),
-        benefitted="No",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-    )
+            ticket_no=f"T{i+1}",
+            document_url="http://example.com/file~pdf",
+            grievance="Test grievance",
+            office="Test Office",
+            office_id=1,
+            received_by="Test Officer",
+            district="Test District",
+            district_id=1,
+            block_id=1,
+            mode="Online",
+            status="Pending",
+            govt_ticket=True,
+            created_on=datetime(2024, 1, 1, 12, 0),
+            category="Test Category",
+            category_id=1,
+            subcategory_id=1,
+            dept_id=1,
+            self_assign="No",
+            state="Test State",
+            petitioner_gender="Male",
+            transfer_status="None",
+            resolved_by="Test Officer",
+            resolved_on=datetime(2024, 1, 1, 12, 0),
+            benefitted="No",
+            urgent="No",
+            assigned_on=datetime(2024, 1, 1, 12, 0),
+        )
         complaints.append(complaint)
         db_session.add(complaint)
     await db_session.commit()
@@ -1179,33 +1184,33 @@ async def test_batch_download_documents_in_chunks(doc_service, db_session):
     complaints = []
     for i in range(250):  # More than chunk size
         complaint = ComplaintModel(
-        ticket_no=f"T{i+1:03d}",
-        document_url="http://example.com/file~pdf",
-        grievance="Test grievance",
-        office="Test Office",
-        office_id=1,
-        received_by="Test Officer",
-        district="Test District",
-        district_id=1,
-        block_id=1,
-        mode="Online",
-        status="Pending",
-        govt_ticket=True,
-        created_on=datetime(2024, 1, 1, 12, 0),
-        category="Test Category",
-        category_id=1,
-        subcategory_id=1,
-        dept_id=1,
-        self_assign="No",
-        state="Test State",
-        petitioner_gender="Male",
-        transfer_status="None",
-        resolved_by="Test Officer",
-        resolved_on=datetime(2024, 1, 1, 12, 0),
-        benefitted="No",
-        urgent="No",
-        assigned_on=datetime(2024, 1, 1, 12, 0),
-    )
+            ticket_no=f"T{i+1:03d}",
+            document_url="http://example.com/file~pdf",
+            grievance="Test grievance",
+            office="Test Office",
+            office_id=1,
+            received_by="Test Officer",
+            district="Test District",
+            district_id=1,
+            block_id=1,
+            mode="Online",
+            status="Pending",
+            govt_ticket=True,
+            created_on=datetime(2024, 1, 1, 12, 0),
+            category="Test Category",
+            category_id=1,
+            subcategory_id=1,
+            dept_id=1,
+            self_assign="No",
+            state="Test State",
+            petitioner_gender="Male",
+            transfer_status="None",
+            resolved_by="Test Officer",
+            resolved_on=datetime(2024, 1, 1, 12, 0),
+            benefitted="No",
+            urgent="No",
+            assigned_on=datetime(2024, 1, 1, 12, 0),
+        )
         complaints.append(complaint)
         db_session.add(complaint)
     await db_session.commit()

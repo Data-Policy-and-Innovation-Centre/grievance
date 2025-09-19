@@ -3,8 +3,8 @@ import glob
 import os
 import re
 from datetime import datetime
-from typing import Dict, List, Tuple
 from io import BytesIO
+from typing import Dict, List, Tuple
 
 import aiofiles
 import httpx
@@ -18,8 +18,7 @@ from app.config import (directories, resume_logging_to_console, settings,
                         stop_logging_to_console)
 from app.db.crud import (get_complaint_by_ticket,
                          get_complaints_with_document_urls,
-                         get_complaints_without_documents
-                        )
+                         get_complaints_without_documents)
 from app.db.models import Complaint as ComplaintModel
 from app.db.session import get_db
 from app.ingestion.client import with_retry
@@ -188,7 +187,9 @@ class DocumentService:
                             await f.write(response.content)
                     else:
                         file_obj = BytesIO(response.content)
-                        await asyncio.to_thread(self.s3_service.upload_fileobj, file_obj, path)
+                        await asyncio.to_thread(
+                            self.s3_service.upload_fileobj, file_obj, path
+                        )
                         file_obj.close()
 
                 logger.info(f"Downloaded document for complaint {ticket_no} to {path}")

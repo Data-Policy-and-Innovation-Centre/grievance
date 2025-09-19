@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
-                        UniqueConstraint, Text)
+                        Text, UniqueConstraint)
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -117,8 +117,7 @@ class Complaint(Base):
     document_downloaded = Column(Boolean, default=False)
     document_download_date = Column(DateTime, nullable=True)
     document_download_error = Column(Text, nullable=True)
-    trackingId = Column(String, nullable = True)
-
+    trackingId = Column(String, nullable=True)
 
     __table_args__ = (UniqueConstraint("ticket_no", name="ticket_no_uniq"),)
 
@@ -148,7 +147,7 @@ class ActionHistory(Base):
     action_status = Column(Text, nullable=False)
     action_taken_remark = Column(Text, nullable=True)
     complaint_status_with_authority = Column(Text, nullable=False)
-    trackingId = Column(String, nullable = True)
+    trackingId = Column(String, nullable=True)
 
 
 class APIRequestTracking(Base):

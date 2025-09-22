@@ -109,8 +109,9 @@ class JanasunaniAPIClient:
                 )
         else:
             response.raise_for_status()
+            return None
 
-    def get_districts(self) -> dict:
+    def get_districts(self) -> dict | None:
         """
         Fetches the list of districts from the remote API.
 

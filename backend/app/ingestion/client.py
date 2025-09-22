@@ -20,7 +20,11 @@ class JanasunaniAPIError(Exception):
         self.message = message
 
 
-def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF, raise_on_error: bool = False):
+def with_retry(
+    max_retries: int = MAX_RETRIES,
+    backoff: int = RETRY_BACKOFF,
+    raise_on_error: bool = False,
+):
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):

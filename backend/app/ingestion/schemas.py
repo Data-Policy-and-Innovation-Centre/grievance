@@ -196,7 +196,6 @@ def validate(
     Raises:
         ValueError: If the data does not match the expected format.
     """
-
     logger.info(f"Attempting to validate {len(items)} {model.__name__} records")
     validated = []
     errors = []

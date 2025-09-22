@@ -45,6 +45,23 @@ from app.ingestion.schemas import (
 
 
 class IngestionOrchestrator:
+    """
+    Orchestrates the ingestion of grievance data from the Janasunani API.
+    
+    This class manages the process of fetching, validating, and storing various
+    types of data including districts, complaints, action histories, and documents.
+    It handles concurrent operations using semaphores and provides methods for
+    bulk data processing.
+    
+    Attributes:
+        client (JanasunaniAPIClient): Instance for API communication
+        s3 (boto3.client): Boto3 S3 client for document storage
+        bucket_name (str): S3 bucket name for storing documents
+        db (AsyncSession): Database session for data persistence
+        semaphore (asyncio.Semaphore): Semaphore for controlling concurrency
+        doc_service (DocumentService): Instance for document operations
+    """
+    
     def __init__(self, db: AsyncSession, semaphore_value: int = 5):
         self.client = JanasunaniAPIClient()
         self.s3 = boto3.client("s3")
@@ -194,8 +211,8 @@ async def run_ingestion_service(
             (year, district.dist_id, status, office)
             for year in [2024]  # TODO: change to range(2021, datetime.now().year)
             for district in districts
-            for status in STATUS.keys()
-            for office in OFFICE.keys()
+            for status in STATUS
+            for office in OFFICE
         ]
 
         if ingest_complaints:

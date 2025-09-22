@@ -76,7 +76,8 @@ class JanasunaniAPIClient:
         self.base_url = base_url
         self.auth = auth
 
-    def _handle_response(self, response: httpx.Response) -> dict:
+    @staticmethod
+    def _handle_response(response: httpx.Response) -> dict | None:
         """
         Handles the API response from a requests call.
 
@@ -85,6 +86,7 @@ class JanasunaniAPIClient:
 
         Returns:
             dict: The parsed response data from either the 'distRes' or 'Res' key.
+            None: If it raises an error.
 
         Raises:
             JansunaniAPIError: If neither 'distRes', 'Res' or 'actionHistory' is found in the response,
@@ -116,8 +118,9 @@ class JanasunaniAPIClient:
                 )
         else:
             response.raise_for_status()
+            return None
 
-    def get_districts(self) -> dict:
+    def get_districts(self) -> dict | None:
         """
         Fetches the list of districts from the remote API.
 
@@ -158,10 +161,10 @@ class JanasunaniAPIClient:
             JanasunaniAPIError: If the HTTP request fails.
             ValueError: If the input parameters are invalid.
         """
-        if status not in STATUS.keys():
+        if status not in STATUS:
             raise ValueError(f"Status must be in {STATUS.keys()}")
 
-        if office not in OFFICE.keys():
+        if office not in OFFICE:
             raise ValueError(f"Office must be in {OFFICE.keys()}")
 
         logger.info(

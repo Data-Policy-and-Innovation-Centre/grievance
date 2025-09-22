@@ -42,14 +42,15 @@ class DocumentService:
         else:
             self.s3_service = S3Service(s3_bucket)
 
-    def _create_local_folder(self):
+    @staticmethod
+    def _create_local_folder():
         """
         Private function that creates a local folder if not exists
         """
         if not os.path.exists(settings.LOCAL_STORAGE_PATH):
             os.mkdir(settings.LOCAL_STORAGE_PATH)
 
-    async def get_document_path(self, ticket_no: str, document_type: str) -> str:
+    async def get_document_path(self, ticket_no: str, document_type: str) -> str | None:
         """
         Generates a local file path to store a document related to a complaint.
 
@@ -79,8 +80,9 @@ class DocumentService:
             logger.error(f"Complaint {ticket_no} failed in get_document_path: {e}")
             return None
 
+    @staticmethod
     def _document_already_downloaded_local(
-        self, ticket_no: str, document_type: str, extension: str
+        ticket_no: str, document_type: str, extension: str
     ) -> bool:
         """
         Checks whether a document with the given ticket number, document type,
@@ -137,7 +139,7 @@ class DocumentService:
     @with_retry(raise_on_error=True)
     async def download_document(
         self, complaint: ComplaintModel, document_type: str = "complaint"
-    ) -> str:
+    ) -> str | None:
         """
         Asynchronously downloads the document associated with a complaint, if not already downloaded.
         This method performs the following:
@@ -283,8 +285,6 @@ class DocumentService:
             import pytz
             from sqlalchemy import case, update
 
-            from app.db.models import Complaint as ComplaintModel
-
             time_zone = pytz.timezone("Asia/Kolkata")
             now = datetime.now(time_zone)
 
@@ -346,17 +346,22 @@ class DocumentService:
 
 
 async def main():
-    db = next(get_db())
+    try:
+        db = next(get_db())
+    except Exception as e:
+        logger.error(f"Error getting database connection: {e}")
+        raise
+
     doc_service = DocumentService(db=db)
 
     total_docs = get_complaints_with_document_urls(db)
-    tickets = set([complaint.ticket_no for complaint in total_docs])
+    tickets = {complaint.ticket_no for complaint in total_docs}
 
     pattern = re.compile(r"([A-Z]{2,4}[0-9]*)(_compliant)*")
 
     files_down = os.listdir(directories.DOCUMENTS)
 
-    ticket_nos = set([re.search(pattern, file).group(0) for file in files_down])
+    ticket_nos = {re.search(pattern, file).group(0) for file in files_down}
 
     pending_tickets = tickets.difference(ticket_nos)
 

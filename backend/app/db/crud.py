@@ -86,7 +86,6 @@ async def create_or_update_complaint(
     db: AsyncSession, complaint_data: ComplaintSchema
 ) -> ComplaintModel | None:
     """Create or update a complaint record."""
-
     # Convert Pydantic model to dict for database operations
     complaint_data = complaint_data.model_dump(by_alias=False)
     logger.info(f"Creating or updating complaint: {complaint_data['ticket_no']}")

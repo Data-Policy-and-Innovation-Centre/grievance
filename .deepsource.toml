@@ -16,7 +16,9 @@ enabled = true
   runtime_version = "3.x.x"
   type_checker = "mypy"
 
-  [[analyzers.python.denylist]]
-  pattern = "backend/app/tests/*"
-  ignore_codes = ["PYL-W0404"]
-  reason = "Allow import errors in tests"
+  [analyzers.meta.ignore_patterns]
+  "backend/app/tests/*" = [
+    "PYL-W0404",  # Allow import errors in tests
+    "PY-W0069",   # Commented out code is for future TODOs
+    "PYL-W0603"   # Global variables sometimes necessary
+  ]

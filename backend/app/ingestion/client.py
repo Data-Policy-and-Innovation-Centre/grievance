@@ -20,11 +20,12 @@ class JanasunaniAPIError(Exception):
         self.message = message
 
 
-def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF):
+def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF, raise_on_error: bool = False):
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             label = kwargs.pop("label", func.__name__)
+            errors = []
             for _ in range(max_retries):
                 try:
                     return await func(*args, **kwargs)
@@ -39,11 +40,15 @@ def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF):
                         await asyncio.sleep(retry_after)
                     else:
                         logger.error(f"[{label}] HTTP error: {e}")
+                        errors.append(e)
                         break
                 except Exception as e:
                     logger.error(f"[{label}] Other error: {e}")
+                    errors.append(e)
                     break
             logger.error(f"[{label}] Failed after {max_retries} retries.")
+            if raise_on_error:
+                raise errors[-1]
             return None
 
         return wrapper

@@ -134,7 +134,7 @@ class DocumentService:
 
         return self._document_already_downloaded_s3(ticket_no, document_type, extension)
 
-    @with_retry()
+    @with_retry(raise_on_error=True)
     async def download_document(
         self, complaint: ComplaintModel, document_type: str = "complaint"
     ) -> str:

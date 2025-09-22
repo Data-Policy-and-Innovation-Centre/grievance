@@ -149,10 +149,10 @@ class JanasunaniAPIClient:
             JanasunaniAPIError: If the HTTP request fails.
             ValueError: If the input parameters are invalid.
         """
-        if status not in STATUS.keys():
+        if status not in STATUS:
             raise ValueError(f"Status must be in {STATUS.keys()}")
 
-        if office not in OFFICE.keys():
+        if office not in OFFICE:
             raise ValueError(f"Office must be in {OFFICE.keys()}")
 
         logger.info(

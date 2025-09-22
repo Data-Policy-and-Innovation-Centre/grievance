@@ -18,5 +18,11 @@ enabled = true
 
   [[analyzers.python.denylist]]
   pattern = "backend/app/tests/*"
-  ignore_codes = ["PYL-W0404"]
-  reason = "Allow import errors in tests"
+  ignore_codes = [
+    "PYL-W0404",
+    "PY-W0069"
+    ]
+  reasons = [
+    "Allow import errors in tests",
+    "Commented out code is for future TODOs"
+    ]

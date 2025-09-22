@@ -111,7 +111,7 @@ async def test_get_document_path(doc_service, sample_complaint_data):
     with patch("app.ingestion.document_ingestion.datetime") as mock_datetime:
         mock_datetime.now.return_value = fixed_now
         mock_datetime.strftime = datetime.strftime  # opcional, por seguridad
-        mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+        mock_datetime.side_effect = datetime
 
         doc_path = await doc_service.get_document_path(
             sample_complaint_data.ticket_no, "complaint"
@@ -961,7 +961,6 @@ async def test_bulk_update_document_status_empty_updates(doc_service):
 @pytest.mark.asyncio
 async def test_bulk_update_document_status_large_batch(doc_service, db_session):
     """Test bulk update with a large batch of updates."""
-
     # Prepare large update data
     updates = []
     for i in range(100):

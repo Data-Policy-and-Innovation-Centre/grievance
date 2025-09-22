@@ -69,7 +69,7 @@ else:
 
 # %%
 # Select the rows in large db with ticket_no in main DB
-query = f"""
+query = """
 SELECT *
 FROM large_db.complaints
 WHERE ticket_no IN (SELECT ticket_no FROM complaints);
@@ -80,7 +80,7 @@ dump_df =pd.read_sql_query(query, conn)
 
 
 # %%
-query = f"""
+query = """
 SELECT *
 FROM complaints
 """

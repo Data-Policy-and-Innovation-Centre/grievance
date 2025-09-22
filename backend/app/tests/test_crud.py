@@ -472,7 +472,6 @@ async def test_record_api_request_success_new(db_session):
 @pytest.mark.asyncio
 async def test_record_api_request_success_update(db_session):
     """Test updating an existing successful API request."""
-
     from app.db.crud import record_complaint_api_request_success
 
     # First record
@@ -829,7 +828,6 @@ async def test_record_action_history_api_request_success_new(db_session):
 @pytest.mark.asyncio
 async def test_record_action_history_api_request_success_update(db_session):
     """Test updating existing action history API request tracking."""
-
     from app.db.crud import record_action_history_api_request_success
 
     # First record a success
@@ -1155,7 +1153,6 @@ async def test_action_history_tracking_database_rollback(db_session):
 @pytest.mark.asyncio
 async def test_get_complaints_without_documents_empty(db_session):
     """Test getting complaints without documents when none exist."""
-
     # Should return empty list when no complaints exist
     result = await get_complaints_without_documents(db_session)
     assert result == []
@@ -1409,7 +1406,6 @@ async def test_update_document_status_failure(db_session, sample_complaint_data)
 @pytest.mark.asyncio
 async def test_update_document_status_nonexistent_ticket(db_session):
     """Test document status update for non-existent ticket."""
-
     # Try to update status for non-existent ticket
     result = await update_document_status(
         db_session,
@@ -1627,7 +1623,6 @@ async def test_update_document_status_deprecation_warning(
 @pytest.mark.asyncio
 async def test_update_document_status_error_handling(db_session):
     """Test error handling in update_document_status."""
-
     # Test with invalid database session
     await db_session.bind.dispose()
 

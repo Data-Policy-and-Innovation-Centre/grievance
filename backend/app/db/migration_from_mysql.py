@@ -70,7 +70,7 @@ async def migrate_complaints(
             select(ComplaintModel.trackingId, ComplaintModel.ticket_no)
         )
         rows = res.all()
-        tracking_map = {tid: tn for tid, tn in rows}
+        tracking_map = dict(rows)
         logger.info(f"Migrated {len(tracking_map)} complaints")
         return tracking_map
 
@@ -92,7 +92,7 @@ async def migrate_complaints(
     batch_no = 0
     for chunk in chunked(pending_tickets, CHUNK_SIZE):
 
-        def fetch_chunk():
+        def fetch_chunk(chunk=chunk):
             stmt = select(complaint_t).where(complaint_t.c.ticketNumber.in_(chunk))
             return mysql_sess.execute(stmt).mappings().all()
 

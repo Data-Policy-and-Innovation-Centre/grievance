@@ -412,15 +412,10 @@ async def test_download_document_error(doc_service, tmp_path, caplog, db_session
         patch.object(doc_service, "get_document_path", return_value=str(test_path)),
         patch.object(doc_service, "document_already_downloaded", return_value=False),
         patch("httpx.AsyncClient.get", side_effect=Exception("Simulated error")),
-        patch("app.ingestion.document_ingestion.logger.error") as mock_log_error,
+        patch("app.ingestion.document_ingestion.logger.error")
     ):
-        result = await doc_service.download_document(complaint, "complaint")
-
-        assert result is None
-
-        mock_log_error.assert_any_call(
-            "Error downloading document for T123: Simulated error"
-        )
+        with pytest.raises(Exception, match="Simulated error"):
+            await doc_service.download_document(complaint, "complaint")
 
 
 @pytest.mark.asyncio

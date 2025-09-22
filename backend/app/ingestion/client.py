@@ -67,7 +67,8 @@ class JanasunaniAPIClient:
         self.base_url = base_url
         self.auth = auth
 
-    def _handle_response(self, response: httpx.Response) -> dict:
+    @staticmethod
+    def _handle_response(response: httpx.Response) -> dict | None:
         """
         Handles the API response from a requests call.
 
@@ -76,6 +77,7 @@ class JanasunaniAPIClient:
 
         Returns:
             dict: The parsed response data from either the 'distRes' or 'Res' key.
+            None: If it raises an error.
 
         Raises:
             JansunaniAPIError: If neither 'distRes', 'Res' or 'actionHistory' is found in the response,

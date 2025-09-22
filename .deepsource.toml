@@ -20,9 +20,11 @@ enabled = true
   pattern = "backend/app/tests/*"
   ignore_codes = [
     "PYL-W0404",
-    "PY-W0069"
+    "PY-W0069",
+    "PYL-W0603"
     ]
   reasons = [
     "Allow import errors in tests",
-    "Commented out code is for future TODOs"
+    "Commented out code is for future TODOs",
+    "Global variables sometimes necessary"
     ]

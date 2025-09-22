@@ -61,6 +61,7 @@ class IngestionOrchestrator:
         semaphore (asyncio.Semaphore): Semaphore for controlling concurrency
         doc_service (DocumentService): Instance for document operations
     """
+    
     def __init__(self, db: AsyncSession, semaphore_value: int = 5):
         self.client = JanasunaniAPIClient()
         self.s3 = boto3.client("s3")

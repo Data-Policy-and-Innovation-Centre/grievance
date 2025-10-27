@@ -230,19 +230,7 @@ async def main():
 
         with MySQLSession() as mysql_sess:
             async with SQLiteSession() as sqlite_sess:
-                # 1. We no longer run the full complaint migration
-                # tracking_map = await migrate_complaints(mysql_sess, sqlite_sess)
-
-                # 2. Instead, we build the tracking_map directly from existing data
-                logger.info("Building tracking map from existing complaints in SQLite DB...")
-                res = await sqlite_sess.execute(
-                    select(ComplaintModel.tracking_id, ComplaintModel.ticket_no)
-                )
-                rows = res.all()
-                tracking_map = {tid: tn for tid, tn in rows if tid} # Added 'if tid' to be safe
-                logger.info(f"Built tracking map for {len(tracking_map)} complaints.")
-                
-                # 3. Now we run ONLY the action history migration
+                tracking_map = await migrate_complaints(mysql_sess, sqlite_sess)
                 await migrate_action_history(mysql_sess, sqlite_sess, tracking_map)
 
         logger.info(f"Export completed into {SQLITE_PATH}")

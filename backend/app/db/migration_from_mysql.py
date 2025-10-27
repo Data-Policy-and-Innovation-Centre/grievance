@@ -19,7 +19,7 @@ from app.db.models import Complaint as ComplaintModel
 from app.ingestion.schemas import ActionHistory as ActionHistorySchema
 from app.ingestion.schemas import Complaint as ComplaintSchema
 
-MYSQL_URL = "mysql+pymysql://myapp:dpic@127.0.0.1:3306/myapp_db"
+MYSQL_URL = "mysql+pymysql://root:Sakshi_2025!@127.0.0.1:3306/myapp_db"
 SQLITE_PATH = directories.RAW_DATA / "grievance.db"
 CHUNK_SIZE = 1000
 
@@ -69,7 +69,7 @@ async def migrate_complaints(
 
     async def build_tracking_map() -> Dict[str, str]:
         res = await sqlite_sess.execute(
-            select(ComplaintModel.trackingId, ComplaintModel.ticket_no)
+            select(ComplaintModel.tracking_id, ComplaintModel.ticket_no)
         )
         rows = res.all()
         tracking_map = {tid: tn for tid, tn in rows}
@@ -182,7 +182,7 @@ async def migrate_action_history(
         stmt = sqlite_insert(Model).values(to_insert)
         stmt = (
             stmt.on_conflict_do_nothing(
-                index_elements=["trackingId", "action_taken_date"]
+                index_elements=["tracking_id", "action_taken_date"]
             )
             if hasattr(stmt, "on_conflict_do_nothing")
             else stmt
@@ -206,11 +206,12 @@ async def migrate_action_history(
                 except (IntegrityError, OperationalError):
                     await sqlite_sess.rollback()
                     logger.warning(
-                        f"Skipping bad history record for trackingId {rec.get('trackingId')}"
+                        f"Skipping bad history record for tracking_id {rec.get('tracking_id')}"
                     )
 
         offset += CHUNK_SIZE
         batch_no += 1
+        break
 
     logger.info(f"Inserted {inserted}/{total} action_history records")
 
@@ -229,7 +230,19 @@ async def main():
 
         with MySQLSession() as mysql_sess:
             async with SQLiteSession() as sqlite_sess:
-                tracking_map = await migrate_complaints(mysql_sess, sqlite_sess)
+                # 1. We no longer run the full complaint migration
+                # tracking_map = await migrate_complaints(mysql_sess, sqlite_sess)
+
+                # 2. Instead, we build the tracking_map directly from existing data
+                logger.info("Building tracking map from existing complaints in SQLite DB...")
+                res = await sqlite_sess.execute(
+                    select(ComplaintModel.tracking_id, ComplaintModel.ticket_no)
+                )
+                rows = res.all()
+                tracking_map = {tid: tn for tid, tn in rows if tid} # Added 'if tid' to be safe
+                logger.info(f"Built tracking map for {len(tracking_map)} complaints.")
+                
+                # 3. Now we run ONLY the action history migration
                 await migrate_action_history(mysql_sess, sqlite_sess, tracking_map)
 
         logger.info(f"Export completed into {SQLITE_PATH}")

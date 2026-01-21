@@ -1,17 +1,12 @@
 import asyncio
 import functools
-import json
-from datetime import datetime
-from itertools import product
 
 import httpx
 from loguru import logger
-from more_itertools import chunked
 
-from app.config import directories, settings
+from app.config import settings
 
 from . import OFFICE, STATUS
-from .schemas import Complaint, District, validate, validate_action_history
 
 RETRY_BACKOFF = 5
 MAX_RETRIES = 10
@@ -25,11 +20,16 @@ class JanasunaniAPIError(Exception):
         self.message = message
 
 
-def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF):
+def with_retry(
+    max_retries: int = MAX_RETRIES,
+    backoff: int = RETRY_BACKOFF,
+    raise_on_error: bool = False,
+):
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             label = kwargs.pop("label", func.__name__)
+            errors = []
             for _ in range(max_retries):
                 try:
                     return await func(*args, **kwargs)
@@ -44,11 +44,15 @@ def with_retry(max_retries: int = MAX_RETRIES, backoff: int = RETRY_BACKOFF):
                         await asyncio.sleep(retry_after)
                     else:
                         logger.error(f"[{label}] HTTP error: {e}")
+                        errors.append(e)
                         break
                 except Exception as e:
                     logger.error(f"[{label}] Other error: {e}")
+                    errors.append(e)
                     break
             logger.error(f"[{label}] Failed after {max_retries} retries.")
+            if raise_on_error:
+                raise errors[-1]
             return None
 
         return wrapper
@@ -72,7 +76,8 @@ class JanasunaniAPIClient:
         self.base_url = base_url
         self.auth = auth
 
-    def _handle_response(self, response: httpx.Response) -> dict:
+    @staticmethod
+    def _handle_response(response: httpx.Response) -> dict | None:
         """
         Handles the API response from a requests call.
 
@@ -81,6 +86,7 @@ class JanasunaniAPIClient:
 
         Returns:
             dict: The parsed response data from either the 'distRes' or 'Res' key.
+            None: If it raises an error.
 
         Raises:
             JansunaniAPIError: If neither 'distRes', 'Res' or 'actionHistory' is found in the response,
@@ -112,8 +118,9 @@ class JanasunaniAPIClient:
                 )
         else:
             response.raise_for_status()
+            return None
 
-    def get_districts(self) -> dict:
+    def get_districts(self) -> dict | None:
         """
         Fetches the list of districts from the remote API.
 
@@ -154,10 +161,10 @@ class JanasunaniAPIClient:
             JanasunaniAPIError: If the HTTP request fails.
             ValueError: If the input parameters are invalid.
         """
-        if status not in STATUS.keys():
+        if status not in STATUS:
             raise ValueError(f"Status must be in {STATUS.keys()}")
 
-        if office not in OFFICE.keys():
+        if office not in OFFICE:
             raise ValueError(f"Office must be in {OFFICE.keys()}")
 
         logger.info(

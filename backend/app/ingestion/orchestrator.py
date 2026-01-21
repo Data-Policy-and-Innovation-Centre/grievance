@@ -2,7 +2,6 @@ import argparse
 import asyncio
 import json
 import sys
-from datetime import datetime
 from typing import Any, Coroutine, Dict, List, Tuple, Union
 
 import boto3
@@ -12,27 +11,57 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from tqdm.asyncio import tqdm
 
-from app.config import (directories, resume_logging_to_console, settings,
-                        stop_logging_to_console)
-
-from ..db.crud import (bulk_load_action_histories, bulk_load_complaints,
-                       bulk_load_districts, filter_complaints_api_request,
-                       get_all_complaints, get_complaints_without_documents,
-                       get_tickets_needing_action_history,
-                       mark_action_history_api_request_failed,
-                       mark_complaints_api_request_failed,
-                       record_action_history_api_request_success,
-                       record_complaint_api_request_success)
-from ..db.models import District as DistrictModel
-from ..db.session import get_db
-from . import OFFICE, STATUS
-from .client import JanasunaniAPIClient
-from .document_ingestion import DocumentService
-from .schemas import (ActionHistory, Complaint, District, validate,
-                      validate_action_history)
+from app.config import (
+    directories,
+    resume_logging_to_console,
+    settings,
+    stop_logging_to_console,
+)
+from app.db.crud import (
+    bulk_load_action_histories,
+    bulk_load_complaints,
+    bulk_load_districts,
+    filter_complaints_api_request,
+    get_complaints_without_documents,
+    get_tickets_needing_action_history,
+    mark_action_history_api_request_failed,
+    mark_complaints_api_request_failed,
+    record_action_history_api_request_success,
+    record_complaint_api_request_success,
+)
+from app.db.models import Complaint as ComplaintModel
+from app.db.models import District as DistrictModel
+from app.db.session import get_db
+from app.ingestion import OFFICE, STATUS
+from app.ingestion.client import JanasunaniAPIClient
+from app.ingestion.document_ingestion import DocumentService
+from app.ingestion.schemas import (
+    ActionHistory,
+    Complaint,
+    District,
+    validate,
+    validate_action_history,
+)
 
 
 class IngestionOrchestrator:
+    """
+    Orchestrates the ingestion of grievance data from the Janasunani API.
+
+    This class manages the process of fetching, validating, and storing various
+    types of data including districts, complaints, action histories, and documents.
+    It handles concurrent operations using semaphores and provides methods for
+    bulk data processing.
+
+    Attributes:
+        client (JanasunaniAPIClient): Instance for API communication
+        s3 (boto3.client): Boto3 S3 client for document storage
+        bucket_name (str): S3 bucket name for storing documents
+        db (AsyncSession): Database session for data persistence
+        semaphore (asyncio.Semaphore): Semaphore for controlling concurrency
+        doc_service (DocumentService): Instance for document operations
+    """
+
     def __init__(self, db: AsyncSession, semaphore_value: int = 5):
         self.client = JanasunaniAPIClient()
         self.s3 = boto3.client("s3")
@@ -126,7 +155,9 @@ class IngestionOrchestrator:
             await mark_action_history_api_request_failed(self.db, ticket_no)
             return []
 
-    async def ingest_documents(self, complaints: List[Complaint]) -> Dict[str, str]:
+    async def ingest_documents(
+        self, complaints: List[ComplaintModel]
+    ) -> Dict[str, str]:
         """Ingest documents data"""
         results = await self.doc_service.batch_download_documents(complaints)
         return results
@@ -135,14 +166,14 @@ class IngestionOrchestrator:
 # Wrap each task to update the tqdm bar when done
 async def track_with_progress(
     coros: List[Coroutine], desc: str = "Processing", position: int = 0
-):
+) -> List[Any]:
     results = []
     total = len(coros)
 
     # tqdm.asyncio is smart about async display updates
     with tqdm(total=total, desc=desc, ncols=100, position=position) as pbar:
 
-        async def wrapped(coro):
+        async def wrapped(coro: Coroutine):
             try:
                 result = await coro
                 return result
@@ -165,7 +196,6 @@ async def run_ingestion_service(
     days_threshold = 7
     max_retries = 3
     try:
-
         gen = get_db()
         db = await anext(gen)
         orchestrator = IngestionOrchestrator(db, 5)
@@ -181,8 +211,8 @@ async def run_ingestion_service(
             (year, district.dist_id, status, office)
             for year in [2024]  # TODO: change to range(2021, datetime.now().year)
             for district in districts
-            for status in STATUS.keys()
-            for office in OFFICE.keys()
+            for status in STATUS
+            for office in OFFICE
         ]
 
         if ingest_complaints:
@@ -243,30 +273,39 @@ async def run_ingestion_service(
         # Ingest documents and action history for each complaint
         if ingest_documents:
             try:
-                complaints = await get_complaints_without_documents(db)
-                if settings.ENV == "dev":
-                    logger.info(
-                        f"Processing documents for {len(complaints)} complaints with local path {settings.LOCAL_STORAGE_PATH}"
-                    )
-                elif settings.ENV == "main":
-                    logger.info(
-                        f"Processing documents for {len(complaints)} complaints with s3 path {settings.AWS_S3_DOCUMENTS}"
-                    )
-                else:
-                    raise ValueError(f"Invalid environment: {settings.ENV}")
+                count = await get_complaints_without_documents(db, count=True)
+                while count > 0:
+                    complaints = await get_complaints_without_documents(db, limit=5000)
 
-                stop_logging_to_console(
-                    mode="w", filename=directories.LOGS / "ingest_documents.log"
-                )
-                doc_tasks = [
-                    orchestrator.ingest_documents(chunk)
-                    for chunk in chunked(complaints, 10)
-                ]
-                doc_results = await track_with_progress(
-                    doc_tasks, desc="Ingesting documents"
-                )
-                resume_logging_to_console()
-                logger.info(f"Completed {len(doc_results)} document ingestion tasks")
+                    logger.info(
+                        f"{count} complaints with documents currently not downloaded"
+                    )
+                    if settings.ENV == "dev":
+                        logger.info(
+                            f" Batch processing documents for {len(complaints)} complaints with local path {settings.LOCAL_STORAGE_PATH}"
+                        )
+                    elif settings.ENV == "main":
+                        logger.info(
+                            f"Batch Processing documents for {len(complaints)} complaints with s3 path {settings.AWS_S3_DOCUMENTS}"
+                        )
+                    else:
+                        raise ValueError(f"Invalid environment: {settings.ENV}")
+
+                    stop_logging_to_console(
+                        mode="w", filename=directories.LOGS / "ingest_documents.log"
+                    )
+                    doc_tasks = [
+                        orchestrator.ingest_documents(chunk)
+                        for chunk in chunked(complaints, 1000)
+                    ]
+                    doc_results = await track_with_progress(
+                        doc_tasks, desc="Ingesting documents"
+                    )
+                    resume_logging_to_console()
+                    logger.info(
+                        f"Completed {len(doc_results)} document ingestion tasks"
+                    )
+                    count = await get_complaints_without_documents(db, count=True)
             except Exception as e:
                 logger.error(f"Error in document ingestion: {e}")
 
@@ -340,3 +379,15 @@ def main(args):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+
+
+def cli_ingest_documents():
+    """Console entrypoint: run only document ingestion."""
+    asyncio.run(
+        run_ingestion_service(
+            force_params=None,
+            ingest_complaints=False,
+            ingest_documents=True,
+            ingest_action_history=False,
+        )
+    )

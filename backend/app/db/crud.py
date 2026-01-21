@@ -1,15 +1,13 @@
 import asyncio
 from datetime import datetime, timedelta
-from typing import Any, Coroutine, Dict, List, Optional, Tuple, Union
+from typing import List, Optional
 
 import pytz
 from loguru import logger
-from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.ingestion.schemas import ActionHistory as ActionHistorySchema
 from app.ingestion.schemas import Complaint as ComplaintSchema
 from app.ingestion.schemas import District as DistrictSchema
@@ -88,12 +86,10 @@ async def create_or_update_complaint(
     db: AsyncSession, complaint_data: ComplaintSchema
 ) -> ComplaintModel | None:
     """Create or update a complaint record."""
-
     # Convert Pydantic model to dict for database operations
     complaint_data = complaint_data.model_dump(by_alias=False)
     logger.info(f"Creating or updating complaint: {complaint_data['ticket_no']}")
     try:
-
         complaint = await get_complaint_by_ticket(db, complaint_data["ticket_no"])
         if complaint:
             # Update existing complaint
@@ -356,21 +352,35 @@ async def update_document_status(
 
 
 async def get_complaints_without_documents(
-    db: AsyncSession, get_docs_where_errors_occurred: bool = False
+    db: AsyncSession,
+    get_docs_where_errors_occurred: bool = False,
+    limit: Optional[int] = None,
+    count: bool = False,
 ) -> list[ComplaintModel]:
-    result = await db.execute(
-        select(ComplaintModel).filter(
-            ComplaintModel.document_url.isnot(""),
-            ComplaintModel.document_url.isnot(None),
-            ComplaintModel.document_url.isnot("N/A"),
-            ComplaintModel.document_downloaded == False,
-            (
-                ComplaintModel.document_download_error.isnot(None)
-                if get_docs_where_errors_occurred
-                else ComplaintModel.document_download_error.is_(None)
-            ),
-        )
+    base_query = select(ComplaintModel).filter(
+        ComplaintModel.document_url.isnot(""),
+        ComplaintModel.document_url.isnot(None),
+        ComplaintModel.document_url.isnot("N/A"),
+        ComplaintModel.document_downloaded.is_(False),
+        (
+            ComplaintModel.document_download_error.isnot(None)
+            | ComplaintModel.document_download_error.is_(None)
+            if get_docs_where_errors_occurred
+            else ComplaintModel.document_download_error.is_(None)
+        ),
     )
+
+    if count:
+        count_query = select(func.count()).select_from(base_query.subquery())
+        result = await db.execute(count_query)
+        return result.scalar()
+
+    if limit is not None:
+        limited_query = base_query.limit(limit)
+        result = await db.execute(limited_query)
+    else:
+        result = await db.execute(base_query)
+
     return result.scalars().all()
 
 

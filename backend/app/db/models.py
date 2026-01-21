@@ -1,7 +1,13 @@
-from datetime import datetime
-
-from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
-                        UniqueConstraint)
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -18,7 +24,7 @@ class District(Base):
     __tablename__ = "districts"
 
     id = Column(Integer, primary_key=True)
-    dist_name = Column(String, nullable=False)
+    dist_name = Column(Text, nullable=False)
     dist_id = Column(Integer, nullable=False, unique=True)
 
     __table_args__ = (UniqueConstraint("dist_id", name="dist_id_uniq"),)
@@ -74,42 +80,50 @@ class Complaint(Base):
     __tablename__ = "complaints"
 
     id = Column(Integer, primary_key=True)
-    ticket_no = Column(String, unique=True, nullable=False)
-    petitioner_name = Column(String, nullable=True)
-    petitioner_mobile = Column(String, nullable=True)
-    petitioner_email = Column(String, nullable=True)
-    grievance = Column(String, nullable=False)
-    document_url = Column(String, nullable=True)
-    office = Column(String, nullable=False)
-    received_by = Column(String, nullable=False)
-    district = Column(String, nullable=False)
-    block = Column(String, nullable=True)
-    address = Column(String, nullable=True)
-    mode = Column(String, nullable=False)
-    disability = Column(String, nullable=True)
-    status = Column(String, nullable=False)
-    govt_ticket = Column(Boolean, nullable=False)
-    created_on = Column(DateTime, nullable=False)
-    tagged_to = Column(String, nullable=True)
-    tagged_by = Column(String, nullable=True)
+    ticket_no = Column(String(50), unique=True, nullable=False)
+    petitioner_name = Column(Text, nullable=True)
+    petitioner_mobile = Column(String(20), nullable=True)
+    petitioner_email = Column(String(100), nullable=True)
+    grievance = Column(Text, nullable=True)
+    document_url = Column(Text, nullable=True)
+    office_id = Column(Integer, nullable=False)
+    office = Column(Text, nullable=True)
+    received_by = Column(Text, nullable=True)
+    district_id = Column(Integer, nullable=True)
+    district = Column(Text, nullable=True)
+    block_id = Column(Integer, nullable=False)
+    block = Column(Text, nullable=True)
+    address = Column(Text, nullable=True)
+    mode = Column(Text, nullable=True)
+    disability = Column(Text, nullable=True)
+    status = Column(Text, nullable=True)
+    govt_ticket = Column(Boolean, nullable=True)
+    created_on = Column(DateTime, nullable=True)
+    tagged_to = Column(Text, nullable=True)
+    tagged_by = Column(Text, nullable=True)
     tagged_date = Column(DateTime, nullable=True)
-    category = Column(String, nullable=False)
-    dept = Column(String, nullable=True)
-    subcategory = Column(String, nullable=True)
-    state = Column(String, nullable=False)
-    petitioner_gender = Column(String, nullable=False)
-    transfer_status = Column(String, nullable=False)
-    urgent = Column(String, nullable=False)
-    pending_with = Column(String, nullable=True)
-    assigned_on = Column(DateTime, nullable=False)
+    category_id = Column(Integer, nullable=False)
+    category = Column(Text, nullable=True)
+    dept_id = Column(Integer, nullable=False)
+    dept = Column(Text, nullable=True)
+    subcategory_id = Column(Integer, nullable=True)
+    subcategory = Column(Text, nullable=True)
+    state = Column(Text, nullable=True)
+    petitioner_gender = Column(Text, nullable=False)
+    transfer_status = Column(Text, nullable=False)
+    urgent = Column(Text, nullable=False)
+    pending_with = Column(Text, nullable=True)
+    assigned_on = Column(DateTime, nullable=True)
     escalation_date = Column(DateTime, nullable=True)
-    self_assign = Column(String, nullable=True)
+    self_assign = Column(Text, nullable=False)
+    resolved_by = Column(String, nullable=False)
     resolved_on = Column(DateTime, nullable=True)
     benefitted = Column(String, nullable=True)
-    local_document_path = Column(String, nullable=True)
+    local_document_path = Column(Text, nullable=True)
     document_downloaded = Column(Boolean, default=False)
     document_download_date = Column(DateTime, nullable=True)
-    document_download_error = Column(String, nullable=True)
+    document_download_error = Column(Text, nullable=True)
+    trackingId = Column(String, nullable=True)
 
     __table_args__ = (UniqueConstraint("ticket_no", name="ticket_no_uniq"),)
 
@@ -131,25 +145,15 @@ class ActionHistory(Base):
 
     __tablename__ = "action_history"
 
-    id = Column(Integer, primary_key=True)
-    ticket_no = Column(String, ForeignKey("complaints.ticket_no"))
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ticket_no = Column(String(50), ForeignKey("complaints.ticket_no"))
     complaint = relationship("Complaint", backref="action_history")
     action_taken_date = Column(DateTime, nullable=True)
-    action_taken_by = Column(String, nullable=False)
-    action_status = Column(String, nullable=False)
-    action_taken_remark = Column(String, nullable=True)
-    complaint_status_with_authority = Column(String, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint(
-            "ticket_no",
-            "action_taken_by",
-            "action_status",
-            "action_taken_remark",
-            "complaint_status_with_authority",
-            name="action_history_uniq",
-        ),
-    )
+    action_taken_by = Column(String(100), nullable=False)
+    action_status = Column(Text, nullable=False)
+    action_taken_remark = Column(Text, nullable=True)
+    complaint_status_with_authority = Column(Text, nullable=False)
+    trackingId = Column(String, nullable=True)
 
 
 class APIRequestTracking(Base):

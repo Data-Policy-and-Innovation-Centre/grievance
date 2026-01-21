@@ -1,7 +1,5 @@
-import os
 from pathlib import Path
 
-import pytest
 from colorama import Fore, Style
 from tqdm import tqdm
 
@@ -27,7 +25,6 @@ def pytest_collection_modifyitems(session, config, items):
 
 
 def pytest_runtest_logreport(report):
-    global progress_bar
     if report.when == "call":
         test_file = Path(report.fspath).name
         progress_bar.set_description(
@@ -37,6 +34,5 @@ def pytest_runtest_logreport(report):
 
 
 def pytest_sessionfinish(session, exitstatus):
-    global progress_bar
     if progress_bar:
         progress_bar.close()

@@ -30,6 +30,8 @@ class Directories:
     RAW_DATA = DATA / "raw"
     PROCESSED_DATA = DATA / "processed"
     LOGS = ROOT_DIR / "logs"
+    OUTPUT = ROOT_DIR / "output"
+    TABLES = OUTPUT / "tables"
     DOCUMENTS = RAW_DATA / "documents"
     MODELS = ROOT_DIR / "models"
 
@@ -39,6 +41,8 @@ class Directories:
             self.RAW_DATA,
             self.PROCESSED_DATA,
             self.LOGS,
+            self.OUTPUT,
+            self.TABLES,
             self.DOCUMENTS,
             self.MODELS
         ]:

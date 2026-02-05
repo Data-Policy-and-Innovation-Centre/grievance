@@ -213,4 +213,8 @@ tfplan*
 /backend/logs
 *logs/
 backend/coverage.lcov
+
+# Model artifacts
 *.bin
+*.f32
+

@@ -5,6 +5,11 @@ from loguru import logger
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from tqdm import tqdm
+from typing import Literal, TYPE_CHECKING, Union
+import duckdb
+if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
 
 
 # Directories
@@ -26,6 +31,7 @@ class Directories:
     PROCESSED_DATA = DATA / "processed"
     LOGS = ROOT_DIR / "logs"
     DOCUMENTS = RAW_DATA / "documents"
+    MODELS = ROOT_DIR / "models"
 
     def __init__(self):
         for dir in [
@@ -34,6 +40,7 @@ class Directories:
             self.PROCESSED_DATA,
             self.LOGS,
             self.DOCUMENTS,
+            self.MODELS
         ]:
             dir.mkdir(exist_ok=True)
 
@@ -77,6 +84,47 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def load_duckdb(
+    sqlite_path: Path = directories.RAW_DATA / "grievance.db",
+    table_name: str = "complaints",
+    output_format: Literal["pandas", "polars", "relation"] = "polars",
+) -> Union["duckdb.DuckDBPyRelation", "pd.DataFrame", "pl.DataFrame"]:
+    """
+    Load the complaints table from the SQLite grievance DB using DuckDB.
+
+    Returns
+    -------
+    pandas.DataFrame | polars.DataFrame | duckdb.DuckDBPyRelation
+        The complaints table in the requested format. For "relation", the
+        DuckDB connection is left open for the caller to manage.
+    """
+    db_path = Path(sqlite_path).as_posix()
+    con = duckdb.connect()
+    con.execute("INSTALL sqlite_scanner;")
+    con.execute("LOAD sqlite_scanner;")
+    db_path_escaped = db_path.replace("'", "''")
+    table_name_escaped = table_name.replace("'", "''")
+    relation = con.sql(
+        "SELECT * FROM sqlite_scan('{db}', '{table}')".format(
+            db=db_path_escaped, table=table_name_escaped
+        )
+    )
+
+    if output_format == "relation":
+        return relation
+    if output_format == "polars":
+        df = relation.pl()
+        con.close()
+        return df
+    if output_format == "pandas":
+        df = relation.df()
+        con.close()
+        return df
+
+    con.close()
+    raise ValueError(f"Unsupported output_format: {output_format}")
 
 
 def stop_logging_to_console(

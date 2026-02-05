@@ -85,6 +85,17 @@ dependencies = [
     "awscli-local>=0.22.0",
     "aiosqlite>=0.21.0",
     "greenlet>=3.2.3",
+    "duckdb>=1.4.3",
+    "pyarrow>=23.0.0",
+    "polars>=1.37.1",
+    "lingua-language-detector>=2.1.1",
+    "seaborn>=0.13.2",
+    "statsmodels>=0.14.6",
+    "sentence-transformers>=5.2.0",
+    "torch>=2.10.0",
+    "xlsxwriter>=3.2.9",
+    "wordcloud>=1.9.6",
+    "fasttext>=0.9.3",
 ]
 
 [tool.setuptools.packages.find]

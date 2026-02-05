@@ -213,4 +213,4 @@ tfplan*
 /backend/logs
 *logs/
 backend/coverage.lcov
-
+*.bin

@@ -677,6 +677,227 @@ def format_excel_output(
         worksheet.set_column(0, 0, 12)
 
 
+def export_latex_table(
+    df: pd.DataFrame,
+    output_path: Path,
+    caption: str = "ORTPS Category Aggregation by Fiscal Year",
+    label: str = "tab:ortps_aggregation"
+) -> None:
+    r"""
+    Export multi-index DataFrame to LaTeX booktabs format.
+
+    Handles multi-index columns with proper formatting:
+    - Top row: Category names with \multicolumn
+    - Second row: Metric names (Count, % of Total)
+    - Data rows: Formatted numbers (counts with commas, percentages with %)
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Multi-index DataFrame with (Category, Metric) columns
+    output_path : Path
+        Output .tex file path
+    caption : str
+        Table caption
+    label : str
+        LaTeX label for cross-referencing
+    """
+    # Fill NaN values with None so they render better
+    df = df.fillna("")
+
+    # Create formatters for each column
+    # Note: We need to use closures to avoid late binding issues
+    def make_percent_formatter():
+        return lambda x: f"{x:.2f}\\%" if x != "" else "---"
+
+    def make_count_formatter():
+        return lambda x: f"{int(x):,}" if x != "" else "---"
+
+    formatters = {}
+    for col in df.columns:
+        category, metric = col
+        if metric == "% of Total":
+            formatters[col] = make_percent_formatter()
+        else:  # Count
+            formatters[col] = make_count_formatter()
+
+    # Generate base LaTeX table
+    latex_str = df.to_latex(
+        column_format="l" + "r" * len(df.columns),
+        formatters=formatters,
+        escape=False,  # Don't escape % signs we added
+        multicolumn=True,
+        multicolumn_format="c",
+        caption=caption,
+        label=label,
+        position="htbp"
+    )
+
+    # Post-process to improve formatting
+    lines = latex_str.split("\n")
+    improved_lines = []
+    found_category_row = False
+
+    for i, line in enumerate(lines):
+        # Replace \hline with booktabs commands
+        if "\\hline" in line:
+            if i < 5:  # Top rules (before header)
+                improved_lines.append("\\toprule")
+            elif i + 1 < len(lines) and "\\end{tabular}" in lines[i + 1]:
+                improved_lines.append("\\bottomrule")
+            else:
+                improved_lines.append("\\midrule")
+        # Add cmidrule after the category header row (first row with multicolumn)
+        elif "\\multicolumn" in line and not found_category_row:
+            improved_lines.append(line)
+            # Add cmidrule for each category pair of columns
+            cmidrules = []
+            num_categories = len(df.columns) // 2
+            for idx in range(num_categories):
+                start_col = 2 + idx * 2
+                end_col = start_col + 1
+                cmidrules.append(f"\\cmidrule(lr){{{start_col}-{end_col}}}")
+            improved_lines.append(" ".join(cmidrules))
+            found_category_row = True
+        # Wrap tabular in resizebox for auto-sizing
+        elif "\\begin{tabular}" in line:
+            improved_lines.append("\\resizebox{\\textwidth}{!}{%")
+            improved_lines.append(line)
+        elif "\\end{tabular}" in line:
+            improved_lines.append(line)
+            improved_lines.append("}")
+        else:
+            improved_lines.append(line)
+
+    # Write to file
+    with open(output_path, 'w') as f:
+        f.write("\n".join(improved_lines))
+
+
+def create_latex_wrapper(
+    output_dir: Path,
+    categories: list[str],
+    fiscal_years: list[int]
+) -> None:
+    """
+    Create main LaTeX wrapper document for ORTPS analysis.
+
+    Generates a complete LaTeX document with:
+    - Title page, TOC, list of tables/figures
+    - Main Exhibits section with aggregation table
+    - Exploratory section with word cloud subfigures
+
+    Parameters
+    ----------
+    output_dir : Path
+        Directory containing analysis outputs
+    categories : list[str]
+        List of ORTPS categories
+    fiscal_years : list[int]
+        List of fiscal year start years
+    """
+    # Map category names for display
+    category_display = {
+        "Caste certificate": "Caste Certificate",
+        "Income certificate": "Income Certificate",
+        "Ration Card": "Ration Card",
+        "Scholarship": "Scholarship"
+    }
+
+    # Start building LaTeX content
+    latex_content = r"""\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{pdflscape}
+
+% Title information
+\title{ORTPS Analysis}
+\author{Data, Policy and Innovation Centre}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\listoftables
+\listoffigures
+\newpage
+
+\section{Main Exhibits}
+
+\subsection{Fiscal Year Aggregation}
+
+This table presents the aggregation of ORTPS-related grievances by fiscal year (July-June) and category.
+
+\begin{landscape}
+\input{fiscal_year_aggregation_wide.tex}
+\end{landscape}
+
+\newpage
+
+\section{Exploratory Analysis}
+
+\subsection{Word Cloud Analysis}
+
+The following word clouds visualize the most frequent terms in grievance text for each ORTPS category across fiscal years.
+
+"""
+
+    # Generate figure blocks for each category
+    for category in categories:
+        display_name = category_display.get(category, category)
+        # Clean category name for file paths (replace spaces with underscores)
+        file_category = category.replace(" ", "_")
+
+        latex_content += f"""% {display_name}
+\\begin{{figure}}[htbp]
+\\centering
+"""
+
+        # Add subfigures for each fiscal year
+        for i, year in enumerate(fiscal_years):
+            next_year = year + 1
+            img_path = f"wordclouds/{file_category}_FY{year}_{next_year}.png"
+
+            # Check if this is the last subfigure in the row
+            hfill = "\\hfill\n" if i < len(fiscal_years) - 1 else "\n"
+
+            latex_content += f"""\\begin{{subfigure}}[b]{{0.48\\textwidth}}
+    \\centering
+    \\includegraphics[width=\\textwidth]{{{img_path}}}
+    \\caption{{FY {year}-{str(next_year)[2:]}}}
+    \\label{{fig:{file_category.lower()}_{year}}}
+\\end{{subfigure}}
+{hfill}"""
+
+        # Clean label for figure
+        fig_label = file_category.lower()
+
+        latex_content += f"""\\caption{{{display_name} Grievances}}
+\\label{{fig:{fig_label}}}
+\\end{{figure}}
+
+"""
+
+    latex_content += r"""\end{document}
+"""
+
+    # Write to file
+    wrapper_path = output_dir / "ortps_analysis.tex"
+    with open(wrapper_path, 'w') as f:
+        f.write(latex_content)
+
+
 def generate_fiscal_wordclouds(
     df: pl.DataFrame,
     categories: list[str],
@@ -943,6 +1164,19 @@ def main():
     csv_wide_path = args.output_dir / "fiscal_year_aggregation_wide.csv"
     pivot_df.to_csv(csv_wide_path)
     logger.info(f"Saved: {csv_wide_path.name}")
+
+    # Save LaTeX version
+    latex_path = args.output_dir / "fiscal_year_aggregation_wide.tex"
+    export_latex_table(pivot_df, latex_path)
+    logger.info(f"Saved: {latex_path.name}")
+
+    # Create LaTeX wrapper document
+    create_latex_wrapper(
+        output_dir=args.output_dir,
+        categories=categories,
+        fiscal_years=args.fiscal_years
+    )
+    logger.info(f"Created LaTeX wrapper: ortps_analysis.tex")
 
     # Display aggregation summary
     logger.info("Aggregation summary:")

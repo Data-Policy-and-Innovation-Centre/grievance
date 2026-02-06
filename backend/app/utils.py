@@ -2,13 +2,32 @@ import re
 from collections import Counter
 
 import polars as pl
+import matplotlib
+matplotlib.use('Agg')  # Set non-interactive backend for headless environments
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud, STOPWORDS
 
-def wordcloud(df, column="grievance", 
-                custom_stopwords=[]):
+def wordcloud(df, column="grievance",
+                custom_stopwords=[],
+                show=False):
     """
     Minimal word cloud from a Polars DataFrame column.
+
+    Parameters
+    ----------
+    df : pl.DataFrame | pl.LazyFrame
+        Input dataframe with text column
+    column : str
+        Name of text column
+    custom_stopwords : list[str]
+        Additional stopwords to filter
+    show : bool
+        Whether to display the plot (default: False for headless operation)
+
+    Returns
+    -------
+    WordCloud
+        Generated word cloud object (can be saved with .to_file())
     """
 
     # Pull text column (works for DataFrame or LazyFrame)
@@ -45,9 +64,14 @@ def wordcloud(df, column="grievance",
         collocations=False,
     ).generate_from_frequencies(freqs)
 
-    plt.figure(figsize=(10, 6))
-    plt.imshow(wc, interpolation="bilinear")
-    plt.axis("off")
-    plt.show()
+    # Only show plot if explicitly requested (not needed for headless saving)
+    if show:
+        plt.figure(figsize=(10, 6))
+        plt.imshow(wc, interpolation="bilinear")
+        plt.axis("off")
+        plt.show()
+
+    # Close any open figures to free memory in headless mode
+    plt.close('all')
 
     return wc

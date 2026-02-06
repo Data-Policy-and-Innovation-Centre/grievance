@@ -218,3 +218,7 @@ backend/coverage.lcov
 *.bin
 *.f32
 
+# Data
+*.xlsx
+*.png
+*.parquet

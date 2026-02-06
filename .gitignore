@@ -218,11 +218,14 @@ backend/coverage.lcov
 # Model artifacts
 *.bin
 *.f32
+*.pkl
 
 # Data
 *.xlsx
 *.png
 *.parquet
+backend/output/*.csv
+backend/output/ortps_analysis/*.csv
 
 # Tex
 *.aux

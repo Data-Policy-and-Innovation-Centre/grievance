@@ -837,11 +837,24 @@ def create_latex_wrapper(
 
 \subsection{Fiscal Year Aggregation}
 
-This table presents the aggregation of ORTPS-related grievances by fiscal year (July-June) and category.
+This table presents the aggregation of ORTPS-related grievances by fiscal year (July-June) and category for FY2023 onwards.
 
 \begin{landscape}
 \input{fiscal_year_aggregation_wide.tex}
 \end{landscape}
+
+\textbf{Key Findings (FY2023-2025):}
+\begin{itemize}
+    \item \textbf{Ration Card dominates ORTPS grievances:} Consistently the highest volume category across all fiscal years, with 8,593 complaints (3.13\% of total) in FY2023 growing to 15,052 (3.28\%) in FY2024---a 75\% year-over-year increase. This category alone represents over 3\% of all ORTPS-related grievances.
+
+    \item \textbf{Income Certificate shows dramatic FY2024 surge:} Volume increased 4.6$\times$ from FY2023 to FY2024 (338 $\rightarrow$ 1,542 complaints), with share nearly tripling from 0.12\% to 0.34\%. This sharp discontinuity warrants investigation into potential systemic issues, policy changes, or portal disruptions that emerged in FY2024.
+
+    \item \textbf{Scholarship complaints show sustained growth:} Volume increased 76\% from FY2023 to FY2024 (1,074 $\rightarrow$ 1,895), with share rising from 0.39\% to 0.41\%. This trend suggests increasing demand for scholarship services and growing awareness among beneficiaries.
+
+    \item \textbf{Caste Certificate growth lags overall trends:} While absolute numbers increased 27\% from FY2023 to FY2024 (600 $\rightarrow$ 760), the share declined from 0.22\% to 0.17\%, indicating this service is growing slower than overall ORTPS complaint volume.
+
+    \item \textbf{FY2025 data is partial (incomplete):} All categories show lower absolute counts relative to FY2023 and FY2024, but some percentage shares are elevated (e.g., Scholarship at 0.79\% vs. 0.41\% in FY2024), indicating that data collection for FY2025 is incomplete as the fiscal year is ongoing.
+\end{itemize}
 
 \newpage
 
@@ -849,7 +862,7 @@ This table presents the aggregation of ORTPS-related grievances by fiscal year (
 
 \subsection{Word Cloud Analysis}
 
-The following word clouds visualize the most frequent terms in grievance text for each ORTPS category across fiscal years.
+The following word clouds visualize the most frequent terms in grievance text for each ORTPS category for FY2023-24 and FY2024-25.
 
 """
 
@@ -886,6 +899,24 @@ The following word clouds visualize the most frequent terms in grievance text fo
         latex_content += f"""\\caption{{{display_name} Grievances}}
 \\label{{fig:{fig_label}}}
 \\end{{figure}}
+
+"""
+
+        # Add category-specific notes
+        if category == "Caste certificate":
+            latex_content += r"""\textbf{Note:} Word frequency analysis for FY2023-25 reveals common pain points in Caste Certificate processing. Look for terms related to application status, delays, document requirements, and verification processes. Cross-year comparison can identify persistent bottlenecks versus emerging issues.
+
+"""
+        elif category == "Income certificate":
+            latex_content += r"""\textbf{Note:} Given the 4.6$\times$ spike in FY2024 (Table \ref{tab:ortps_aggregation}), compare word clouds across years to identify new terms or increased frequency of specific issues that may explain this surge. Pay attention to portal-related terminology or policy changes.
+
+"""
+        elif category == "Scholarship":
+            latex_content += r"""\textbf{Note:} Scholarship complaints show consistent 76\% growth from FY2023-24. Word clouds may reveal seasonal patterns (academic calendar dependencies), common delays in disbursement, or eligibility verification issues. Terms related to deadlines and urgency are likely prominent.
+
+"""
+        elif category == "Ration Card":
+            latex_content += r"""\textbf{Note:} As the dominant ORTPS category with 75\% FY2023-24 growth, Ration Card word clouds are critical for understanding systemic service delivery challenges. Expect high frequency of terms related to updates, corrections, additions/deletions of members, and digitization issues (e.g., Aadhaar linking).
 
 """
 
@@ -1022,6 +1053,11 @@ def main():
         help="Skip embedding computation, use keyword matching only (fast mode, ~5 min)"
     )
     parser.add_argument(
+        "--generate-latex-wrapper",
+        action="store_true",
+        help="Generate LaTeX wrapper document (default: skip)"
+    )
+    parser.add_argument(
         "--sample-size",
         type=int,
         default=None,
@@ -1134,10 +1170,25 @@ def main():
     logger.info("=" * 80)
     df_en = add_fiscal_year(df_en, date_col="created_on")
 
-    # Year distribution
+    # Year distribution (before filtering)
     year_dist = df_en["july_year"].value_counts().sort("july_year")
-    logger.info("Fiscal year distribution:")
+    logger.info("Fiscal year distribution (all years in database):")
     for row in year_dist.iter_rows(named=True):
+        year = row["july_year"]
+        count = row["count"]
+        logger.info(f"  FY {year}-{year+1}: {count:,}")
+
+    # Filter to FY2023 onwards only
+    logger.info("=" * 80)
+    logger.info("Step 5b: Filtering to FY2023 onwards")
+    logger.info("=" * 80)
+    df_en = df_en.filter(pl.col("july_year") >= 2023)
+    logger.info(f"Complaints after filtering to FY2023+: {len(df_en):,}")
+
+    # Year distribution (after filtering)
+    year_dist_filtered = df_en["july_year"].value_counts().sort("july_year")
+    logger.info("Fiscal year distribution (filtered to FY2023+):")
+    for row in year_dist_filtered.iter_rows(named=True):
         year = row["july_year"]
         count = row["count"]
         logger.info(f"  FY {year}-{year+1}: {count:,}")
@@ -1170,13 +1221,16 @@ def main():
     export_latex_table(pivot_df, latex_path)
     logger.info(f"Saved: {latex_path.name}")
 
-    # Create LaTeX wrapper document
-    create_latex_wrapper(
-        output_dir=args.output_dir,
-        categories=categories,
-        fiscal_years=args.fiscal_years
-    )
-    logger.info(f"Created LaTeX wrapper: ortps_analysis.tex")
+    # Create LaTeX wrapper document (only if requested)
+    if args.generate_latex_wrapper:
+        create_latex_wrapper(
+            output_dir=args.output_dir,
+            categories=categories,
+            fiscal_years=args.fiscal_years
+        )
+        logger.info(f"Created LaTeX wrapper: ortps_analysis.tex")
+    else:
+        logger.info("Skipping LaTeX wrapper generation (use --generate-latex-wrapper to create)")
 
     # Display aggregation summary
     logger.info("Aggregation summary:")

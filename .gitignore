@@ -236,3 +236,6 @@ backend/output/ortps_analysis/*.csv
 *.fls
 *.lot
 *.fdb_latexmk
+
+# Documents
+*.docx

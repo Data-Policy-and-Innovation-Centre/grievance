@@ -128,32 +128,32 @@ def pivot_fiscal_aggregation(df: pl.DataFrame) -> pd.DataFrame:
     -------
     pd.DataFrame
         Wide format DataFrame with:
-        - Index: Fiscal Year (no commas)
-        - Columns: Multi-index (Category, Metric)
+        - Index: Category
+        - Columns: Multi-index (Fiscal Year, Metric)
         - Values: Properly formatted numbers
     """
     # Convert to pandas for multi-index support
     df_pd = df.to_pandas()
 
-    # Pivot to wide format
+    # Pivot to wide format (transposed: categories as rows, years as columns)
     wide = df_pd.pivot(
-        index="july_year",
-        columns="ortps_category",
+        index="ortps_category",
+        columns="july_year",
         values=["count", "share_pct"]
     )
 
-    # Reorder multi-index: (category, metric) instead of (metric, category)
+    # Reorder multi-index: (year, metric) instead of (metric, year)
     wide = wide.swaplevel(axis=1).sort_index(axis=1)
 
     # Rename columns for clarity
-    wide.columns.names = ["Category", "Metric"]
+    wide.columns.names = ["Fiscal Year", "Metric"]
     wide = wide.rename(columns={
         "count": "Count",
         "share_pct": "% of Total"
     }, level=1)
 
     # Rename index
-    wide.index.name = "Fiscal Year"
+    wide.index.name = "Category"
 
     return wide
 
@@ -248,14 +248,15 @@ def export_latex_table(
     Export multi-index DataFrame to LaTeX booktabs format.
 
     Handles multi-index columns with proper formatting:
-    - Top row: Category names with \multicolumn
+    - Top row: Fiscal Year with \multicolumn
     - Second row: Metric names (Count, % of Total)
+    - Index: Category names
     - Data rows: Formatted numbers (counts with commas, percentages with %)
 
     Parameters
     ----------
     df : pd.DataFrame
-        Multi-index DataFrame with (Category, Metric) columns
+        Multi-index DataFrame with (Fiscal Year, Metric) columns and Category index
     output_path : Path
         Output .tex file path
     caption : str
@@ -265,6 +266,9 @@ def export_latex_table(
     """
     # Fill NaN values with None so they render better
     df = df.fillna("")
+
+    # Escape & characters in index (category names) for LaTeX
+    df.index = df.index.str.replace("&", "\\&", regex=False)
 
     # Create formatters for each column
     # Note: We need to use closures to avoid late binding issues
@@ -276,7 +280,7 @@ def export_latex_table(
 
     formatters = {}
     for col in df.columns:
-        category, metric = col
+        year, metric = col
         if metric == "% of Total":
             formatters[col] = make_percent_formatter()
         else:  # Count
@@ -308,13 +312,13 @@ def export_latex_table(
                 improved_lines.append("\\bottomrule")
             else:
                 improved_lines.append("\\midrule")
-        # Add cmidrule after the category header row (first row with multicolumn)
+        # Add cmidrule after the fiscal year header row (first row with multicolumn)
         elif "\\multicolumn" in line and not found_category_row:
             improved_lines.append(line)
-            # Add cmidrule for each category pair of columns
+            # Add cmidrule for each fiscal year pair of columns (Count, % of Total)
             cmidrules = []
-            num_categories = len(df.columns) // 2
-            for idx in range(num_categories):
+            num_years = len(df.columns) // 2
+            for idx in range(num_years):
                 start_col = 2 + idx * 2
                 end_col = start_col + 1
                 cmidrules.append(f"\\cmidrule(lr){{{start_col}-{end_col}}}")
@@ -333,6 +337,72 @@ def export_latex_table(
     # Write to file
     with open(output_path, 'w') as f:
         f.write("\n".join(improved_lines))
+
+
+def export_latex_table_long(
+    df: pl.DataFrame,
+    output_path: Path,
+    caption: str = "ORTPS Category Aggregation by Fiscal Year",
+    label: str = "tab:ortps_aggregation"
+) -> None:
+    """
+    Export long format DataFrame to LaTeX longtable format.
+
+    Parameters
+    ----------
+    df : pl.DataFrame
+        Long format DataFrame with columns:
+        - july_year: Fiscal year
+        - ortps_category: Category name
+        - count: Number of grievances
+        - share_pct: Percentage share
+    output_path : Path
+        Output .tex file path
+    caption : str
+        Table caption
+    label : str
+        LaTeX label for cross-referencing
+    """
+    # Convert to pandas for to_latex
+    df_pd = df.to_pandas()
+
+    # Escape & characters in category names for LaTeX
+    df_pd["ortps_category"] = df_pd["ortps_category"].str.replace("&", "\\&", regex=False)
+
+    # Rename columns for display
+    df_pd = df_pd.rename(columns={
+        "july_year": "Fiscal Year",
+        "ortps_category": "Category",
+        "count": "Count",
+        "share_pct": "Share (\\%)"
+    })
+
+    # Select only the columns we want to display
+    df_pd = df_pd[["Fiscal Year", "Category", "Count", "Share (\\%)"]]
+
+    # Format the data
+    df_pd["Count"] = df_pd["Count"].apply(lambda x: f"{int(x):,}")
+    df_pd["Share (\\%)"] = df_pd["Share (\\%)"].apply(lambda x: f"{x:.2f}")
+
+    # Generate LaTeX using longtable for multi-page support
+    latex_str = df_pd.to_latex(
+        index=False,
+        caption=caption,
+        label=label,
+        position="htbp",
+        column_format="lp{7cm}rr",
+        escape=False,
+        longtable=True
+    )
+
+    # Replace \hline with booktabs commands
+    latex_str = latex_str.replace("\\hline", "\\toprule", 1)
+    latex_str = latex_str.replace("\\hline", "\\midrule", 1)
+    latex_str = latex_str.replace("\\hline", "\\bottomrule", 1)
+
+    # Write to file
+    with open(output_path, 'w') as f:
+        f.write(latex_str)
 
 
 def create_latex_wrapper(
@@ -377,7 +447,6 @@ def create_latex_wrapper(
 \usepackage[margin=1in]{geometry}
 \usepackage{hyperref}
 \usepackage{longtable}
-\usepackage{pdflscape}
 
 % Title information
 \title{ORTPS Analysis}
@@ -400,9 +469,7 @@ def create_latex_wrapper(
 
 This table presents the aggregation of ORTPS-related grievances by fiscal year (July-June) and category for FY2023 onwards.
 
-\begin{landscape}
-\input{fiscal_year_aggregation_wide.tex}
-\end{landscape}
+\input{fiscal_year_aggregation.tex}
 
 \textbf{Key Findings (FY2023-2025):}
 \begin{itemize}
@@ -730,10 +797,15 @@ def main():
     pivot_df.to_csv(csv_wide_path)
     logger.info(f"Saved: {csv_wide_path.name}")
 
-    # Save LaTeX version
-    latex_path = config.output_dir / "fiscal_year_aggregation_wide.tex"
-    export_latex_table(pivot_df, latex_path)
-    logger.info(f"Saved: {latex_path.name}")
+    # Save LaTeX version (wide format - for reference)
+    latex_wide_path = config.output_dir / "fiscal_year_aggregation_wide.tex"
+    export_latex_table(pivot_df, latex_wide_path)
+    logger.info(f"Saved: {latex_wide_path.name}")
+
+    # Save LaTeX version (long format - for main document)
+    latex_long_path = config.output_dir / "fiscal_year_aggregation_long.tex"
+    export_latex_table_long(agg_df, latex_long_path)
+    logger.info(f"Saved: {latex_long_path.name}")
 
     # Create LaTeX wrapper document (only if requested)
     if config.generate_latex_wrapper:

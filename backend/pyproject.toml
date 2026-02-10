@@ -96,6 +96,7 @@ dependencies = [
     "xlsxwriter>=3.2.9",
     "wordcloud>=1.9.6",
     "fasttext>=0.9.3",
+    "sf-hamilton>=1.82.0",
 ]
 
 [tool.setuptools.packages.find]

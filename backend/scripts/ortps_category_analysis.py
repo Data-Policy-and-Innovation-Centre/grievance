@@ -19,453 +19,15 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
-import pickle
-import re
 from pathlib import Path
-from typing import Literal
 
-import numpy as np
 import pandas as pd
 import polars as pl
 from loguru import logger
-from lingua import Language, LanguageDetectorBuilder
-from sentence_transformers import SentenceTransformer
 
 from app.config import directories, load_duckdb
+from app.pipelines.ortps.labelers import CategoryLabeler
 from app.utils import wordcloud
-
-
-class ImprovedLanguageDetector:
-    """
-    Improved two-stage language detection with tuned threshold.
-
-    Stage 1: Non-Latin script detection via regex
-    Stage 2: Lingua confidence threshold (lowered to 0.85 for better recall)
-    """
-
-    def __init__(self, confidence_threshold: float = 0.85):
-        """
-        Initialize language detector.
-
-        Parameters
-        ----------
-        confidence_threshold : float
-            Minimum confidence for English classification (default: 0.85)
-        """
-        # Non-Latin script patterns (Odia, Devanagari)
-        self.script_re = re.compile(r'[\u0B00-\u0B7F\u0900-\u097F]')
-
-        # Lingua detector with explicit language support
-        # Note: Odia is detected via script regex in Stage 1
-        self.detector = (
-            LanguageDetectorBuilder
-            .from_languages(Language.ENGLISH, Language.HINDI)
-            .with_minimum_relative_distance(0.2)
-            .build()
-        )
-
-        self.threshold = confidence_threshold
-
-    def detect_batch(
-        self,
-        texts: list[str | None]
-    ) -> tuple[list[str | None], dict[str, int]]:
-        """
-        Detect language for batch of texts.
-
-        Parameters
-        ----------
-        texts : list[str | None]
-            List of text strings to classify
-
-        Returns
-        -------
-        labels : list[str | None]
-            Language labels: 'en', 'non_en', or None
-        stats : dict[str, int]
-            Detection method distribution statistics
-        """
-        labels = [None] * len(texts)
-        stats = {
-            "script_filtered": 0,
-            "lingua_high_conf": 0,
-            "lingua_low_conf": 0,
-            "null": 0
-        }
-
-        # Stage 1: Script detection
-        latin_candidates = []
-        for i, t in enumerate(texts):
-            if t is None or not str(t).strip():
-                stats["null"] += 1
-                continue
-
-            s = str(t)
-            if self.script_re.search(s):
-                labels[i] = 'non_en'
-                stats["script_filtered"] += 1
-            else:
-                latin_candidates.append((i, s))
-
-        if not latin_candidates:
-            return labels, stats
-
-        # Stage 2: Lingua batch processing
-        idxs, vals = zip(*latin_candidates)
-        en_scores = self.detector.compute_language_confidence_in_parallel(
-            list(vals), Language.ENGLISH
-        )
-
-        for i, score in zip(idxs, en_scores):
-            if score >= self.threshold:
-                labels[i] = 'en'
-                stats["lingua_high_conf"] += 1
-            else:
-                labels[i] = 'non_en'
-                stats["lingua_low_conf"] += 1
-
-        return labels, stats
-
-
-class CategoryLabeler:
-    """
-    Hybrid category labeling: keyword matching + embedding similarity.
-
-    Categories:
-    - Caste certificate
-    - Income certificate
-    - Scholarship
-    - Ration Card
-    """
-
-    # Category-specific keywords (case-insensitive)
-    CATEGORY_KEYWORDS = {
-        "Caste certificate": [
-            "caste certificate", "sc certificate", "st certificate",
-            "obc certificate", "sebc certificate", "creamy layer",
-            "caste validity", "community certificate"
-        ],
-        "Income certificate": [
-            "income certificate", "annual income", "income proof",
-            "income verification", "family income"
-        ],
-        "Scholarship": [
-            "scholarship", "post matric", "pre matric", "oasis",
-            "national scholarship", "merit scholarship", "sc scholarship",
-            "st scholarship", "minority scholarship"
-        ],
-        "Ration Card": [
-            "ration card", "food security", "aay card", "bpl card",
-            "phh card", "antyodaya", "priority household", "pds card"
-        ]
-    }
-
-    def __init__(
-        self,
-        model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
-        similarity_threshold: float = 0.45,
-        device: str | None = None
-    ):
-        """
-        Initialize category labeler.
-
-        Parameters
-        ----------
-        model_name : str
-            SentenceTransformer model name
-        similarity_threshold : float
-            Minimum cosine similarity for embedding match
-        device : str | None
-            Device for model ("mps", "cuda", "cpu", or None for auto)
-        """
-        self.model_name = model_name
-        self.similarity_threshold = similarity_threshold
-        self.device = device
-        self._model = None  # Lazy loading
-
-    @property
-    def model(self):
-        """Lazy load the SentenceTransformer model."""
-        if self._model is None:
-            # Auto-detect device if not specified
-            device = self.device
-            if device is None:
-                import torch
-                if torch.backends.mps.is_available():
-                    device = "mps"
-                elif torch.cuda.is_available():
-                    device = "cuda"
-                else:
-                    device = "cpu"
-
-            logger.info(f"Loading SentenceTransformer on device: {device}")
-            self._model = SentenceTransformer(self.model_name, device=device)
-
-        return self._model
-
-    def label_dataframe(
-        self,
-        df: pl.DataFrame,
-        text_col: str = "grievance",
-        method: Literal["keyword", "embedding", "hybrid"] = "hybrid"
-    ) -> pl.DataFrame:
-        """
-        Add category label columns to DataFrame.
-
-        Parameters
-        ----------
-        df : pl.DataFrame
-            Input DataFrame with text column
-        text_col : str
-            Name of text column to analyze
-        method : {"keyword", "embedding", "hybrid"}
-            Labeling method to use
-
-        Returns
-        -------
-        pl.DataFrame
-            DataFrame with new columns:
-            - ortps_category: Matched category name
-            - ortps_method: Detection method (keyword/embedding/none)
-            - ortps_confidence: Similarity score (for embedding matches)
-        """
-        if method in ["keyword", "hybrid"]:
-            df = self._add_keyword_labels(df, text_col)
-
-        if method in ["embedding", "hybrid"]:
-            # Only embed texts without keyword matches
-            if method == "hybrid":
-                mask = pl.col("ortps_category").is_null()
-                df_to_embed = df.filter(mask)
-
-                if len(df_to_embed) > 0:
-                    logger.info(
-                        f"Running embedding on {len(df_to_embed):,} "
-                        f"unmatched texts ({len(df_to_embed)/len(df)*100:.1f}%)"
-                    )
-                    df = self._add_embedding_labels(df, df_to_embed, text_col)
-            else:
-                logger.info(f"Running embedding on all {len(df):,} texts")
-                df = self._add_embedding_labels(df, df, text_col)
-
-        return df
-
-    def _add_keyword_labels(
-        self,
-        df: pl.DataFrame,
-        text_col: str
-    ) -> pl.DataFrame:
-        """Pattern matching using Polars expressions."""
-        # Create conditions for each category
-        conditions = []
-        for category, keywords in self.CATEGORY_KEYWORDS.items():
-            # Combine all keywords for this category with OR
-            keyword_conditions = [
-                pl.col(text_col).str.to_lowercase().str.contains(kw.lower())
-                for kw in keywords
-            ]
-
-            # Start with first condition
-            combined = keyword_conditions[0]
-            for cond in keyword_conditions[1:]:
-                combined = combined | cond
-
-            conditions.append((combined, category))
-
-        # Build cascading when/then/otherwise chain
-        category_expr = pl.lit(None)
-        for condition, category in reversed(conditions):
-            category_expr = pl.when(condition).then(pl.lit(category)).otherwise(category_expr)
-
-        # Add columns
-        df = df.with_columns([
-            category_expr.alias("ortps_category"),
-            pl.when(category_expr.is_not_null())
-            .then(pl.lit("keyword"))
-            .otherwise(None)
-            .alias("ortps_method"),
-            pl.lit(None, dtype=pl.Float64).alias("ortps_confidence")
-        ])
-
-        # Log statistics
-        matched = df.filter(pl.col("ortps_method") == "keyword")
-        logger.info(
-            f"Keyword matching: {len(matched):,} texts matched "
-            f"({len(matched)/len(df)*100:.1f}%)"
-        )
-
-        return df
-
-    def _compute_text_hash(self, texts: list[str]) -> str:
-        """Compute hash of texts for cache validation."""
-        # Sample first 1000 texts for efficient hashing
-        sample = texts[:min(1000, len(texts))]
-        text_str = "||".join(str(t) for t in sample)
-        return hashlib.md5(text_str.encode()).hexdigest()
-
-    def _get_cache_path(self, text_hash: str) -> Path:
-        """Get cache file path in directories.MODELS."""
-        # Include model name in cache filename
-        model_slug = self.model_name.replace("/", "_").replace("-", "_")
-        return directories.MODELS / f"ortps_embeddings_{model_slug}_{text_hash}.pkl"
-
-    def _save_embeddings_cache(
-        self,
-        embeddings: np.ndarray,
-        texts: list[str],
-        text_hash: str
-    ):
-        """Save embeddings to cache."""
-        cache_path = self._get_cache_path(text_hash)
-        cache_data = {
-            "embeddings": embeddings,
-            "model_name": self.model_name,
-            "text_hash": text_hash,
-            "num_texts": len(texts),
-            "embedding_dim": embeddings.shape[1]
-        }
-        with open(cache_path, "wb") as f:
-            pickle.dump(cache_data, f, protocol=pickle.HIGHEST_PROTOCOL)
-        logger.info(f"Saved embeddings to cache: {cache_path.name}")
-
-    def _load_embeddings_cache(self, text_hash: str) -> np.ndarray | None:
-        """Load embeddings from cache if available."""
-        cache_path = self._get_cache_path(text_hash)
-        if not cache_path.exists():
-            return None
-
-        try:
-            with open(cache_path, "rb") as f:
-                cache_data = pickle.load(f)
-
-            # Validate cache
-            if cache_data["model_name"] != self.model_name:
-                logger.warning(
-                    f"Cache model mismatch: {cache_data['model_name']} != {self.model_name}"
-                )
-                return None
-
-            if cache_data["text_hash"] != text_hash:
-                logger.warning("Cache hash mismatch")
-                return None
-
-            logger.info(
-                f"Loaded embeddings from cache: {cache_path.name} "
-                f"({cache_data['num_texts']:,} texts, dim={cache_data['embedding_dim']})"
-            )
-            return cache_data["embeddings"]
-
-        except Exception as e:
-            logger.warning(f"Failed to load cache: {e}")
-            return None
-
-    def _add_embedding_labels(
-        self,
-        df: pl.DataFrame,
-        df_to_embed: pl.DataFrame,
-        text_col: str
-    ) -> pl.DataFrame:
-        """Embedding similarity for unmatched texts."""
-        # Encode category labels
-        categories = list(self.CATEGORY_KEYWORDS.keys())
-        logger.info("Encoding category labels...")
-        category_emb = self.model.encode(
-            categories,
-            normalize_embeddings=True,
-            show_progress_bar=False
-        )
-
-        # Get texts and compute hash
-        texts = df_to_embed[text_col].to_list()
-        text_hash = self._compute_text_hash(texts)
-
-        # Try to load from cache
-        text_emb = self._load_embeddings_cache(text_hash)
-
-        if text_emb is None:
-            # Encode texts in batches
-            logger.info(f"Encoding {len(texts):,} texts (not in cache)...")
-            text_emb = self.model.encode(
-                texts,
-                normalize_embeddings=True,
-                batch_size=256,
-                show_progress_bar=True
-            )
-            # Save to cache
-            self._save_embeddings_cache(text_emb, texts, text_hash)
-        else:
-            logger.info(f"Using cached embeddings for {len(texts):,} texts")
-
-        # Compute similarities
-        similarities = np.dot(text_emb, category_emb.T)  # (N, 4)
-        max_sims = similarities.max(axis=1)
-        max_indices = similarities.argmax(axis=1)
-
-        # Filter by threshold
-        above_threshold = max_sims >= self.similarity_threshold
-
-        # Create mapping for above-threshold matches
-        embedding_results = []
-        for i, (sim, cat_idx, above_thresh) in enumerate(
-            zip(max_sims, max_indices, above_threshold)
-        ):
-            if above_thresh:
-                embedding_results.append({
-                    "category": categories[cat_idx],
-                    "method": "embedding",
-                    "confidence": float(sim)
-                })
-            else:
-                embedding_results.append({
-                    "category": None,
-                    "method": None,
-                    "confidence": None
-                })
-
-        # Create DataFrame with embedding results
-        embedding_df = pl.DataFrame(embedding_results).rename({
-            "category": "emb_category",
-            "method": "emb_method",
-            "confidence": "emb_confidence"
-        })
-
-        # Join back to df_to_embed
-        df_to_embed = df_to_embed.with_columns(
-            pl.int_range(0, pl.len()).alias("_embed_idx")
-        )
-        embedding_df = embedding_df.with_columns(
-            pl.int_range(0, pl.len()).alias("_embed_idx")
-        )
-        df_to_embed = df_to_embed.join(embedding_df, on="_embed_idx", how="left")
-
-        # Update original columns
-        df_to_embed = df_to_embed.with_columns([
-            pl.coalesce([pl.col("ortps_category"), pl.col("emb_category")]).alias("ortps_category"),
-            pl.coalesce([pl.col("ortps_method"), pl.col("emb_method")]).alias("ortps_method"),
-            pl.coalesce([pl.col("ortps_confidence"), pl.col("emb_confidence")]).alias("ortps_confidence")
-        ]).drop(["_embed_idx", "emb_category", "emb_method", "emb_confidence"])
-
-        # Merge back with original DataFrame
-        # For rows that were embedded, update their values
-        if "ortps_category" not in df.columns:
-            df = df.with_columns([
-                pl.lit(None).alias("ortps_category"),
-                pl.lit(None).alias("ortps_method"),
-                pl.lit(None, dtype=pl.Float64).alias("ortps_confidence")
-            ])
-
-        # Update rows that were processed
-        df = df.update(df_to_embed)
-
-        # Log statistics
-        matched = above_threshold.sum()
-        logger.info(
-            f"Embedding matching: {matched:,} texts matched "
-            f"({matched/len(texts)*100:.1f}% of processed)"
-        )
-
-        return df
 
 
 def add_fiscal_year(
@@ -1067,14 +629,11 @@ def main():
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Handle --skip-embeddings flag
-    if args.skip_embeddings:
-        if args.labeling_method != "keyword":
-            logger.warning(
-                f"--skip-embeddings flag set, overriding "
-                f"--labeling-method {args.labeling_method} → keyword"
-            )
-        args.labeling_method = "keyword"
+    # Validate config with Pydantic
+    from app.pipelines.ortps.config import OrtpsPipelineConfig
+    from app.pipelines.ortps import run_pipeline
+
+    config = OrtpsPipelineConfig.from_argparse(args)
 
     # Set up logging
     log_file = args.output_dir / "ortps_analysis.log"
@@ -1083,86 +642,34 @@ def main():
     logger.info("ORTPS Category Analysis Pipeline")
     logger.info("=" * 80)
     logger.info(f"Configuration:")
-    logger.info(f"  Database: {args.db_path}")
-    logger.info(f"  Output: {args.output_dir}")
-    logger.info(f"  Labeling method: {args.labeling_method}")
-    if args.skip_embeddings:
+    logger.info(f"  Database: {config.db_path}")
+    logger.info(f"  Output: {config.output_dir}")
+    logger.info(f"  Labeling method: {config.labeling.labeling_method}")
+    if config.skip_embeddings:
         logger.info(f"  Mode: FAST (embeddings skipped)")
-    logger.info(f"  Fiscal years: {args.fiscal_years}")
-    logger.info(f"  Lingua threshold: {args.lingua_threshold}")
-    logger.info(f"  Embedding threshold: {args.embedding_threshold}")
+    logger.info(f"  Fiscal years: {config.fiscal_years}")
+    logger.info(f"  Lingua threshold: {config.lang.lingua_threshold}")
+    logger.info(f"  Embedding threshold: {config.labeling.embedding_threshold}")
 
     # 1. Load data
     logger.info("=" * 80)
     logger.info("Step 1: Loading complaints from database")
     logger.info("=" * 80)
-    df = load_duckdb(args.db_path, output_format="polars")
+    df = load_duckdb(config.db_path, output_format="polars")
     logger.info(f"Loaded {len(df):,} complaints")
 
     # Sample if requested
-    if args.sample_size is not None:
-        logger.info(f"Sampling {args.sample_size:,} complaints for testing")
-        df = df.sample(n=min(args.sample_size, len(df)), seed=42)
+    if config.sample_size is not None:
+        logger.info(f"Sampling {config.sample_size:,} complaints for testing")
+        df = df.sample(n=min(config.sample_size, len(df)), seed=42)
         logger.info(f"Sample size: {len(df):,}")
 
-    # 2. Language detection
+    # 2-4. Language detection + English filtering + Category labeling (Hamilton)
     logger.info("=" * 80)
-    logger.info("Step 2: Detecting language (2-stage improved)")
+    logger.info("Steps 2-4: Running Hamilton pipeline (lang detection + labeling)")
     logger.info("=" * 80)
-    detector = ImprovedLanguageDetector(confidence_threshold=args.lingua_threshold)
-    labels, stats = detector.detect_batch(df["grievance"].to_list())
-    df = df.with_columns(pl.Series("grievance_lang", labels))
-
-    logger.info("Language detection statistics:")
-    for method, count in stats.items():
-        logger.info(f"  {method}: {count:,} ({count/len(df)*100:.2f}%)")
-
-    # Distribution
-    lang_dist = df["grievance_lang"].value_counts().sort("grievance_lang")
-    logger.info("Language distribution:")
-    for row in lang_dist.iter_rows(named=True):
-        lang = row["grievance_lang"]
-        count = row["count"]
-        logger.info(f"  {lang}: {count:,} ({count/len(df)*100:.2f}%)")
-
-    # 3. Filter to English
-    logger.info("=" * 80)
-    logger.info("Step 3: Filtering to English complaints")
-    logger.info("=" * 80)
-    df_en = df.filter(pl.col("grievance_lang") == "en")
-    logger.info(
-        f"English complaints: {len(df_en):,} ({len(df_en)/len(df)*100:.1f}%)"
-    )
-
-    # 4. Category labeling
-    logger.info("=" * 80)
-    logger.info(f"Step 4: Labeling categories ({args.labeling_method} method)")
-    if args.labeling_method == "keyword":
-        logger.info("Using keyword-only matching (embeddings skipped - FAST MODE)")
-    logger.info("=" * 80)
-    labeler = CategoryLabeler(similarity_threshold=args.embedding_threshold)
-    df_en = labeler.label_dataframe(df_en, method=args.labeling_method)
-
-    # Category distribution
-    categories = ["Caste certificate", "Income certificate", "Scholarship", "Ration Card"]
-    category_dist = (
-        df_en["ortps_category"]
-        .value_counts()
-        .sort("ortps_category")
-    )
-    logger.info("Category distribution:")
-    for row in category_dist.iter_rows(named=True):
-        cat = row["ortps_category"]
-        count = row["count"]
-        logger.info(f"  {cat}: {count:,} ({count/len(df_en)*100:.2f}%)")
-
-    # Method distribution
-    method_dist = df_en["ortps_method"].value_counts().sort("ortps_method")
-    logger.info("Labeling method distribution:")
-    for row in method_dist.iter_rows(named=True):
-        method = row["ortps_method"]
-        count = row["count"]
-        logger.info(f"  {method}: {count:,} ({count/len(df_en)*100:.2f}%)")
+    result = run_pipeline(df, config)
+    df_en = result["df_labeled"]
 
     # 5. Fiscal year aggregation
     logger.info("=" * 80)
@@ -1185,6 +692,14 @@ def main():
     df_en = df_en.filter(pl.col("july_year") >= 2023)
     logger.info(f"Complaints after filtering to FY2023+: {len(df_en):,}")
 
+    categories = (
+        df_en["ortps_category"]
+        .drop_nulls()
+        .unique()
+        .sort()
+        .to_list()
+    )
+
     # Year distribution (after filtering)
     year_dist_filtered = df_en["july_year"].value_counts().sort("july_year")
     logger.info("Fiscal year distribution (filtered to FY2023+):")
@@ -1199,7 +714,7 @@ def main():
     agg_df = aggregate_by_fiscal_year(df_en, categories)
 
     # Save aggregation tables
-    csv_long_path = args.output_dir / "fiscal_year_aggregation.csv"
+    csv_long_path = config.output_dir / "fiscal_year_aggregation.csv"
     agg_df.write_csv(csv_long_path)
     logger.info(f"Saved: {csv_long_path.name}")
 
@@ -1207,26 +722,26 @@ def main():
     pivot_df = pivot_fiscal_aggregation(agg_df)
 
     # Save Excel with formatting
-    excel_path = args.output_dir / "fiscal_year_aggregation_wide.xlsx"
+    excel_path = config.output_dir / "fiscal_year_aggregation_wide.xlsx"
     format_excel_output(pivot_df, excel_path)
     logger.info(f"Saved: {excel_path.name}")
 
     # Save CSV version (without special formatting)
-    csv_wide_path = args.output_dir / "fiscal_year_aggregation_wide.csv"
+    csv_wide_path = config.output_dir / "fiscal_year_aggregation_wide.csv"
     pivot_df.to_csv(csv_wide_path)
     logger.info(f"Saved: {csv_wide_path.name}")
 
     # Save LaTeX version
-    latex_path = args.output_dir / "fiscal_year_aggregation_wide.tex"
+    latex_path = config.output_dir / "fiscal_year_aggregation_wide.tex"
     export_latex_table(pivot_df, latex_path)
     logger.info(f"Saved: {latex_path.name}")
 
     # Create LaTeX wrapper document (only if requested)
-    if args.generate_latex_wrapper:
+    if config.generate_latex_wrapper:
         create_latex_wrapper(
-            output_dir=args.output_dir,
+            output_dir=config.output_dir,
             categories=categories,
-            fiscal_years=args.fiscal_years
+            fiscal_years=config.fiscal_years
         )
         logger.info(f"Created LaTeX wrapper: ortps_analysis.tex")
     else:
@@ -1237,15 +752,15 @@ def main():
     logger.info(f"\n{agg_df}")
 
     # 6. Word clouds
-    if not args.skip_wordclouds:
+    if not config.skip_wordclouds:
         logger.info("=" * 80)
         logger.info("Step 7: Generating word clouds")
         logger.info("=" * 80)
         wordcloud_paths = generate_fiscal_wordclouds(
             df_en,
             categories=categories,
-            fiscal_years=args.fiscal_years,
-            output_dir=args.output_dir / "wordclouds",
+            fiscal_years=config.fiscal_years,
+            output_dir=config.output_dir / "wordclouds",
             text_col="grievance"
         )
         logger.info(f"Generated {len(wordcloud_paths)} word clouds")
@@ -1256,15 +771,17 @@ def main():
     logger.info("=" * 80)
     logger.info("Step 8: Saving labeled dataset")
     logger.info("=" * 80)
-    output_parquet = args.output_dir / "complaints_labeled.parquet"
+    output_parquet = (
+        directories.INTERIM / "grievance_complaints_lang_labelled.parquet"
+    )
     df_en.write_parquet(output_parquet)
-    logger.info(f"Saved: {output_parquet.name} ({len(df_en):,} rows)")
+    logger.info(f"Saved: {output_parquet} ({len(df_en):,} rows)")
 
     # Final summary
     logger.info("=" * 80)
     logger.info("Pipeline complete!")
     logger.info("=" * 80)
-    logger.info(f"Output directory: {args.output_dir}")
+    logger.info(f"Output directory: {config.output_dir}")
     logger.info(f"Total English complaints: {len(df_en):,}")
     labeled_count = df_en.filter(pl.col("ortps_category").is_not_null()).shape[0]
     logger.info(

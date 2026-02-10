@@ -771,7 +771,7 @@ def main():
     logger.info("Step 8: Saving labeled dataset")
     logger.info("=" * 80)
     output_parquet = (
-        directories.INTERIM / "grievance_complaints_lang_labelled.parquet"
+        directories.INTERIM / "grievance_complaints_ortps_labelled_fy2023.parquet"
     )
     df_en.write_parquet(output_parquet)
     logger.info(f"Saved: {output_parquet} ({len(df_en):,} rows)")

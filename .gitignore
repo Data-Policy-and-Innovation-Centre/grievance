@@ -239,3 +239,4 @@ backend/output/ortps_analysis/*.csv
 
 # Documents
 *.docx
+*.txt

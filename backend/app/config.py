@@ -22,6 +22,7 @@ class Directories:
         DATA (Path): The directory containing data.
         RAW_DATA (Path): The directory containing raw data.
         PROCESSED_DATA (Path): The directory containing processed data.
+        INTERIM (Path): The directory containing interim data artifacts.
         LOGS (Path): The directory containing logs.
     """
 
@@ -29,6 +30,7 @@ class Directories:
     DATA = ROOT_DIR / "data"
     RAW_DATA = DATA / "raw"
     PROCESSED_DATA = DATA / "processed"
+    INTERIM = DATA / "interim"
     LOGS = ROOT_DIR / "logs"
     OUTPUT = ROOT_DIR / "output"
     TABLES = OUTPUT / "tables"
@@ -40,6 +42,7 @@ class Directories:
             self.DATA,
             self.RAW_DATA,
             self.PROCESSED_DATA,
+            self.INTERIM,
             self.LOGS,
             self.OUTPUT,
             self.TABLES,

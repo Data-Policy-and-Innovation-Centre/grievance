@@ -428,7 +428,16 @@ class CategoryLabeler:
                 })
 
         # Create DataFrame with embedding results
-        embedding_df = pl.DataFrame(embedding_results).rename({
+        # Explicitly specify schema to avoid Polars schema inference issues
+        # when first rows are all None (above_threshold=False)
+        embedding_df = pl.DataFrame(
+            embedding_results,
+            schema={
+                "category": pl.String,
+                "method": pl.String,
+                "confidence": pl.Float64
+            }
+        ).rename({
             "category": "emb_category",
             "method": "emb_method",
             "confidence": "emb_confidence"

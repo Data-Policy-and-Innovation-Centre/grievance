@@ -33,7 +33,7 @@ class CategoryLabelingConfig(BaseModel):
         description="SentenceTransformer model identifier",
     )
     embedding_threshold: float = Field(
-        default=0.45,
+        default=0.6,
         ge=0.0,
         le=1.0,
         description="Minimum cosine similarity for embedding match",

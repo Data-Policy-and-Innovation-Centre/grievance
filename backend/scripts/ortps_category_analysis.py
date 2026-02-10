@@ -4,7 +4,7 @@ ORTPS Category Analysis Pipeline
 
 Analyzes grievance text for ORTPS-related categories:
 - Improved language detection (2-stage with tuned threshold)
-- Category labeling (Caste/Income/Scholarship/Ration Card) using hybrid approach
+- Category labeling (expanded ORTPS services) using hybrid approach
 - Fiscal year aggregation (July-June)
 - Word cloud generation per category per FY
 
@@ -26,7 +26,6 @@ import polars as pl
 from loguru import logger
 
 from app.config import directories, load_duckdb
-from app.pipelines.ortps.labelers import CategoryLabeler
 from app.utils import wordcloud
 
 

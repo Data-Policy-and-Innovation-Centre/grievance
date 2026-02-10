@@ -20,32 +20,149 @@ class CategoryLabeler:
     Hybrid category labeling: keyword matching + embedding similarity.
 
     Categories:
-    - Caste certificate
-    - Income certificate
-    - Scholarship
-    - Ration Card
+    - See CATEGORY_KEYWORDS for the full ORTPS service list.
     """
 
-    # Category-specific keywords (case-insensitive)
+    # Category-specific keywords (case-insensitive), grouped by department.
     CATEGORY_KEYWORDS = {
-        "Caste certificate": [
+        "Revenue - Certificates": [
+            # Caste certificate
             "caste certificate", "sc certificate", "st certificate",
             "obc certificate", "sebc certificate", "creamy layer",
-            "caste validity", "community certificate"
-        ],
-        "Income certificate": [
+            "caste validity", "community certificate",
+            # Legal Heir Certificate
+            "legal heir certificate", "legal heir", "heir certificate",
+            "legal heirship",
+            # Income certificate
             "income certificate", "annual income", "income proof",
-            "income verification", "family income"
+            "income verification", "family income",
+            # Income & Asset certificate (EWS)
+            "income and asset certificate", "income & asset certificate",
+            "income asset certificate", "ews certificate",
+            "ews income", "ews income certificate",
         ],
-        "Scholarship": [
+        "Revenue - Land": [
+            # Certified copy of RoR
+            "certified copy of ror", "ror copy", "ror certified copy",
+            "record of rights", "record of rights copy",
+            # Encumbrance certificate
+            "encumbrance certificate", "ec certificate",
+            # Mutation cases
+            "uncontested mutation", "mutation case disposal",
+            "mutation disposal",
+            # Mutation order of leasehold land
+            "mutation order of leasehold",
+            "leasehold mutation order", "leasehold mutation",
+            # Conversion of land (OLR Act Sec.8)
+            "olr act section 8", "section 8 olr",
+            "conversion under olr", "olr section 8",
+            # Conversion order of leasehold land
+            "conversion order of leasehold",
+            "leasehold conversion", "conversion of leasehold land",
+            # Partition of land (OLR Act Sec.19)
+            "partition of land", "olr act section 19",
+            "section 19 olr", "mutual consent partition",
+        ],
+        "Registration & Stamps": [
+            # Certified copy of registered documents
+            "certified copy of registered document",
+            "copy of registered document",
+            "registered document copy",
+            "registered deed copy", "certified copy of deed",
+            # Registration of property transfer documents
+            "registration of documents", "property registration",
+            "document registration", "deed registration",
+            "sale deed registration", "transfer of immovable property",
+        ],
+        "Transport - Driving Licence": [
+            # Change of address in driving licence
+            "change of address in driving licence",
+            "address change in dl", "dl address change",
+            "address change driving licence",
+            # Driving licence renewal
+            "renewal of driving licence", "driving licence renewal",
+            "dl renewal", "renew dl",
+            # Learner's licence
+            "learner's licence", "learner licence",
+            "learner license", "ll licence", "ll license",
+            "learner's license",
+            # Driving licence (general)
+            "driving licence", "driving license",
+            "issue of driving licence", "dl issue", "dl application",
+        ],
+        "Transport - Vehicle": [
+            # Certified copy of vehicle registration certificate
+            "certified copy of registration certificate",
+            "registration certificate copy",
+            "vehicle registration certificate",
+            "vehicle rc", "rc copy", "rc book",
+            # Transfer of vehicle ownership
+            "transfer of vehicle ownership", "ownership transfer",
+            "vehicle ownership transfer", "rc transfer",
+            "transfer of ownership of vehicle",
+        ],
+        "Police": [
+            # Employee verification request
+            "employee verification", "employment verification",
+            "employee antecedent",
+            # Character/Antecedent verification
+            "character verification", "antecedent verification",
+            "police verification", "antecedent check",
+            # Copy of FIR
+            "copy of fir", "fir copy", "first information report",
+            "fir certified copy",
+        ],
+        "Municipal - Building": [
+            # Building plan approval
+            "building plan approval", "building plan sanction",
+            "building plan", "plan approval by ulb",
+            "bda approval", "bmc approval", "development authority approval",
+            # Permission for addition/alteration
+            "addition/alteration", "addition alteration",
+            "alteration permission", "addition permission",
+            "building alteration",
+            # Fire safety recommendation/certificate
+            "fire safety recommendation", "fire safety certificate",
+            "fire safety noc", "fsr", "fire noc",
+            # Mortgage permission
+            "mortgage permission", "permission for mortgage",
+            "mortgage noc", "mortgage approval",
+            # Conveyance deed
+            "conveyance deed", "issue of conveyance",
+            "conveyance certificate",
+        ],
+        "Municipal - Civic": [
+            # Birth and Death certificate
+            "birth certificate", "death certificate",
+            "birth and death certificate",
+            # Marriage certificate
+            "marriage certificate", "marriage registration",
+            # Trade licence
+            "trade licence", "trade license",
+            "trade licence provisional", "trade licence final",
+            "trade license provisional", "trade license final",
+            "ulb trade licence",
+        ],
+        "Welfare": [
+            # Scholarship
             "scholarship", "post matric", "pre matric", "oasis",
             "national scholarship", "merit scholarship", "sc scholarship",
-            "st scholarship", "minority scholarship"
-        ],
-        "Ration Card": [
+            "st scholarship", "minority scholarship",
+            "sanction of scholarship",
+            # Ration Card
             "ration card", "food security", "aay card", "bpl card",
-            "phh card", "antyodaya", "priority household", "pds card"
-        ]
+            "phh card", "antyodaya", "priority household", "pds card",
+        ],
+        "Utilities": [
+            # Pipe water connection
+            "pipe water connection", "piped water connection",
+            "water connection", "bmc water connection",
+            "cmc water connection", "bemc water connection",
+            # New power connection (non-industrial)
+            "new power connection", "new electricity connection",
+            "electricity connection", "power connection",
+            "non industrial power",
+        ],
     }
 
     def __init__(
@@ -285,7 +402,7 @@ class CategoryLabeler:
             logger.info(f"Using cached embeddings for {len(texts):,} texts")
 
         # Compute similarities
-        similarities = np.dot(text_emb, category_emb.T)  # (N, 4)
+        similarities = np.dot(text_emb, category_emb.T)  # (N, num_categories)
         max_sims = similarities.max(axis=1)
         max_indices = similarities.argmax(axis=1)
 

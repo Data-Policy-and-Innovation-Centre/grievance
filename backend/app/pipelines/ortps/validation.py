@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 import polars as pl
 from loguru import logger
 
+from app.pipelines.ortps.labelers import CategoryLabeler
 
 @dataclass
 class ColumnSpec:
@@ -144,12 +145,7 @@ CATEGORY_LABELING_CONTRACT = DataFrameContract(
             "ortps_category",
             pl.String,
             nullable=True,
-            allowed_values={
-                "Caste certificate",
-                "Income certificate",
-                "Scholarship",
-                "Ration Card",
-            },
+            allowed_values=set(CategoryLabeler.CATEGORY_KEYWORDS.keys()),
         ),
         ColumnSpec(
             "ortps_method",

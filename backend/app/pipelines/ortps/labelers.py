@@ -23,9 +23,9 @@ class CategoryLabeler:
     - See CATEGORY_KEYWORDS for the full ORTPS service list.
     """
 
-    # Category-specific keywords (case-insensitive), grouped by department.
+    # Category-specific keywords (case-insensitive), grouped by issue type.
     CATEGORY_KEYWORDS = {
-        "Revenue - Certificates": [
+        "Identity & Social Certificates": [
             # Caste certificate
             "caste certificate", "sc certificate", "st certificate",
             "obc certificate", "sebc certificate", "creamy layer",
@@ -33,6 +33,13 @@ class CategoryLabeler:
             # Legal Heir Certificate
             "legal heir certificate", "legal heir", "heir certificate",
             "legal heirship",
+            # Birth and Death certificate
+            "birth certificate", "death certificate",
+            "birth and death certificate",
+            # Marriage certificate
+            "marriage certificate", "marriage registration",
+        ],
+        "Income & Welfare Benefits": [
             # Income certificate
             "income certificate", "annual income", "income proof",
             "income verification", "family income",
@@ -40,14 +47,41 @@ class CategoryLabeler:
             "income and asset certificate", "income & asset certificate",
             "income asset certificate", "ews certificate",
             "ews income", "ews income certificate",
+            # Scholarship
+            "scholarship", "post matric", "pre matric", "oasis",
+            "national scholarship", "merit scholarship", "sc scholarship",
+            "st scholarship", "minority scholarship",
+            "sanction of scholarship",
+            # Ration Card
+            "ration card", "food security", "aay card", "bpl card",
+            "phh card", "antyodaya", "priority household", "pds card",
         ],
-        "Revenue - Land": [
+        "Land Records": [
             # Certified copy of RoR
             "certified copy of ror", "ror copy", "ror certified copy",
             "record of rights", "record of rights copy",
             # Encumbrance certificate
             "encumbrance certificate", "ec certificate",
-            # Mutation cases
+        ],
+        "Land Transactions": [
+            # Certified copy of registered documents
+            "certified copy of registered document",
+            "copy of registered document",
+            "registered document copy",
+            "registered deed copy", "certified copy of deed",
+            # Registration of property transfer documents
+            "registration of documents", "property registration",
+            "document registration", "deed registration",
+            "sale deed registration", "transfer of immovable property",
+            # Mortgage permission
+            "mortgage permission", "permission for mortgage",
+            "mortgage noc", "mortgage approval",
+            # Conveyance deed
+            "conveyance deed", "issue of conveyance",
+            "conveyance certificate",
+        ],
+        "Land Use Changes": [
+            # Disposal of uncontested mutation cases
             "uncontested mutation", "mutation case disposal",
             "mutation disposal",
             # Mutation order of leasehold land
@@ -63,18 +97,30 @@ class CategoryLabeler:
             "partition of land", "olr act section 19",
             "section 19 olr", "mutual consent partition",
         ],
-        "Registration & Stamps": [
-            # Certified copy of registered documents
-            "certified copy of registered document",
-            "copy of registered document",
-            "registered document copy",
-            "registered deed copy", "certified copy of deed",
-            # Registration of property transfer documents
-            "registration of documents", "property registration",
-            "document registration", "deed registration",
-            "sale deed registration", "transfer of immovable property",
+        "Building & Construction": [
+            # Building plan approval
+            "building plan approval", "building plan sanction",
+            "building plan", "plan approval by ulb",
+            "bda approval", "bmc approval", "development authority approval",
+            # Permission for addition/alteration
+            "addition/alteration", "addition alteration",
+            "alteration permission", "addition permission",
+            "building alteration",
+            # Fire safety recommendation/certificate
+            "fire safety recommendation", "fire safety certificate",
+            "fire safety noc", "fsr", "fire noc",
         ],
-        "Transport - Driving Licence": [
+        "Utilities & Connections": [
+            # Pipe water connection
+            "pipe water connection", "piped water connection",
+            "water connection", "bmc water connection",
+            "cmc water connection", "bemc water connection",
+            # New power connection (non-industrial)
+            "new power connection", "new electricity connection",
+            "electricity connection", "power connection",
+            "non industrial power",
+        ],
+        "Driving Licences": [
             # Change of address in driving licence
             "change of address in driving licence",
             "address change in dl", "dl address change",
@@ -90,7 +136,7 @@ class CategoryLabeler:
             "driving licence", "driving license",
             "issue of driving licence", "dl issue", "dl application",
         ],
-        "Transport - Vehicle": [
+        "Vehicle Services": [
             # Certified copy of vehicle registration certificate
             "certified copy of registration certificate",
             "registration certificate copy",
@@ -101,7 +147,7 @@ class CategoryLabeler:
             "vehicle ownership transfer", "rc transfer",
             "transfer of ownership of vehicle",
         ],
-        "Police": [
+        "Verification & Legal": [
             # Employee verification request
             "employee verification", "employment verification",
             "employee antecedent",
@@ -111,57 +157,11 @@ class CategoryLabeler:
             # Copy of FIR
             "copy of fir", "fir copy", "first information report",
             "fir certified copy",
-        ],
-        "Municipal - Building": [
-            # Building plan approval
-            "building plan approval", "building plan sanction",
-            "building plan", "plan approval by ulb",
-            "bda approval", "bmc approval", "development authority approval",
-            # Permission for addition/alteration
-            "addition/alteration", "addition alteration",
-            "alteration permission", "addition permission",
-            "building alteration",
-            # Fire safety recommendation/certificate
-            "fire safety recommendation", "fire safety certificate",
-            "fire safety noc", "fsr", "fire noc",
-            # Mortgage permission
-            "mortgage permission", "permission for mortgage",
-            "mortgage noc", "mortgage approval",
-            # Conveyance deed
-            "conveyance deed", "issue of conveyance",
-            "conveyance certificate",
-        ],
-        "Municipal - Civic": [
-            # Birth and Death certificate
-            "birth certificate", "death certificate",
-            "birth and death certificate",
-            # Marriage certificate
-            "marriage certificate", "marriage registration",
             # Trade licence
             "trade licence", "trade license",
             "trade licence provisional", "trade licence final",
             "trade license provisional", "trade license final",
             "ulb trade licence",
-        ],
-        "Welfare": [
-            # Scholarship
-            "scholarship", "post matric", "pre matric", "oasis",
-            "national scholarship", "merit scholarship", "sc scholarship",
-            "st scholarship", "minority scholarship",
-            "sanction of scholarship",
-            # Ration Card
-            "ration card", "food security", "aay card", "bpl card",
-            "phh card", "antyodaya", "priority household", "pds card",
-        ],
-        "Utilities": [
-            # Pipe water connection
-            "pipe water connection", "piped water connection",
-            "water connection", "bmc water connection",
-            "cmc water connection", "bemc water connection",
-            # New power connection (non-industrial)
-            "new power connection", "new electricity connection",
-            "electricity connection", "power connection",
-            "non industrial power",
         ],
     }
 

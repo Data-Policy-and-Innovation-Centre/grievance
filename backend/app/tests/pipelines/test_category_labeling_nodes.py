@@ -13,50 +13,50 @@ from app.pipelines.ortps.validation import CATEGORY_LABELING_CONTRACT
 
 
 EXPANDED_KEYWORD_CASES = [
-    # Revenue - Certificates
-    ("Revenue - Certificates", "need caste certificate urgently"),
-    ("Revenue - Certificates", "legal heir certificate required"),
-    ("Revenue - Certificates", "income certificate needed"),
-    ("Revenue - Certificates", "income and asset certificate for ews"),
-    # Revenue - Land
-    ("Revenue - Land", "please issue certified copy of ror"),
-    ("Revenue - Land", "encumbrance certificate for my land"),
-    ("Revenue - Land", "uncontested mutation case disposal"),
-    ("Revenue - Land", "mutation order of leasehold land pending"),
-    ("Revenue - Land", "conversion under olr act section 8"),
-    ("Revenue - Land", "conversion order of leasehold land required"),
-    ("Revenue - Land", "partition of land under olr act section 19"),
-    # Registration & Stamps
-    ("Registration & Stamps", "certified copy of registered document needed"),
-    ("Registration & Stamps", "property registration for transfer of immovable property"),
-    # Transport - Driving Licence
-    ("Transport - Driving Licence", "change of address in driving licence"),
-    ("Transport - Driving Licence", "renewal of driving licence pending"),
-    ("Transport - Driving Licence", "apply for learner's licence"),
-    ("Transport - Driving Licence", "issue of driving licence"),
-    # Transport - Vehicle
-    ("Transport - Vehicle", "certified copy of registration certificate for vehicle"),
-    ("Transport - Vehicle", "transfer of vehicle ownership request"),
-    # Police
-    ("Police", "employee verification request pending"),
-    ("Police", "character verification pending"),
-    ("Police", "copy of fir needed"),
-    # Municipal - Building
-    ("Municipal - Building", "building plan approval by ulb"),
-    ("Municipal - Building", "permission for addition/alteration of house"),
-    ("Municipal - Building", "fire safety certificate required"),
-    ("Municipal - Building", "mortgage permission request"),
-    ("Municipal - Building", "issue of conveyance deed"),
-    # Municipal - Civic
-    ("Municipal - Civic", "birth certificate issue"),
-    ("Municipal - Civic", "marriage certificate registration"),
-    ("Municipal - Civic", "trade licence provisional certificate"),
-    # Welfare
-    ("Welfare", "sanction of scholarship pending"),
-    ("Welfare", "ration card correction requested"),
-    # Utilities
-    ("Utilities", "pipe water connection in bmc"),
-    ("Utilities", "new electricity connection for home"),
+    # Identity & Social Certificates
+    ("Identity & Social Certificates", "need caste certificate urgently"),
+    ("Identity & Social Certificates", "legal heir certificate required"),
+    ("Identity & Social Certificates", "birth certificate issue"),
+    ("Identity & Social Certificates", "marriage certificate registration"),
+    # Income & Welfare Benefits
+    ("Income & Welfare Benefits", "income certificate needed"),
+    ("Income & Welfare Benefits", "income and asset certificate for ews"),
+    ("Income & Welfare Benefits", "sanction of scholarship pending"),
+    ("Income & Welfare Benefits", "ration card correction requested"),
+    # Land Records
+    ("Land Records", "please issue certified copy of ror"),
+    ("Land Records", "encumbrance certificate for my land"),
+    # Land Transactions
+    ("Land Transactions", "certified copy of registered document needed"),
+    ("Land Transactions", "property registration for transfer of immovable property"),
+    ("Land Transactions", "mortgage permission request"),
+    ("Land Transactions", "issue of conveyance deed"),
+    # Land Use Changes
+    ("Land Use Changes", "uncontested mutation case disposal"),
+    ("Land Use Changes", "mutation order of leasehold land pending"),
+    ("Land Use Changes", "conversion under olr act section 8"),
+    ("Land Use Changes", "conversion order of leasehold land required"),
+    ("Land Use Changes", "partition of land under olr act section 19"),
+    # Building & Construction
+    ("Building & Construction", "building plan approval by ulb"),
+    ("Building & Construction", "permission for addition/alteration of house"),
+    ("Building & Construction", "fire safety certificate required"),
+    # Utilities & Connections
+    ("Utilities & Connections", "pipe water connection in bmc"),
+    ("Utilities & Connections", "new electricity connection for home"),
+    # Driving Licences
+    ("Driving Licences", "change of address in driving licence"),
+    ("Driving Licences", "renewal of driving licence pending"),
+    ("Driving Licences", "apply for learner's licence"),
+    ("Driving Licences", "issue of driving licence"),
+    # Vehicle Services
+    ("Vehicle Services", "certified copy of registration certificate for vehicle"),
+    ("Vehicle Services", "transfer of vehicle ownership request"),
+    # Verification & Legal
+    ("Verification & Legal", "employee verification request pending"),
+    ("Verification & Legal", "character verification pending"),
+    ("Verification & Legal", "copy of fir needed"),
+    ("Verification & Legal", "trade licence provisional certificate"),
 ]
 
 
@@ -103,7 +103,7 @@ class TestDfLabeled:
         )
 
         categories = df["ortps_category"].drop_nulls().unique().to_list()
-        # Should detect at least Revenue-Certificates, Welfare from fixture data
+        # Should detect at least Identity & Social Certificates, Income & Welfare Benefits from fixture data
         assert len(categories) >= 2
 
     def test_passes_validation_contract(self, sample_english_df):

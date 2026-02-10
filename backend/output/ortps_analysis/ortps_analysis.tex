@@ -94,7 +94,7 @@ For English-language complaints, we employ a hybrid classification approach comb
 \begin{enumerate}
     \item \textbf{Keyword Matching:} Case-insensitive substring matching against category-specific keyword lists. For example, ``Income \& Welfare Benefits'' includes keywords such as \textit{income certificate}, \textit{scholarship}, \textit{post matric}, \textit{ration card}, \textit{bpl card}, and related terms. This method captures complaints with explicit mentions of service names.
 
-    \item \textbf{Embedding Similarity:} Complaints not matched by keywords are evaluated using sentence embeddings (all-MiniLM-L6-v2 model) to compute semantic similarity to category prototypes. Complaints with cosine similarity $\geq 0.45$ to any category are assigned to that category. This method captures semantically related complaints that may not use exact service terminology (e.g., ``need money certificate for college admission'' $\rightarrow$ Income \& Welfare Benefits).
+    \item \textbf{Embedding Similarity:} Complaints not matched by keywords are evaluated using sentence embeddings (all-MiniLM-L6-v2 model) to compute semantic similarity to category prototypes. Complaints with cosine similarity $\geq 0.60$ to any category are assigned to that category. This method captures semantically related complaints that may not use exact service terminology (e.g., ``need money certificate for college admission'' $\rightarrow$ Income \& Welfare Benefits).
 \end{enumerate}
 
 Complaints matching neither method remain unlabeled, indicating they likely concern non-ORTPS services (e.g., infrastructure, law and order, general administration).
@@ -115,11 +115,11 @@ The final analysis dataset comprises \textbf{763,237 English-language complaints
 
 \input{fiscal_year_aggregation_wide.tex}
 
-Of 763,237 English-language complaints analyzed, \textbf{71,223 complaints (9.3\%)} were identified as ORTPS-related using our classification pipeline.
+Of 763,237 English-language complaints analyzed, \textbf{58,813 complaints (6.0\%)} were identified as ORTPS-related using our classification pipeline with a cosine similarity threshold of 0.60.
 
-This relatively low match rate reflects the focused, service-specific nature of ORTPS. The grievance portal captures a broad range of citizen concerns---infrastructure quality, law and order issues, general administrative queries, and non-ORTPS government services---of which ORTPS-covered services constitute one important but bounded subset.
+This conservative match rate reflects the focused, service-specific nature of ORTPS and the higher precision threshold employed to minimize false positives. The grievance portal captures a broad range of citizen concerns---infrastructure quality, law and order issues, general administrative queries, and non-ORTPS government services---of which ORTPS-covered services constitute one important but bounded subset.
 
-The 9.3\% match rate should be interpreted as indicating:
+The 6.0\% match rate should be interpreted as indicating:
 \begin{itemize}
     \item \textbf{Focused categorization:} Our classification correctly identifies a well-defined subset of complaints rather than over-classifying unrelated complaints as ORTPS-related.
 
@@ -132,20 +132,18 @@ The 9.3\% match rate should be interpreted as indicating:
 
 Table~\ref{tab:ortps_aggregation} presents the fiscal year aggregation of ORTPS-related grievances, showing both temporal trends and cross-sectional variation across our pre-defined categories.
 
+Key patterns observed with the higher precision threshold (0.60):
+
 \begin{itemize}
-    \item ORTPS complaints increased 75\% from FY2023 to FY2024 (24,466 $\rightarrow$ 42,904), substantially outpacing overall grievance growth.
+    \item \textbf{Income \& Welfare Benefits} dominates ORTPS complaints, consistently representing the highest volume across fiscal years. This reflects high citizen demand for income certificates, scholarships, and ration card services, though housing welfare requests (PM Awas) contribute substantial noise to this category.
 
-    \item Income \& Welfare Benefits consistently dominates as the highest-volume category, comprising 4.0\% of all English complaints in FY2023, rising to 4.6\% in FY2024 and 7.2\% in FY2025 (partial year).
+    \item \textbf{Land-related services} show sustained demand across Land Records, Land Transactions, and Land Use Changes categories. These categories exhibit stronger thematic coherence and alignment with ORTPS services compared to other categories.
 
-    \item Growth is concentrated in land-related services: Land Records (0.43\% $\rightarrow$ 0.58\%), Land Transactions (0.79\% $\rightarrow$ 1.51\%), and Land Use Changes (0.50\% $\rightarrow$ 0.67\%) all show increasing shares.
+    \item \textbf{Building \& Construction} volumes declined significantly with the higher threshold, indicating that the previous 0.45 threshold captured substantial false positives (primarily PM Awas housing requests and infrastructure projects). The higher threshold filters these miscategorizations more effectively.
 
-    \item \textbf{Income \& Welfare Benefits} is consistently the highest-volume category, reflecting high citizen demand for income certificates, scholarships, and ration card services.
+    \item \textbf{Small categories} (Driving Licences, Vehicle Services) show dramatically reduced volumes with the higher threshold, suggesting that most previously classified complaints in these categories were false positives. True ORTPS-related driving licence and vehicle registration complaints appear to be rare.
 
-    \item \textbf{Building \& Construction} shows a declining trend (2.10\% in FY2023 $\rightarrow$ 0.58\% in FY2024), \emph{possibly} indicating improved service delivery or reduced construction activity.
-
-    \item \textbf{Vehicle Services} shows substantial growth (0.12\% $\rightarrow$ 0.36\%), suggesting increasing motorization and associated documentation needs.
-
-    \item \textbf{Driving Licences} remains consistently low ($\sim$0.04--0.05\%), which could either indicate low issues or low awareness of how to seek remedies.
+    \item \textbf{Identity \& Social Certificates} maintains moderate volume, though sample review reveals heterogeneous content including healthcare, corruption allegations, and infrastructure alongside legitimate certificate requests.
 \end{itemize}
 
 \section{Results: ORTPS Nature of complaints}
@@ -154,7 +152,7 @@ To understand what citizens are actually complaining about within each ORTPS cat
 
 \subsection{Category-Specific Complaint Patterns}
 
-\subsubsection{Land Transactions (930 complaints, 3.9\%)}
+\subsubsection{Land Transactions (5,069 complaints, 8.6\%)}
 
 \textbf{Primary themes:} This category shows the \emph{strongest thematic coherence} among all ORTPS categories. Complaints predominantly concern:
 
@@ -170,7 +168,7 @@ To understand what citizens are actually complaining about within each ORTPS cat
 
 \textbf{Assessment:} Land Transactions complaints are well-aligned with ORTPS services (property registration, certified copies of registered documents). Minimal miscategorization observed.
 
-\subsubsection{Land Use Changes (495 complaints, 2.1\%)}
+\subsubsection{Land Use Changes (2,487 complaints, 4.2\%)}
 
 \textbf{Primary themes:} Complaints focus on land use restrictions and conversion procedures:
 
@@ -186,95 +184,85 @@ To understand what citizens are actually complaining about within each ORTPS cat
 
 \textbf{Assessment:} Reasonably well-aligned with ORTPS land use services (OLR Act Section 8 land conversion, mutation cases). Some peripheral issues included.
 
-\subsubsection{Land Records (667 complaints, 2.8\%)}
+\subsubsection{Land Records (2,346 complaints, 4.0\%)}
 
-\textbf{Primary themes:} Substantial miscategorization observed. While some complaints concern land record services, many are unrelated:
-
-\begin{itemize}
-    \item \textbf{Legitimate land record issues:} Record of Rights (RoR) requests, patta demarcation, land record corrections, missing case files (e.g., ``Regarding finding out and demarcation of patta land'').
-
-    \item \textbf{Miscategorized complaints:} Doctor transfer requests, RTI portal corrections, PM Awas housing requests (e.g., ``I AM A POOR PERSON, I HAVA NO ANY INCOME,SO I REQUEST YOUR FAVOUR TO KINDLY GRANT MY APPLICATION FOR PRADHAN MANTRI AWAS YOJANA'').
-\end{itemize}
-
-\textbf{Assessment:} Mixed quality. Core land record complaints are present, but housing scheme requests and unrelated administrative issues dominate samples.
-
-\subsubsection{Building \& Construction (2,029 complaints, 8.6\%)}
-
-\textbf{Primary themes:} Heavy overlap with housing welfare schemes rather than building plan approvals:
+\textbf{Primary themes:} Substantial miscategorization observed. Topic modeling on 214 sampled complaints identified 2 topics:
 
 \begin{itemize}
-    \item \textbf{Government building construction:} School buildings, boundary walls, GP office buildings, community centers (e.g., ``Construction of boundury wall \& kitchen of Govt. UP school'').
+    \item \textbf{Topic 0 (102 complaints):} Audit/corruption allegations, FIR reports for stolen phones, and some legitimate RoR mutation errors (e.g., ``I apply mutation for inheritance online at banki tahasil...but in ror there is a big mistake the father name is diffrent not as per legalhire'').
 
-    \item \textbf{PM Awas Yojana requests:} Requests for housing assistance under PM Awas or Biju Pakka Ghar (e.g., ``financial assistance towards construction of house'', ``I HAVE NOT A CONCRETE ROOF HOUSE PLEASE PROVIDE A CONCRETE ROOF HOUSE'').
-
-    \item \textbf{Infrastructure development:} Roads, tourist infrastructure, public amenities.
+    \item \textbf{Topic 1 (81 complaints):} PM Awas housing requests, Subhadra Yojana applications, community mandap construction, school classroom construction.
 \end{itemize}
 
-\textbf{Assessment:} \emph{Significant miscategorization}. The category conflates ORTPS building plan approval services with broader housing welfare schemes (PM Awas) and government infrastructure projects. True ORTPS building approvals (ULB/development authority building plans) are likely a minority.
+\textbf{Assessment:} Mixed quality with severe noise. While legitimate land record complaints (RoR, mutation, patta demarcation) are present, the category is heavily diluted by PM Awas requests and unrelated complaints (stolen phone FIRs, corruption allegations, infrastructure construction). Estimate: <50\% concern actual ORTPS land record services.
 
-\subsubsection{Identity \& Social Certificates (2,313 complaints, 9.8\%)}
+\subsubsection{Building \& Construction (1,109 complaints, 1.9\%)}
 
-\textbf{Primary themes:} Extremely heterogeneous category with widespread miscategorization:
+\textbf{Primary themes:} With the higher threshold, this category contracted significantly from previous analyses (from 8.6\% to 1.9\%), filtering out many false positives. Topic modeling on 101 sampled complaints identified 2 topics, both showing heavy overlap with housing welfare schemes and public infrastructure rather than individual building plan approvals:
 
 \begin{itemize}
-    \item \textbf{Legitimate certificate issues:} Death certificate delays (e.g., ``My Father's Death certificate has been applied on April 9, 2025. It's about to be a month now, Still I haven't recieved the certificate'').
+    \item \textbf{Topic 0 (54 complaints):} Audit/corruption allegations and PM Awas Yojana requests (e.g., ``I am a Sc \& B.P.L Family holder and I Have not a Singel House...Therefor I may be Provided PRADHAN MANTRI AWAS OR BIJU PAKKA GHARA''), environmental complaints about plastic pollution.
 
-    \item \textbf{Healthcare and medicine supply:} Medicine shortages at hospitals, patient harassment (e.g., ``Following the change in government, a regularly available medicine named Factor VII used for treatment of Hemophilia A with inhibitor is seems to be unavailable'').
-
-    \item \textbf{Corruption allegations:} Audit irregularities, gram panchayat fund misappropriation.
-
-    \item \textbf{Housing requests:} PM Awas Yojana applications.
-
-    \item \textbf{Infrastructure:} Temple renovation, community building repairs.
+    \item \textbf{Topic 1 (47 complaints):} Public infrastructure construction projects---market complexes, CHC buildings, school renovations, community halls (e.g., ``CONSTRUCTION OF ROAD, MARKET COMPLEX, GUARD WALL, COMMUNITY HALL, CHECK DAM'').
 \end{itemize}
 
-\textbf{Assessment:} \emph{Poor categorization quality}. While caste, birth/death, and marriage certificates are ORTPS services, the vast majority of complaints concern unrelated issues.
+\textbf{Assessment:} \emph{Significant miscategorization}. The category conflates ORTPS building plan approval services with broader housing welfare schemes (PM Awas) and government infrastructure projects. True ORTPS building approvals (ULB/development authority building plans) for individual citizens are likely fewer than 10\% of categorized complaints.
 
-\subsubsection{Income \& Welfare Benefits (15,772 complaints, 66.5\%)}
+\subsubsection{Identity \& Social Certificates (5,638 complaints, 9.6\%)}
 
-\textbf{Primary themes:} As the largest category, it captures diverse welfare-related complaints, but with substantial noise:
+\textbf{Primary themes:} Extremely heterogeneous category with widespread miscategorization. Topic modeling on 2,245 sampled complaints identified 11 topics, with the top 2 topics revealing severe noise:
 
 \begin{itemize}
-    \item \textbf{Housing (PM Awas):} Dominant theme---requests for pucca houses under PM Awas Yojana or state housing schemes (e.g., ``RESPECTED SIR I SMT LATA MOHANTY W/O- BAIKUNTHA MOHANTY OF BALIAPATA LIVES WITH MY FAMILY IN AKUCHA HOUSE SO I REQUEST TO YOU TO CHECK \& ENQUARY AND GRANT A NEW PUCCA HOUSE FOR US'').
+    \item \textbf{Topic 0 (401 complaints):} Predominantly PM Awas Yojana housing requests (e.g., ``I am BHAGBAI AHIRWAR...I write this letter to request for a Biju Pucca Ghar Yojana'', ``I AM VERY POOR. PLEASE ENLIST MY NAME IN THE YEAR 2024-25 PMAY AWAS YOJONA'').
 
-    \item \textbf{Ration cards:} New applications, member additions/deletions, corrections.
+    \item \textbf{Topic 1 (213 complaints):} Systematic audit corruption allegations using identical template language (e.g., ``An allegation of Corruption against the delinquent employees working in [GP NAME]...for misappropriation \& irregularities in govt. aided money in an audit report''). These appear to be mass-filed RTI-based corruption complaints, not certificate requests.
 
-    \item \textbf{Street lights and electricity:} Infrastructure complaints about non-functional street lights (e.g., ``I am writing to you regarding the issue of installing street lights in our village'').
-
-    \item \textbf{Income certificates and scholarships:} Likely present but not prominent in random samples, suggesting housing dominates volume.
+    \item \textbf{Legitimate certificate issues:} Death certificate delays, caste certificate requests (present in lower-volume topics, but not dominant).
 \end{itemize}
 
-\textbf{Assessment:} This category functions as a \emph{catch-all for welfare-related requests}. While income certificates, scholarships, and ration cards are core ORTPS services, the category is heavily diluted by housing scheme requests (not ORTPS) and infrastructure complaints.
+\textbf{Assessment:} \emph{Poor categorization quality}. While caste, birth/death, and marriage certificates are ORTPS services, the category is dominated by PM Awas requests (Topic 0) and systematic corruption allegations (Topic 1). True certificate complaints appear to constitute less than 20\% of the category.
 
-\subsubsection{Utilities \& Connections (799 complaints, 3.4\%)}
+\subsubsection{Income \& Welfare Benefits (38,779 complaints, 65.9\%)}
 
-\textbf{Primary themes:} Mixed infrastructure and administrative complaints:
+\textbf{Primary themes:} As the largest category by far (nearly two-thirds of all ORTPS-labeled complaints), it captures diverse welfare-related complaints but with substantial noise. Topic modeling on 15,755 sampled complaints identified 32 topics, with housing schemes dominating:
 
 \begin{itemize}
-    \item \textbf{Electricity connections:} Corruption allegations in new connection processes, connection delays (e.g., ``I am writing to bring to your attention a matter of grave concern...widespread corruption in the new connection process'').
+    \item \textbf{Topic 0 (3,004 complaints):} PM Awas Yojana housing requests in English (e.g., ``I am BRUNDABATI BEHERA...I have applied PM AWAS YOJANA through offline mode but so far am exempted from this facility'').
 
-    \item \textbf{Road construction:} Asphalt road requests, colony road repairs.
+    \item \textbf{Topic 1 (1,017 complaints):} PM Awas housing requests in Odia language (keywords: ghara, mora, mote, kari).
 
-    \item \textbf{Administrative issues:} Data entry operator remuneration, power of attorney disputes.
+    \item \textbf{Topic 2 (509 complaints):} Kisan Subhadra Yojana and ration card complaints.
 
-    \item \textbf{Housing:} PM Awas requests.
+    \item \textbf{Income certificates and scholarships:} Present in lower-volume topics but not prominent in top 3, suggesting housing dominates volume by 4:1 margin or greater.
 \end{itemize}
 
-\textbf{Assessment:} Partial alignment with ORTPS (piped water/electricity connections), but many complaints concern broader infrastructure or unrelated administrative matters.
+\textbf{Assessment:} This category functions as a \emph{catch-all for welfare-related requests}. While income certificates, scholarships, and ration cards are core ORTPS services, the category is heavily diluted by housing scheme requests (PM Awas and Biju Pakka Ghar---not ORTPS services). Conservative estimate: fewer than 25\% of complaints concern actual ORTPS welfare services.
 
-\subsubsection{Driving Licences (168 complaints, 0.7\%)}
+\subsubsection{Utilities \& Connections (2,055 complaints, 3.5\%)}
 
-\textbf{Primary themes:} \emph{Severe miscategorization} observed:
+\textbf{Primary themes:} Mixed infrastructure and administrative complaints with severe data quality issues. Topic modeling on 808 sampled complaints identified 3 topics:
 
 \begin{itemize}
-    \item \textbf{Actual driving licence issues:} Learner's licence application rejections, driving test result delays, rash driving complaints (minority of samples).
+    \item \textbf{Topic 0 (667 complaints):} Highly anomalous content---spam, mental health complaints, and incoherent text (keywords: ``house'', ``action'', ``abracadabra'', ``line''). Sample includes extended rambling about religious figures, invisible forces, and conspiracy theories. This suggests either bot-generated spam or mental health crisis complaints that passed language filters.
 
-    \item \textbf{Miscategorized complaints:} PM Awas housing requests, healthcare drainage issues, doctor harassment, land rights (RoR), hospital human rights violations.
+    \item \textbf{Topics 1-2:} Road construction requests, electricity connections, and infrastructure development.
 \end{itemize}
 
-\textbf{Assessment:} \emph{Critically poor categorization}. In a sample of 10 complaints, only 2-3 concerned actual driving licence services. The remainder were completely unrelated. This suggests the 168 complaints labeled as ``Driving Licences'' substantially overestimate true driving licence grievances.
+\textbf{Assessment:} \emph{Critical data quality issues}. The dominant topic (Topic 0, 83\% of sampled complaints) contains spam or severely incoherent content. Even after filtering for this, legitimate ORTPS utility connection complaints (piped water, electricity) appear rare. Estimate: <10\% concern actual ORTPS-covered utility services.
 
-\subsubsection{Vehicle Services (86 complaints, 0.4\%)}
+\subsubsection{Driving Licences (395 complaints, 0.7\%)}
+
+\textbf{Primary themes:} \emph{Severe miscategorization} observed across 2 identified topics:
+
+\begin{itemize}
+    \item \textbf{Topic 0 (49 complaints):} Almost entirely PM Awas housing requests (e.g., ``I am a poor, having a Kacca House, facing many more problem in this season. So kindly allow me a PMAY'').
+
+    \item \textbf{Topic 1 (31 complaints):} Mixed content including rare legitimate driving licence complaints (e.g., RTO corruption in address correction: ``for adress changing in my driving licence...RTO staff they will forcefully demand me Rs 300 for Red cross donation''), but primarily electricity issues, audit corruption allegations, and generic action requests.
+\end{itemize}
+
+\textbf{Assessment:} \emph{Critically poor categorization}. Topic modeling on 160 sampled complaints identified only 2 topics, with the dominant topic being entirely PM Awas requests. Legitimate driving licence complaints appear to constitute fewer than 10\% of the category. This suggests the 395 complaints labeled as ``Driving Licences'' substantially overestimate true driving licence grievances by a factor of 10 or more.
+
+\subsubsection{Vehicle Services (233 complaints, 0.4\%)}
 
 \textbf{Primary themes:} Similar severe miscategorization:
 
@@ -286,40 +274,37 @@ To understand what citizens are actually complaining about within each ORTPS cat
 
 \textbf{Assessment:} \emph{Poor categorization}. True vehicle RC/ownership transfer complaints appear rare; category captures peripheral vehicle-related issues and unrelated grievances.
 
-\subsubsection{Verification \& Legal (446 complaints, 1.9\%)}
+\subsubsection{Verification \& Legal (702 complaints, 1.2\%)}
 
-\textbf{Primary themes:} Heterogeneous legal and verification complaints:
+\textbf{Primary themes:} Heterogeneous legal and verification complaints. Topic modeling on 279 sampled complaints identified 4 topics:
 
 \begin{itemize}
-    \item \textbf{FIR and legal protection:} Domestic violence cases, FIR registration complaints (e.g., ``Please Provide us ( me and my daughter ) Proper Justice, Safety, Security and Legal protection from Husband and In-laws'').
+    \item \textbf{Topic 0 (86 complaints):} Systematic audit corruption allegations using template language, illegal business/trade license complaints, CC drain construction disputes.
 
-    \item \textbf{Verification issues:} Subhadra Yojana eligibility verification errors, fake identification complaints.
+    \item \textbf{Topic 1 (61 complaints):} Pension applications (NIGOAP), bus harassment complaints, government grant-in-aid (GIA) sanctions, office transfer/rotation policy violations, university degree equivalency disputes.
 
-    \item \textbf{Corruption allegations:} Gram panchayat fund misappropriation.
+    \item \textbf{Topic 2 (47 complaints):} PM Awas housing requests in Odia language, school classroom construction.
 
-    \item \textbf{Miscategorized:} Road construction requests, housing applications.
+    \item \textbf{Topics 3:} Residual mixed content.
 \end{itemize}
 
-\textbf{Assessment:} Moderate alignment with ORTPS verification services, but substantial noise from infrastructure and housing complaints.
+\textbf{Assessment:} Moderate alignment with ORTPS verification services, but substantial noise. While some complaints concern document verification and legal attestation (ORTPS services), the category is diluted by corruption allegations (Topic 0), pension/administrative issues (Topic 1), and housing requests (Topic 2). Estimate: <30\% concern actual ORTPS verification services.
 
 \subsection{Cross-Cutting Patterns}
 
 \subsubsection{PM Awas Yojana Omnipresence}
 
-The most striking cross-cutting pattern is the appearance of \textbf{PM Awas Yojana housing requests} in nearly every ORTPS category:
+The most striking cross-cutting pattern revealed by topic modeling is the appearance of \textbf{PM Awas Yojana housing requests as Topic 0 or Topic 1} in nearly every ORTPS category:
 
 \begin{itemize}
-    \item Building \& Construction (expected but conflated)
-    \item Income \& Welfare Benefits (dominant theme)
-    \item Identity \& Social Certificates
-    \item Land Records
-    \item Utilities \& Connections
-    \item Driving Licences
-    \item Vehicle Services
-    \item Verification \& Legal
+    \item \textbf{Income \& Welfare Benefits:} Topic 0 (3,004 complaints, largest single topic) and Topic 1 (1,017 Odia-language housing requests)
+    \item \textbf{Identity \& Social Certificates:} Topic 0 (401 complaints, largest single topic)
+    \item \textbf{Driving Licences:} Topic 0 (49 complaints out of 80 total in top 2 topics)
+    \item \textbf{Building \& Construction:} Major component of Topic 0
+    \item Also present in: Land Records, Utilities \& Connections, Vehicle Services, Verification \& Legal
 \end{itemize}
 
-This pattern suggests that citizens filing housing requests use varied vocabulary that triggers false matches across multiple ORTPS categories. PM Awas is \emph{not an ORTPS service}, yet it appears to constitute a substantial fraction of complaints in several categories.
+This systematic pattern suggests that citizens filing housing requests use varied vocabulary (``house'', ``awas'', ``pucca ghar'', ``shelter'', ``construction'') that triggers false matches across multiple ORTPS categories. \textbf{PM Awas is not an ORTPS service}, yet it appears to constitute 30-60\% of complaints in several categories. This represents the single largest source of classification error in the current pipeline.
 
 \subsubsection{Corruption and Governance Allegations}
 
@@ -361,27 +346,29 @@ These categories exhibit thematic coherence and minimal miscategorization.
 Four categories show severe miscategorization and require improved classification:
 
 \begin{itemize}
-    \item \textbf{Driving Licences (0.7\%):} Majority of complaints are unrelated (housing, healthcare, land issues). True volume likely <100 complaints.
+    \item \textbf{Driving Licences (0.7\%, 395 complaints):} Majority of complaints are unrelated PM Awas housing requests (Topic 0: 49 complaints). True volume likely <40 complaints (<10\% of category).
 
-    \item \textbf{Vehicle Services (0.4\%):} Mixed vehicle-related issues and unrelated grievances. True RC/ownership complaints are rare.
+    \item \textbf{Vehicle Services (0.4\%, 233 complaints):} Mixed vehicle-related issues and unrelated grievances. True RC/ownership transfer complaints are rare.
 
-    \item \textbf{Building \& Construction (8.6\%):} Conflates ORTPS building approvals with PM Awas housing schemes and infrastructure projects. True ORTPS building plan complaints likely <2,000.
+    \item \textbf{Building \& Construction (1.9\%, 1,109 complaints):} Conflates ORTPS building approvals with PM Awas housing schemes (Topic 0) and public infrastructure projects (Topic 1). True ORTPS individual building plan complaints likely <100 (<10\% of category).
 
-    \item \textbf{Identity \& Social Certificates (9.8\%):} Catch-all for diverse complaints (healthcare, corruption, infrastructure) with certificate issues as a minority.
+    \item \textbf{Identity \& Social Certificates (9.6\%, 5,638 complaints):} Catch-all dominated by PM Awas requests (Topic 0: 401 complaints) and systematic corruption allegations (Topic 1: 213 complaints). True certificate complaints likely <1,000 (<20\% of category).
 \end{itemize}
 
 \subsubsection{Recommendations for Improved Classification}
 
-To improve future classification accuracy:
+To further improve classification accuracy:
 
 \begin{enumerate}
-    \item \textbf{Increase similarity threshold:} The current cosine similarity threshold of 0.45 is too permissive, allowing tangentially related complaints to match ORTPS categories. Raising the threshold to 0.60--0.70 would improve precision by filtering false matches.
+    \item \textbf{Higher threshold implemented:} We increased the cosine similarity threshold from 0.45 to 0.60, reducing false positives and improving precision. The trade-off is lower recall---some legitimate ORTPS complaints may now be excluded---but classification quality has improved for well-aligned categories.
 
-    \item \textbf{Add negative keywords:} Explicitly exclude complaints containing non-ORTPS scheme names (e.g., ``PM Awas Yojana'', ``Biju Pakka Ghar'', ``MGNREGA'') from ORTPS categories unless they also contain strong positive ORTPS indicators.
+    \item \textbf{Add negative keywords:} Explicitly exclude complaints containing non-ORTPS scheme names (e.g., ``PM Awas Yojana'', ``Biju Pakka Ghar'', ``MGNREGA'') from ORTPS categories unless they also contain strong positive ORTPS indicators. This would address the PM Awas omnipresence problem observed across categories.
 
-    \item \textbf{Separate infrastructure from service delivery:} Create a separate ``Infrastructure \& Public Works'' category to capture road, street light, and building construction complaints that are not individual service requests.
+    \item \textbf{Separate infrastructure from service delivery:} Create a separate ``Infrastructure \& Public Works'' category to capture road, street light, and building construction complaints that are not individual service requests. This would reduce noise in Building \& Construction and Utilities categories.
 
-    \item \textbf{Manual validation:} For small categories (Driving Licences, Vehicle Services), manual review of all classified complaints would identify true ORTPS grievances and improve volume estimates.
+    \item \textbf{Manual validation:} For small categories (Driving Licences, Vehicle Services, Verification \& Legal), manual review of all classified complaints would identify true ORTPS grievances and improve volume estimates. Given the severe miscategorization observed, human validation is essential for these categories.
+
+    \item \textbf{Iterative threshold tuning:} Consider category-specific thresholds rather than a global threshold. Well-defined services like Land Transactions could use higher thresholds (0.65--0.70), while broader services like Income \& Welfare Benefits may require lower thresholds (0.55) to maintain adequate recall.
 \end{enumerate}
 
 \newpage

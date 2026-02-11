@@ -46,6 +46,22 @@ class CategoryLabelingConfig(BaseModel):
         default="hybrid",
         description="Category labeling method",
     )
+    embedding_strategy: Literal["label_only", "keyword_only", "combined"] = Field(
+        default="label_only",
+        description="Strategy for embedding similarity (label_only=current, keyword_only=keywords, combined=fusion)",
+    )
+    keyword_weight: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Weight for keyword similarity (in combined mode)",
+    )
+    label_weight: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Weight for label similarity (in combined mode)",
+    )
 
 
 class OrtpsPipelineConfig(BaseModel):
@@ -91,6 +107,9 @@ class OrtpsPipelineConfig(BaseModel):
             "embedding_threshold": self.labeling.embedding_threshold,
             "embedding_device": self.labeling.embedding_device,
             "labeling_method": self.labeling.labeling_method,
+            "embedding_strategy": self.labeling.embedding_strategy,
+            "keyword_weight": self.labeling.keyword_weight,
+            "label_weight": self.labeling.label_weight,
         }
 
     @classmethod
@@ -110,6 +129,9 @@ class OrtpsPipelineConfig(BaseModel):
             labeling=CategoryLabelingConfig(
                 embedding_threshold=args.embedding_threshold,
                 labeling_method=labeling_method,
+                embedding_strategy=args.embedding_strategy,
+                keyword_weight=args.keyword_weight,
+                label_weight=args.label_weight,
             ),
             fiscal_years=args.fiscal_years,
             skip_wordclouds=args.skip_wordclouds,

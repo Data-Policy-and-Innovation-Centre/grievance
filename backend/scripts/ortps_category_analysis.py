@@ -155,6 +155,9 @@ def pivot_fiscal_aggregation(df: pl.DataFrame) -> pd.DataFrame:
     # Rename index
     wide.index.name = "Category"
 
+    # Sort by count
+    wide = wide.sort_values(by=[(year, "Count") for year in sorted(df_pd["july_year"].unique(), reverse=True)], ascending=False)
+
     return wide
 
 
@@ -671,6 +674,24 @@ def main():
         help="Category similarity threshold"
     )
     parser.add_argument(
+        "--embedding-strategy",
+        choices=["label_only", "keyword_only", "combined"],
+        default="label_only",
+        help="Strategy for embedding similarity (default: label_only for backward compatibility)"
+    )
+    parser.add_argument(
+        "--keyword-weight",
+        type=float,
+        default=1.0,
+        help="Weight for keyword similarity in combined mode (default: 1.0)"
+    )
+    parser.add_argument(
+        "--label-weight",
+        type=float,
+        default=0.5,
+        help="Weight for label similarity in combined mode (default: 0.5)"
+    )
+    parser.add_argument(
         "--skip-wordclouds",
         action="store_true",
         help="Skip word cloud generation"
@@ -753,10 +774,10 @@ def main():
 
     # Filter to FY2023 onwards only
     logger.info("=" * 80)
-    logger.info("Step 5b: Filtering to FY2023 onwards")
+    logger.info("Step 5b: Filtering to FY2023 onwards and before FY2025")
     logger.info("=" * 80)
-    df_en = df_en.filter(pl.col("july_year") >= 2023)
-    logger.info(f"Complaints after filtering to FY2023+: {len(df_en):,}")
+    df_en = df_en.filter((pl.col("july_year") >= 2023) & (pl.col("july_year") < 2025))
+    logger.info(f"Complaints after filtering to FY2023-FY2024: {len(df_en):,}")
 
     categories = (
         df_en["ortps_category"]

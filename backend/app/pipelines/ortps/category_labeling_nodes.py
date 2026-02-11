@@ -15,17 +15,23 @@ def category_labeler(
     embedding_model_name: str,
     embedding_threshold: float,
     embedding_device: str | None,
+    embedding_strategy: Literal["label_only", "keyword_only", "combined"],
+    keyword_weight: float,
+    label_weight: float,
 ) -> CategoryLabeler:
     """Construct the CategoryLabeler instance."""
     logger.info(
         f"Initializing CategoryLabeler "
         f"(model={embedding_model_name}, threshold={embedding_threshold}, "
-        f"device={embedding_device})"
+        f"device={embedding_device}, strategy={embedding_strategy})"
     )
     return CategoryLabeler(
         model_name=embedding_model_name,
         similarity_threshold=embedding_threshold,
         device=embedding_device,
+        embedding_strategy=embedding_strategy,
+        keyword_weight=keyword_weight,
+        label_weight=label_weight,
     )
 
 
@@ -33,12 +39,19 @@ def df_labeled(
     df_english: pl.DataFrame,
     category_labeler: CategoryLabeler,
     labeling_method: Literal["keyword", "embedding", "hybrid"],
+    embedding_strategy: Literal["label_only", "keyword_only", "combined"],
     text_col: str,
 ) -> pl.DataFrame:
     """Apply category labels to the English-filtered DataFrame."""
-    logger.info(f"Running category labeling (method={labeling_method})")
+    logger.info(
+        f"Running category labeling "
+        f"(method={labeling_method}, embedding_strategy={embedding_strategy})"
+    )
     return category_labeler.label_dataframe(
-        df_english, text_col=text_col, method=labeling_method
+        df_english,
+        text_col=text_col,
+        method=labeling_method,
+        embedding_strategy=embedding_strategy,
     )
 
 

@@ -4,6 +4,7 @@ Uses keyword-only method by default for fast execution.
 Embedding tests are marked with @pytest.mark.slow.
 """
 
+import numpy as np
 import polars as pl
 import pytest
 
@@ -66,6 +67,48 @@ class TestCategoryLabeler:
 
 
 class TestDfLabeled:
+    def test_hybrid_keeps_row_alignment_when_embedding_updates_subset(self, monkeypatch):
+        class FakeModel:
+            def encode(self, texts, **kwargs):
+                # Works for both complaint texts and category labels.
+                return np.zeros((len(texts), 4), dtype=float)
+
+        labeler = CategoryLabeler(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            similarity_threshold=0.99,  # Ensure no embedding matches.
+            device="cpu",
+        )
+        labeler._model = FakeModel()
+
+        # Avoid filesystem writes during test.
+        monkeypatch.setattr(labeler, "_save_embeddings_cache", lambda *args, **kwargs: None)
+        monkeypatch.setattr(labeler, "_load_embeddings_cache", lambda *args, **kwargs: None)
+
+        df = pl.DataFrame(
+            {
+                "id": [1, 2, 3, 4],
+                "grievance": [
+                    "need caste certificate urgently",
+                    "this is unrelated text that should stay unlabeled",
+                    "another unrelated complaint without category signal",
+                    "ration card correction requested",
+                ],
+            }
+        )
+
+        labeled = labeler.label_dataframe(df, text_col="grievance", method="hybrid")
+
+        # Row identity/order must remain unchanged after hybrid merge.
+        assert labeled["id"].to_list() == [1, 2, 3, 4]
+
+        by_id = {r["id"]: r for r in labeled.iter_rows(named=True)}
+        assert by_id[1]["ortps_category"] == "Certificates"
+        assert by_id[1]["ortps_method"] == "keyword"
+        assert by_id[4]["ortps_category"] == "Ration card"
+        assert by_id[4]["ortps_method"] == "keyword"
+        assert by_id[2]["ortps_category"] is None
+        assert by_id[3]["ortps_category"] is None
+
     def test_keyword_method_adds_columns(self, sample_english_df):
         labeler = category_labeling_nodes.category_labeler(
             embedding_model_name="sentence-transformers/all-MiniLM-L6-v2",

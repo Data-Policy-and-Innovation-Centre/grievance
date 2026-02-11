@@ -250,6 +250,13 @@ class CategoryLabeler:
         if embedding_strategy is None:
             embedding_strategy = self.embedding_strategy
 
+        # Add a stable row key so hybrid embedding merges are key-based, not positional.
+        row_idx_col = "__ortps_row_idx__"
+        added_row_idx = False
+        if method in ["embedding", "hybrid"] and row_idx_col not in df.columns:
+            df = df.with_row_index(row_idx_col)
+            added_row_idx = True
+
         if method in ["keyword", "hybrid"]:
             df = self._add_keyword_labels(df, text_col)
 
@@ -268,6 +275,9 @@ class CategoryLabeler:
             else:
                 logger.info(f"Running embedding on all {len(df):,} texts")
                 df = self._add_embedding_labels(df, df, text_col, embedding_strategy)
+
+        if added_row_idx:
+            df = df.drop(row_idx_col)
 
         return df
 
@@ -508,8 +518,11 @@ class CategoryLabeler:
                 pl.lit(None).alias("ortps_matched_keyword")  # NEW
             ])
 
-        # Update rows that were processed
-        df = df.update(df_to_embed)
+        # Update rows that were processed; prefer key-based alignment when row key is present.
+        if "__ortps_row_idx__" in df.columns and "__ortps_row_idx__" in df_to_embed.columns:
+            df = df.update(df_to_embed, on="__ortps_row_idx__")
+        else:
+            df = df.update(df_to_embed)
 
         # Log statistics
         matched = above_threshold.sum()

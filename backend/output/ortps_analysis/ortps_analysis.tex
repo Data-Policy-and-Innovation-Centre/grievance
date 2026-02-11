@@ -45,30 +45,28 @@ For example, a complaint about a delayed caste certificate might be categorized 
 
 \subsection{ORTPS Category Consolidation}
 
-We began with the full list of ORTPS-covered services as provided by CAGR and consolidated them into 10 issue-based categories covering major service domains. This consolidation balances specificity with analytical tractability, grouping related services that citizens and administrators perceive as similar types of requests.
+We began with the full list of ORTPS-covered services as provided by CAGR and consolidated them into 9 issue-based categories covering major service domains. This consolidation balances specificity with analytical tractability, grouping related services that citizens and administrators perceive as similar types of requests.
 
-The 10 consolidated categories are:
+The 9 consolidated categories are:
 
 \begin{enumerate}
-    \item \textbf{Identity \& Social Certificates} --- Caste certificates (SC/ST/OBC/SEBC), birth and death certificates, marriage registration, legal heir certificates
+    \item \textbf{Ration card} --- Issuance of new ration cards, inclusion/exclusion of household members, card corrections, and related PDS card-service requests (AAY/BPL/PHH/Food Security)
 
-    \item \textbf{Income \& Welfare Benefits} --- Income certificates, Income \& Asset certificates (EWS), scholarships (pre-matric, post-matric, national/merit/minority schemes), ration cards (AAY, BPL, PHH, food security)
+    \item \textbf{Certificates} --- Caste/resident/income/EWS certificates, birth and death certificates, marriage registration, legal heir certificates, and related certificate correction/reissue requests
 
-    \item \textbf{Land Records} --- Certified copies of Record of Rights (RoR), encumbrance certificates
+    \item \textbf{Land matters} --- RoR and mutation issues, encumbrance/registration document access, land conversion and partition requests, and related land administration services
 
-    \item \textbf{Land Transactions} --- Property registration documents, certified copies of registered documents, mortgage permissions, conveyance deeds
+    \item \textbf{Scholarship} --- Pre-matric, post-matric, and state scholarship application, verification, sanction, and payment-related grievances
 
-    \item \textbf{Land Use Changes} --- Disposal of uncontested mutation cases, mutation orders for leasehold land, land conversion under OLR Act Section 8, partition of land under OLR Act Section 19
+    \item \textbf{Utilities \& Connections} --- Piped water and non-industrial electricity connection requests and related service activation issues
 
-    \item \textbf{Building \& Construction} --- Building plan approvals by Urban Local Bodies (ULBs)/development authorities, permissions for building additions/alterations, fire safety recommendations and certificates
+    \item \textbf{Police \& Legal} --- Verification/legal service requests (including police/legal documentation and attestation-related services) and associated grievance follow-up
 
-    \item \textbf{Utilities \& Connections} --- Piped water connections (BMC, CMC, BEMC), new electricity connections (non-industrial)
+    \item \textbf{Driving Licences} --- New licences, renewals, learner's licences, address changes, and related DL-processing requests
 
-    \item \textbf{Driving Licences} --- Issuance of driving licences, licence renewals, change of address in driving licence, learner's licences
+    \item \textbf{Building \& Construction} --- Building plan approvals by ULBs/development authorities, building alteration permissions, and related approval workflows
 
-    \item \textbf{Vehicle Services} --- Certified copies of vehicle registration certificates (RC), transfer of vehicle ownership
-
-    \item \textbf{Verification \& Legal} --- Employee/character/antecedent verification requests, certified copies of FIR, trade licences (provisional and final)
+    \item \textbf{Vehicle Services} --- Vehicle registration certificate (RC) copies, ownership transfer, and related vehicle-document services
 \end{enumerate}
 
 \subsection{Text-Based Classification Pipeline}
@@ -92,9 +90,9 @@ This two-stage approach balances precision and recall, filtering out non-English
 For English-language complaints, we employ a hybrid classification approach combining keyword matching and semantic similarity:
 
 \begin{enumerate}
-    \item \textbf{Keyword Matching:} Case-insensitive substring matching against category-specific keyword lists. For example, ``Income \& Welfare Benefits'' includes keywords such as \textit{income certificate}, \textit{scholarship}, \textit{post matric}, \textit{ration card}, \textit{bpl card}, and related terms. This method captures complaints with explicit mentions of service names.
+    \item \textbf{Keyword Matching:} Case-insensitive substring matching against category-specific keyword lists. For example, ``Scholarship'' includes keywords such as \textit{scholarship}, \textit{post matric scholarship}, \textit{pre matric}, and related terms. This method captures complaints with explicit mentions of service names.
 
-    \item \textbf{Embedding Similarity:} Complaints not matched by keywords are evaluated using sentence embeddings (all-MiniLM-L6-v2 model) to compute semantic similarity to category prototypes. Complaints with cosine similarity $\geq 0.60$ to any category are assigned to that category. This method captures semantically related complaints that may not use exact service terminology (e.g., ``need money certificate for college admission'' $\rightarrow$ Income \& Welfare Benefits).
+    \item \textbf{Embedding Similarity:} Complaints not matched by keywords are evaluated using sentence embeddings (all-MiniLM-L6-v2 model) to compute semantic similarity to category prototypes. Complaints with cosine similarity $\geq 0.60$ to any category are assigned to that category. This method captures semantically related complaints that may not use exact service terminology (e.g., ``my post matric payment is pending'' $\rightarrow$ Scholarship).
 \end{enumerate}
 
 Complaints matching neither method remain unlabeled, indicating they likely concern non-ORTPS services (e.g., infrastructure, law and order, general administration).
@@ -115,36 +113,103 @@ The final analysis dataset comprises \textbf{763,237 English-language complaints
 
 \input{fiscal_year_aggregation_wide.tex}
 
-Of 763,237 English-language complaints analyzed, \textbf{58,813 complaints (6.0\%)} were identified as ORTPS-related using our classification pipeline with a cosine similarity threshold of 0.60.
 
-This conservative match rate reflects the focused, service-specific nature of ORTPS and the higher precision threshold employed to minimize false positives. The grievance portal captures a broad range of citizen concerns---infrastructure quality, law and order issues, general administrative queries, and non-ORTPS government services---of which ORTPS-covered services constitute one important but bounded subset.
-
-The 6.0\% match rate should be interpreted as indicating:
-\begin{itemize}
-    \item \textbf{Focused categorization:} Our classification correctly identifies a well-defined subset of complaints rather than over-classifying unrelated complaints as ORTPS-related.
-
-    \item \textbf{Service portfolio breadth:} Government service delivery extends well beyond ORTPS-covered services. Many complaints concern services outside ORTPS scope (e.g., infrastructure maintenance, public safety, welfare scheme implementation).
-
-    \item \textbf{Keyword precision:} The hybrid keyword + embedding approach prioritizes precision to ensure identified complaints genuinely concern ORTPS services.
-\end{itemize}
 
 \subsection{Temporal Trends and Cross-Sectional Variation}
 
 Table~\ref{tab:ortps_aggregation} presents the fiscal year aggregation of ORTPS-related grievances, showing both temporal trends and cross-sectional variation across our pre-defined categories.
 
-Key patterns observed with the higher precision threshold (0.60):
+Across the 9 updated categories, total ORTPS-identified complaints increased from \textbf{13,829 in FY2023} to \textbf{24,564 in FY2024} (\textbf{+77.6\%}).
+
+Key cross-sectional patterns are:
 
 \begin{itemize}
-    \item \textbf{Income \& Welfare Benefits} dominates ORTPS complaints, consistently representing the highest volume across fiscal years. This reflects high citizen demand for income certificates, scholarships, and ration card services, though housing welfare requests (PM Awas) contribute substantial noise to this category.
+    \item \textbf{Ration card} remains the largest category by a wide margin (9,017 $\rightarrow$ 14,957 complaints), with a stable share of total grievances (3.27\% in FY2023 vs 3.26\% in FY2024). This indicates persistent high demand for ration-card service delivery.
 
-    \item \textbf{Land-related services} show sustained demand across Land Records, Land Transactions, and Land Use Changes categories. These categories exhibit stronger thematic coherence and alignment with ORTPS services compared to other categories.
+    \item \textbf{Certificates} is the second-largest category (2,226 $\rightarrow$ 3,921; +76.1\%), with share increasing from 0.81\% to 0.85\%. Certificate-linked grievances are both high-volume and growing.
 
-    \item \textbf{Building \& Construction} volumes declined significantly with the higher threshold, indicating that the previous 0.45 threshold captured substantial false positives (primarily PM Awas housing requests and infrastructure projects). The higher threshold filters these miscategorizations more effectively.
+    \item \textbf{Land matters} shows the fastest relative growth (532 $\rightarrow$ 2,073; nearly 4x), with share rising from 0.19\% to 0.45\%. This is the sharpest year-on-year expansion among the major categories.
 
-    \item \textbf{Small categories} (Driving Licences, Vehicle Services) show dramatically reduced volumes with the higher threshold, suggesting that most previously classified complaints in these categories were false positives. True ORTPS-related driving licence and vehicle registration complaints appear to be rare.
+    \item \textbf{Scholarship} also grows materially in absolute terms (1,046 $\rightarrow$ 1,808; +72.8\%) while share remains stable (0.38\% to 0.39\%), suggesting sustained demand that scales with overall complaint growth.
 
-    \item \textbf{Identity \& Social Certificates} maintains moderate volume, though sample review reveals heterogeneous content including healthcare, corruption allegations, and infrastructure alongside legitimate certificate requests.
+    \item \textbf{Smaller categories} (Utilities \& Connections, Police \& Legal, Driving Licences, Building \& Construction, Vehicle Services) all increase in count between FY2023 and FY2024, but each remains below 0.30\% share, indicating long-tail service demand relative to the four dominant categories above.
 \end{itemize}
+
+\subsection{Word Clouds for Four Focus Categories}
+
+The figures below show high-frequency terms for FY2023-24 and FY2024-25 in the four categories analyzed in the following section.
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{wordclouds/Ration_Card_FY2023_2024.png}
+    \caption{FY 2023-24}
+    \label{fig:ration_card_focus_2023}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{wordclouds/Ration_Card_FY2024_2025.png}
+    \caption{FY 2024-25}
+    \label{fig:ration_card_focus_2024}
+\end{subfigure}
+\caption{Ration card Word Clouds}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{wordclouds/Certificates_FY2023_2024.png}
+    \caption{FY 2023-24}
+    \label{fig:certificates_focus_2023}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{wordclouds/Certificates_FY2024_2025.png}
+    \caption{FY 2024-25}
+    \label{fig:certificates_focus_2024}
+\end{subfigure}
+\caption{Certificates Word Clouds}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{wordclouds/Land_matters_FY2023_2024.png}
+    \caption{FY 2023-24}
+    \label{fig:land_matters_focus_2023}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{wordclouds/Land_matters_FY2024_2025.png}
+    \caption{FY 2024-25}
+    \label{fig:land_matters_focus_2024}
+\end{subfigure}
+\caption{Land matters Word Clouds}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{wordclouds/Scholarship_FY2023_2024.png}
+    \caption{FY 2023-24}
+    \label{fig:scholarship_focus_2023}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{wordclouds/Scholarship_FY2024_2025.png}
+    \caption{FY 2024-25}
+    \label{fig:scholarship_focus_2024}
+\end{subfigure}
+\caption{Scholarship Word Clouds}
+\end{figure}
 
 \section{Results: ORTPS Nature of complaints}
 

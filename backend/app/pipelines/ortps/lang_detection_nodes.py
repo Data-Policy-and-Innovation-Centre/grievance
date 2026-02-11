@@ -1,21 +1,39 @@
-"""Hamilton nodes for language detection and English text filtering."""
+"""ORTPS profile nodes for shared language detection and English filtering."""
 
 from __future__ import annotations
 
 import polars as pl
 from loguru import logger
 
-from app.pipelines.ortps.detectors import ImprovedLanguageDetector
+from app.pipelines.ortps.language_profiles import (
+    ENGLISH_LABEL,
+    LINGUA_LANGUAGES,
+    NON_ENGLISH_LABEL,
+    ROMANIZED_MARKER_MIN_HITS,
+    ROMANIZED_NON_ENGLISH_MARKERS,
+    SCRIPT_FILTER_PATTERN,
+    TARGET_LANGUAGE,
+)
 from app.pipelines.ortps.validation import (
     ENGLISH_FILTER_CONTRACT,
     LANG_DETECTION_CONTRACT,
 )
+from app.pipelines.shared.language_detection import TwoStageLanguageDetector
 
 
-def language_detector(lingua_threshold: float) -> ImprovedLanguageDetector:
+def language_detector(lingua_threshold: float) -> TwoStageLanguageDetector:
     """Construct the language detector instance."""
     logger.info(f"Initializing language detector (threshold={lingua_threshold})")
-    return ImprovedLanguageDetector(confidence_threshold=lingua_threshold)
+    return TwoStageLanguageDetector(
+        confidence_threshold=lingua_threshold,
+        script_pattern=SCRIPT_FILTER_PATTERN,
+        lingua_languages=LINGUA_LANGUAGES,
+        target_language=TARGET_LANGUAGE,
+        en_label=ENGLISH_LABEL,
+        non_en_label=NON_ENGLISH_LABEL,
+        non_target_markers=ROMANIZED_NON_ENGLISH_MARKERS,
+        marker_min_hits=ROMANIZED_MARKER_MIN_HITS,
+    )
 
 
 def raw_texts(raw_df: pl.DataFrame, text_col: str) -> list[str | None]:
@@ -24,7 +42,7 @@ def raw_texts(raw_df: pl.DataFrame, text_col: str) -> list[str | None]:
 
 
 def language_labels_and_stats(
-    language_detector: ImprovedLanguageDetector,
+    language_detector: TwoStageLanguageDetector,
     raw_texts: list[str | None],
 ) -> dict:
     """

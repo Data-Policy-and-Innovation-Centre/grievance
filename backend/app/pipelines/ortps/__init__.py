@@ -1,6 +1,10 @@
 """
 ORTPS analysis Hamilton pipeline.
 
+Architecture note:
+    ORTPS modules provide policy/wiring (profiles, labels, category logic) while
+    reusable NLP engines live under ``app.pipelines.shared``.
+
 Usage from scripts::
 
     from app.pipelines.ortps import run_pipeline

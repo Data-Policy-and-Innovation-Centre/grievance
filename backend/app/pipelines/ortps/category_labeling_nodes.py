@@ -15,9 +15,9 @@ def category_labeler(
     embedding_model_name: str,
     embedding_threshold: float,
     embedding_device: str | None,
-    embedding_strategy: Literal["label_only", "keyword_only", "combined"],
-    keyword_weight: float,
-    label_weight: float,
+    embedding_strategy: Literal["label_only", "keyword_only", "combined"] = "label_only",
+    keyword_weight: float = 1.0,
+    label_weight: float = 0.5,
 ) -> CategoryLabeler:
     """Construct the CategoryLabeler instance."""
     logger.info(
@@ -39,8 +39,8 @@ def df_labeled(
     df_english: pl.DataFrame,
     category_labeler: CategoryLabeler,
     labeling_method: Literal["keyword", "embedding", "hybrid"],
-    embedding_strategy: Literal["label_only", "keyword_only", "combined"],
-    text_col: str,
+    text_col: str = "grievance",
+    embedding_strategy: Literal["label_only", "keyword_only", "combined"] = "label_only",
 ) -> pl.DataFrame:
     """Apply category labels to the English-filtered DataFrame."""
     logger.info(

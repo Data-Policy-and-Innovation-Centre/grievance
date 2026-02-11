@@ -33,7 +33,7 @@ class CategoryLabelingConfig(BaseModel):
         description="SentenceTransformer model identifier",
     )
     embedding_threshold: float = Field(
-        default=0.6,
+        default=0.45,
         ge=0.0,
         le=1.0,
         description="Minimum cosine similarity for embedding match",
@@ -129,9 +129,9 @@ class OrtpsPipelineConfig(BaseModel):
             labeling=CategoryLabelingConfig(
                 embedding_threshold=args.embedding_threshold,
                 labeling_method=labeling_method,
-                embedding_strategy=args.embedding_strategy,
-                keyword_weight=args.keyword_weight,
-                label_weight=args.label_weight,
+                embedding_strategy=getattr(args, "embedding_strategy", "label_only"),
+                keyword_weight=getattr(args, "keyword_weight", 1.0),
+                label_weight=getattr(args, "label_weight", 0.5),
             ),
             fiscal_years=args.fiscal_years,
             skip_wordclouds=args.skip_wordclouds,

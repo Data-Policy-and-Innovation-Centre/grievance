@@ -13,30 +13,29 @@ from app.pipelines.ortps.validation import CATEGORY_LABELING_CONTRACT
 
 
 EXPANDED_KEYWORD_CASES = [
-    # Identity & Social Certificates
-    ("Identity & Social Certificates", "need caste certificate urgently"),
-    ("Identity & Social Certificates", "legal heir certificate required"),
-    ("Identity & Social Certificates", "birth certificate issue"),
-    ("Identity & Social Certificates", "marriage certificate registration"),
-    # Income & Welfare Benefits
-    ("Income & Welfare Benefits", "income certificate needed"),
-    ("Income & Welfare Benefits", "income and asset certificate for ews"),
-    ("Income & Welfare Benefits", "sanction of scholarship pending"),
-    ("Income & Welfare Benefits", "ration card correction requested"),
-    # Land Records
-    ("Land Records", "please issue certified copy of ror"),
-    ("Land Records", "encumbrance certificate for my land"),
-    # Land Transactions
-    ("Land Transactions", "certified copy of registered document needed"),
-    ("Land Transactions", "property registration for transfer of immovable property"),
-    ("Land Transactions", "mortgage permission request"),
-    ("Land Transactions", "issue of conveyance deed"),
-    # Land Use Changes
-    ("Land Use Changes", "uncontested mutation case disposal"),
-    ("Land Use Changes", "mutation order of leasehold land pending"),
-    ("Land Use Changes", "conversion under olr act section 8"),
-    ("Land Use Changes", "conversion order of leasehold land required"),
-    ("Land Use Changes", "partition of land under olr act section 19"),
+    # Certificates
+    ("Certificates", "need caste certificate urgently"),
+    ("Certificates", "legal heir certificate required"),
+    ("Certificates", "birth certificate issue"),
+    ("Certificates", "marriage certificate registration"),
+    ("Certificates", "income certificate needed"),
+    ("Certificates", "income and asset certificate for ews"),
+    # Scholarship
+    ("Scholarship", "sanction of scholarship pending"),
+    # Ration card
+    ("Ration card", "ration card correction requested"),
+    # Land matters
+    ("Land matters", "please issue certified copy of ror"),
+    ("Land matters", "encumbrance certificate for my land"),
+    ("Land matters", "certified copy of registered document needed"),
+    ("Land matters", "property registration for transfer of immovable property"),
+    ("Land matters", "mortgage permission request"),
+    ("Land matters", "issue of conveyance deed"),
+    ("Land matters", "uncontested mutation case disposal"),
+    ("Land matters", "mutation order of leasehold land pending"),
+    ("Land matters", "conversion under olr act section 8"),
+    ("Land matters", "conversion order of leasehold land required"),
+    ("Land matters", "partition of land under olr act section 19"),
     # Building & Construction
     ("Building & Construction", "building plan approval by ulb"),
     ("Building & Construction", "permission for addition/alteration of house"),
@@ -44,19 +43,14 @@ EXPANDED_KEYWORD_CASES = [
     # Utilities & Connections
     ("Utilities & Connections", "pipe water connection in bmc"),
     ("Utilities & Connections", "new electricity connection for home"),
-    # Driving Licences
-    ("Driving Licences", "change of address in driving licence"),
-    ("Driving Licences", "renewal of driving licence pending"),
-    ("Driving Licences", "apply for learner's licence"),
-    ("Driving Licences", "issue of driving licence"),
     # Vehicle Services
     ("Vehicle Services", "certified copy of registration certificate for vehicle"),
     ("Vehicle Services", "transfer of vehicle ownership request"),
-    # Verification & Legal
-    ("Verification & Legal", "employee verification request pending"),
-    ("Verification & Legal", "character verification pending"),
-    ("Verification & Legal", "copy of fir needed"),
-    ("Verification & Legal", "trade licence provisional certificate"),
+    # Police & Legal
+    ("Police & Legal", "employee verification request pending"),
+    ("Police & Legal", "character verification pending"),
+    ("Police & Legal", "copy of fir needed"),
+    ("Police & Legal", "trade licence provisional certificate"),
 ]
 
 
@@ -103,7 +97,7 @@ class TestDfLabeled:
         )
 
         categories = df["ortps_category"].drop_nulls().unique().to_list()
-        # Should detect at least Identity & Social Certificates, Income & Welfare Benefits from fixture data
+        # Should detect multiple categories from fixture data.
         assert len(categories) >= 2
 
     def test_passes_validation_contract(self, sample_english_df):

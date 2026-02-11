@@ -1,4 +1,4 @@
-"""Hamilton nodes for BERTopic topic modeling."""
+"""ORTPS profile nodes for shared BERTopic topic modeling."""
 
 from __future__ import annotations
 
@@ -6,8 +6,18 @@ import numpy as np
 import polars as pl
 from loguru import logger
 
-from app.pipelines.ortps.analyzers import TopicAnalyzer
 from app.pipelines.ortps.labelers import CategoryLabeler
+from app.pipelines.ortps.topic_profiles import (
+    ORTPS_STOPWORDS,
+    get_ortps_topic_model_params,
+)
+from app.pipelines.shared.embedding_cache import (
+    build_embeddings_cache_path,
+    compute_text_hash,
+    load_embeddings_cache,
+    save_embeddings_cache,
+)
+from app.pipelines.shared.topic_modeling.bertopic_engine import TopicAnalyzer
 
 
 def filtered_data(
@@ -74,10 +84,15 @@ def cached_embeddings(
 
     for cat, df_cat in category_splits.items():
         texts = df_cat["grievance"].to_list()
+        model_name = category_labeler.model_name
 
-        # Try to load from cache
-        text_hash = category_labeler._compute_text_hash(texts)
-        emb = category_labeler._load_embeddings_cache(text_hash)
+        text_hash = compute_text_hash(texts)
+        cache_path = build_embeddings_cache_path(model_name=model_name, text_hash=text_hash)
+        emb = load_embeddings_cache(
+            cache_path=cache_path,
+            expected_model_name=model_name,
+            expected_text_hash=text_hash,
+        )
 
         if emb is None:
             logger.info(f"{cat}: No cache found, computing embeddings...")
@@ -87,8 +102,16 @@ def cached_embeddings(
                 batch_size=256,
                 show_progress_bar=True,
             )
-            # Save to cache for future use
-            category_labeler._save_embeddings_cache(emb, texts, text_hash)
+            save_embeddings_cache(
+                cache_path=cache_path,
+                embeddings=emb,
+                metadata={
+                    "model_name": model_name,
+                    "text_hash": text_hash,
+                    "num_texts": len(texts),
+                    "embedding_dim": emb.shape[1],
+                },
+            )
         else:
             logger.info(f"{cat}: Loaded embeddings from cache")
 
@@ -117,7 +140,12 @@ def topic_models(
         emb = cached_embeddings[cat]
 
         # Create and fit analyzer
-        analyzer = TopicAnalyzer(cat, len(texts))
+        analyzer = TopicAnalyzer(
+            category=cat,
+            n_samples=len(texts),
+            custom_stopwords=ORTPS_STOPWORDS,
+            params_resolver=get_ortps_topic_model_params,
+        )
         analyzer.fit(texts, emb)
 
         models[cat] = analyzer

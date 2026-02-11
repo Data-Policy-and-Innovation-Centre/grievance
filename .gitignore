@@ -236,6 +236,8 @@ backend/output/ortps_analysis/*.csv
 *.fls
 *.lot
 *.fdb_latexmk
+*.synctex.gz
+*.synctex(busy)
 
 # Documents
 *.docx

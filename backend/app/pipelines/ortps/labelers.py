@@ -119,7 +119,7 @@ class CategoryLabeler:
             "electricity connection", "power connection",
             "non industrial power",
         ],
-        "Driving Licences": [
+        "Vehicle Services": [
             # Change of address in driving licence
             "change of address in driving licence",
             "address change in dl", "dl address change",
@@ -134,8 +134,6 @@ class CategoryLabeler:
             # Driving licence (general)
             "driving licence", "driving license",
             "issue of driving licence", "dl issue", "dl application",
-        ],
-        "Vehicle Services": [
             # Certified copy of vehicle registration certificate
             "certified copy of registration certificate",
             "registration certificate copy",

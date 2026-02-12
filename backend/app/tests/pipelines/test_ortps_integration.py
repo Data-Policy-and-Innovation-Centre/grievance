@@ -4,6 +4,7 @@ import polars as pl
 import pytest
 from pydantic import ValidationError
 
+from app.pipelines import ortps as ortps_pipeline
 from app.pipelines.ortps import build_ortps_driver
 from app.pipelines.ortps.config import OrtpsPipelineConfig
 
@@ -40,6 +41,48 @@ class TestFullPipeline:
         assert "df_labeled__validated" in node_names
         assert "df_english__validated" in node_names
         assert "df_with_language__validated" in node_names
+
+    def test_run_pipeline_wrapper_returns_expected_keys(self, monkeypatch):
+        raw_df = pl.DataFrame({"grievance": ["need ration card"], "created_on": [None]})
+        labeled_df = pl.DataFrame(
+            {
+                "grievance": ["need ration card"],
+                "grievance_lang": ["en"],
+                "ortps_category": ["Ration card"],
+                "ortps_method": ["keyword"],
+                "ortps_confidence": [None],
+            }
+        )
+        category_dist = pl.DataFrame({"ortps_category": ["Ration card"], "count": [1]})
+        method_dist = pl.DataFrame({"ortps_method": ["keyword"], "count": [1]})
+
+        class FakeDriver:
+            def execute(self, final_vars, inputs):
+                assert "raw_df" in inputs
+                assert inputs["raw_df"].equals(raw_df)
+                assert "df_labeled__validated" in final_vars
+                return {
+                    "df_labeled__validated": labeled_df,
+                    "df_with_language__validated": labeled_df,
+                    "df_english__validated": labeled_df,
+                    "lang_detection_stats": {"lingua_high_conf": 1},
+                    "category_distribution": category_dist,
+                    "method_distribution": method_dist,
+                }
+
+        monkeypatch.setattr(ortps_pipeline, "build_ortps_driver", lambda: FakeDriver())
+        result = ortps_pipeline.run_pipeline(raw_df, OrtpsPipelineConfig())
+
+        assert set(result.keys()) == {
+            "df_labeled",
+            "df_with_language",
+            "df_english",
+            "lang_detection_stats",
+            "category_distribution",
+            "method_distribution",
+        }
+        assert result["df_labeled"].equals(labeled_df)
+        assert result["category_distribution"].equals(category_dist)
 
 
 class TestConfigValidation:
@@ -79,6 +122,32 @@ class TestConfigValidation:
         )
         config = OrtpsPipelineConfig.from_argparse(args)
         assert config.labeling.labeling_method == "keyword"
+
+    def test_argparse_passes_embedding_strategy_and_weights(self):
+        from argparse import Namespace
+
+        args = Namespace(
+            db_path=OrtpsPipelineConfig().db_path,
+            output_dir=OrtpsPipelineConfig().output_dir,
+            sample_size=100,
+            lingua_threshold=0.8,
+            embedding_threshold=0.4,
+            labeling_method="hybrid",
+            embedding_strategy="combined",
+            keyword_weight=0.6,
+            label_weight=0.4,
+            fiscal_years=[2024, 2023],  # unsorted on purpose
+            skip_wordclouds=True,
+            skip_embeddings=False,
+            generate_latex_wrapper=True,
+        )
+
+        config = OrtpsPipelineConfig.from_argparse(args)
+        assert config.labeling.embedding_strategy == "combined"
+        assert config.labeling.keyword_weight == 0.6
+        assert config.labeling.label_weight == 0.4
+        assert config.sample_size == 100
+        assert config.fiscal_years == [2023, 2024]
 
     def test_fiscal_year_validation(self):
         with pytest.raises(ValidationError):

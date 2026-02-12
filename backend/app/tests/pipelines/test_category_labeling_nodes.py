@@ -65,6 +65,48 @@ class TestCategoryLabeler:
         assert labeler.similarity_threshold == 0.45
         assert labeler.model_name == "sentence-transformers/all-MiniLM-L6-v2"
 
+    def test_passes_embedding_strategy_and_weights(self, monkeypatch):
+        captured = {}
+
+        class FakeCategoryLabeler:
+            def __init__(
+                self,
+                model_name,
+                similarity_threshold,
+                device,
+                embedding_strategy,
+                keyword_weight,
+                label_weight,
+            ):
+                captured["model_name"] = model_name
+                captured["similarity_threshold"] = similarity_threshold
+                captured["device"] = device
+                captured["embedding_strategy"] = embedding_strategy
+                captured["keyword_weight"] = keyword_weight
+                captured["label_weight"] = label_weight
+
+        monkeypatch.setattr(
+            category_labeling_nodes, "CategoryLabeler", FakeCategoryLabeler
+        )
+
+        category_labeling_nodes.category_labeler(
+            embedding_model_name="sentence-transformers/all-MiniLM-L6-v2",
+            embedding_threshold=0.42,
+            embedding_device="cpu",
+            embedding_strategy="combined",
+            keyword_weight=0.7,
+            label_weight=0.3,
+        )
+
+        assert captured == {
+            "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+            "similarity_threshold": 0.42,
+            "device": "cpu",
+            "embedding_strategy": "combined",
+            "keyword_weight": 0.7,
+            "label_weight": 0.3,
+        }
+
 
 class TestDfLabeled:
     def test_hybrid_keeps_row_alignment_when_embedding_updates_subset(self, monkeypatch):
@@ -108,6 +150,36 @@ class TestDfLabeled:
         assert by_id[4]["ortps_method"] == "keyword"
         assert by_id[2]["ortps_category"] is None
         assert by_id[3]["ortps_category"] is None
+
+    def test_df_labeled_passes_embedding_strategy_to_labeler(self):
+        captured = {}
+
+        class FakeLabeler:
+            def label_dataframe(self, df, text_col, method, embedding_strategy):
+                captured["text_col"] = text_col
+                captured["method"] = method
+                captured["embedding_strategy"] = embedding_strategy
+                return df.with_columns(
+                    pl.lit(None).alias("ortps_category"),
+                    pl.lit(None).alias("ortps_method"),
+                    pl.lit(None, dtype=pl.Float64).alias("ortps_confidence"),
+                )
+
+        df = pl.DataFrame({"grievance": ["x"], "grievance_lang": ["en"]})
+        out = category_labeling_nodes.df_labeled(
+            df_english=df,
+            category_labeler=FakeLabeler(),
+            labeling_method="hybrid",
+            text_col="grievance",
+            embedding_strategy="keyword_only",
+        )
+
+        assert captured == {
+            "text_col": "grievance",
+            "method": "hybrid",
+            "embedding_strategy": "keyword_only",
+        }
+        assert "ortps_category" in out.columns
 
     def test_keyword_method_adds_columns(self, sample_english_df):
         labeler = category_labeling_nodes.category_labeler(
@@ -205,3 +277,31 @@ def test_validation_category_set_matches_labeler():
         if spec.name == "ortps_category"
     )
     assert spec.allowed_values == expected
+
+
+def test_category_distribution_counts_rows():
+    df = pl.DataFrame(
+        {
+            "ortps_category": ["Certificates", "Certificates", "Ration card", None],
+            "ortps_method": ["keyword", "embedding", "keyword", None],
+        }
+    )
+
+    dist = category_labeling_nodes.category_distribution(df)
+    rows = {r["ortps_category"]: r["count"] for r in dist.iter_rows(named=True)}
+    assert rows["Certificates"] == 2
+    assert rows["Ration card"] == 1
+
+
+def test_method_distribution_counts_rows():
+    df = pl.DataFrame(
+        {
+            "ortps_category": ["Certificates", "Ration card", None],
+            "ortps_method": ["keyword", "embedding", None],
+        }
+    )
+
+    dist = category_labeling_nodes.method_distribution(df)
+    rows = {r["ortps_method"]: r["count"] for r in dist.iter_rows(named=True)}
+    assert rows["keyword"] == 1
+    assert rows["embedding"] == 1

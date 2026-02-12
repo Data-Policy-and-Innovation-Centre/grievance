@@ -45,9 +45,9 @@ For example, a complaint about a delayed caste certificate might be categorized 
 
 \subsection{ORTPS Category Consolidation}
 
-We began with the full list of ORTPS-covered services as provided by CAGR and consolidated them into 9 issue-based categories covering major service domains. This consolidation balances specificity with analytical tractability, grouping related services that citizens and administrators perceive as similar types of requests.
+We began with the full list of ORTPS-covered services as provided by CAGR and consolidated them into 8 issue-based categories covering major service domains. This consolidation balances specificity with analytical tractability, grouping related services that citizens and administrators perceive as similar types of requests.
 
-The 9 consolidated categories are:
+The 8 consolidated categories are:
 
 \begin{enumerate}
     \item \textbf{Ration card} --- Issuance of new ration cards, inclusion/exclusion of household members, card corrections, and related PDS card-service requests (AAY/BPL/PHH/Food Security)
@@ -62,11 +62,9 @@ The 9 consolidated categories are:
 
     \item \textbf{Police \& Legal} --- Verification/legal service requests (including police/legal documentation and attestation-related services) and associated grievance follow-up
 
-    \item \textbf{Driving Licences} --- New licences, renewals, learner's licences, address changes, and related DL-processing requests
+    \item \textbf{Vehicle Services} --- Driving licences (new/renewal/learner/address change), vehicle registration certificate (RC) copies, ownership transfer, and related transport-document services
 
     \item \textbf{Building \& Construction} --- Building plan approvals by ULBs/development authorities, building alteration permissions, and related approval workflows
-
-    \item \textbf{Vehicle Services} --- Vehicle registration certificate (RC) copies, ownership transfer, and related vehicle-document services
 \end{enumerate}
 
 \subsection{Text-Based Classification Pipeline}
@@ -119,20 +117,20 @@ The final analysis dataset comprises \textbf{763,237 English-language complaints
 
 Table~\ref{tab:ortps_aggregation} presents the fiscal year aggregation of ORTPS-related grievances, showing both temporal trends and cross-sectional variation across our pre-defined categories.
 
-Across the 9 updated categories, total ORTPS-identified complaints increased from \textbf{13,829 in FY2023} to \textbf{24,564 in FY2024} (\textbf{+77.6\%}).
+Across the 8 updated categories, total ORTPS-identified complaints increased from \textbf{13,638 in FY2023} to \textbf{23,958 in FY2024} (\textbf{+75.7\%}).
 
 Key cross-sectional patterns are:
 
 \begin{itemize}
-    \item \textbf{Ration card} remains the largest category by a wide margin (9,017 $\rightarrow$ 14,957 complaints), with a stable share of total grievances (3.27\% in FY2023 vs 3.26\% in FY2024). This indicates persistent high demand for ration-card service delivery.
+    \item \textbf{Ration card} remains the largest category by a wide margin (8,863 $\rightarrow$ 14,505 complaints), with a stable share of total grievances (3.25\% in FY2023 vs 3.22\% in FY2024). This indicates persistent high demand for ration-card service delivery.
 
-    \item \textbf{Certificates} is the second-largest category (2,226 $\rightarrow$ 3,921; +76.1\%), with share increasing from 0.81\% to 0.85\%. Certificate-linked grievances are both high-volume and growing.
+    \item \textbf{Certificates} is the second-largest category (2,234 $\rightarrow$ 3,829; +71.4\%), with share increasing from 0.82\% to 0.85\%. Certificate-linked grievances are both high-volume and growing.
 
-    \item \textbf{Land matters} shows the fastest relative growth (532 $\rightarrow$ 2,073; nearly 4x), with share rising from 0.19\% to 0.45\%. This is the sharpest year-on-year expansion among the major categories.
+    \item \textbf{Land matters} shows the fastest relative growth (540 $\rightarrow$ 2,066; nearly 4x), with share rising from 0.20\% to 0.46\%. This is the sharpest year-on-year expansion among the major categories.
 
-    \item \textbf{Scholarship} also grows materially in absolute terms (1,046 $\rightarrow$ 1,808; +72.8\%) while share remains stable (0.38\% to 0.39\%), suggesting sustained demand that scales with overall complaint growth.
+    \item \textbf{Scholarship} also grows materially in absolute terms (1,025 $\rightarrow$ 1,744; +70.1\%) while share remains stable (0.38\% to 0.39\%), suggesting sustained demand that scales with overall complaint growth.
 
-    \item \textbf{Smaller categories} (Utilities \& Connections, Police \& Legal, Driving Licences, Building \& Construction, Vehicle Services) all increase in count between FY2023 and FY2024, but each remains below 0.30\% share, indicating long-tail service demand relative to the four dominant categories above.
+    \item \textbf{Smaller categories} (Utilities \& Connections, Police \& Legal, Vehicle Services, Building \& Construction) all increase in count between FY2023 and FY2024, but each remains below 0.30\% share, indicating long-tail service demand relative to the four dominant categories above.
 \end{itemize}
 
 \subsection{Word Clouds for Four Focus Categories}
@@ -217,9 +215,9 @@ Using the updated category scheme in Table~\ref{tab:ortps_aggregation}, we revie
 
 \subsection{Category-Specific Complaint Content}
 
-\subsubsection{Ration card (FY2023: 9,017; FY2024: 14,957)}
+\subsubsection{Ration card (FY2023: 8,863; FY2024: 14,505)}
 
-Topic modeling on 12,612 complaints (26 topics; 76.0\% modeled coverage) shows that the largest single topic is \textbf{PM Awas housing requests} (Topic 0: 2,366 complaints; 18.8\%). The first clearly ration-card-specific cluster appears at Topic 15 (226 complaints; 1.8\%), with keywords centered on ``ration card'', ``new ration card'', and ``add''.
+Topic modeling on 11,910 complaints (29 topics; 72.5\% modeled coverage) shows that the largest single topic is \textbf{PM Awas housing requests} (Topic 0: 1,101 complaints; 9.2\%). The first clearly ration-card-specific cluster appears at Topic 12 (272 complaints; 2.3\%), with keywords centered on ``ration card'', ``new ration card'', and ``add''.
 
 Labeled samples from the ration-card topic indicate genuine ORTPS service problems:
 \begin{itemize}
@@ -231,9 +229,9 @@ Labeled samples from the ration-card topic indicate genuine ORTPS service proble
 
 \textbf{Assessment:} The category contains authentic ration-card delivery bottlenecks, but the overall pool is heavily diluted by non-ORTPS housing petitions, generic escalation templates, and unrelated sectoral grievances.
 
-\subsubsection{Certificates (FY2023: 2,226; FY2024: 3,921)}
+\subsubsection{Certificates (FY2023: 2,234; FY2024: 3,829)}
 
-Topic modeling on 3,248 complaints (16 topics; 82.1\% modeled coverage) again shows \textbf{PM Awas} as the largest topic (Topic 0: 727 complaints; 22.4\%). The explicit certificate-services topic is Topic 8 (139 complaints; 4.3\%), with keywords including ``caste certificate'', ``birth'', and ``legal heir certificate''.
+Topic modeling on 3,192 complaints (18 topics; 85.2\% modeled coverage) again shows \textbf{PM Awas} as the largest topic (Topic 0: 620 complaints; 19.4\%). The explicit certificate-services topic is Topic 5 (144 complaints; 4.5\%), with keywords including ``caste certificate'', ``birth'', and ``legal heir certificate''.
 
 Labeled certificate samples show real ORTPS certificate issues:
 \begin{itemize}
@@ -245,9 +243,9 @@ Labeled certificate samples show real ORTPS certificate issues:
 
 \textbf{Assessment:} A real certificate-service signal is present, but it is not dominant. The category operates as a mixed bucket with substantial housing, governance, and generic grievance noise.
 
-\subsubsection{Land matters (FY2023: 532; FY2024: 2,073)}
+\subsubsection{Land matters (FY2023: 540; FY2024: 2,066)}
 
-Topic modeling on 251 complaints (2 topics; 92.4\% modeled coverage) is highly concentrated: Topic 0 contains 198 complaints (78.9\%) and combines ``house/yojana/pradhan/mantri'' with occasional land terms such as ``ror''; Topic 1 (34 complaints; 13.5\%) captures corruption-template complaints.
+Topic modeling on 244 complaints (2 topics; 100.0\% modeled coverage) is highly concentrated: Topic 0 contains 93 complaints (38.1\%) and combines ``house/yojana/pradhan/mantri'' language; Topic 1 (65 complaints; 26.6\%) captures ``plot/ror/record'' patterns alongside non-land administrative noise.
 
 Labeled samples show mixed content:
 \begin{itemize}
@@ -257,9 +255,9 @@ Labeled samples show mixed content:
 
 \textbf{Assessment:} The current Land matters label has weak thematic purity. It includes some high-value land administration complaints, but category-level counts are materially inflated by off-topic requests.
 
-\subsubsection{Scholarship (FY2023: 1,046; FY2024: 1,808)}
+\subsubsection{Scholarship (FY2023: 1,025; FY2024: 1,744)}
 
-Topic modeling on 1,501 complaints (9 topics; 93.1\% modeled coverage) shows PM Awas as the largest cluster (Topic 0: 323 complaints; 21.5\%). The scholarship-specific topic is Topic 4 (120 complaints; 8.0\%), with terms such as ``post matric scholarship'' and ``payment''.
+Topic modeling on 1,475 complaints (9 topics; 81.3\% modeled coverage) shows PM Awas as the largest cluster (Topic 0: 375 complaints; 25.4\%). The scholarship-specific topic is Topic 1 (183 complaints; 12.4\%), with terms centered on scholarship application, approval, and payment.
 
 Labeled scholarship-topic samples capture genuine scholarship service requests:
 \begin{itemize}
@@ -382,7 +380,7 @@ The following word clouds visualize the most frequent terms in grievance text fo
 \label{fig:scholarship}
 \end{figure}
 
-\textbf{Note:} Scholarship complaints show consistent 76\% growth from FY2023-24. Word clouds may reveal seasonal patterns (academic calendar dependencies), common delays in disbursement, or eligibility verification issues. Terms related to deadlines and urgency are likely prominent.
+\textbf{Note:} Scholarship complaints show consistent 70.1\% growth from FY2023-24. Word clouds may reveal seasonal patterns (academic calendar dependencies), common delays in disbursement, or eligibility verification issues. Terms related to deadlines and urgency are likely prominent.
 
 % Ration Card
 \begin{figure}[htbp]
@@ -405,6 +403,6 @@ The following word clouds visualize the most frequent terms in grievance text fo
 \label{fig:ration_card}
 \end{figure}
 
-\textbf{Note:} As the dominant ORTPS category with 75\% FY2023-24 growth, Ration Card word clouds are critical for understanding systemic service delivery challenges. Expect high frequency of terms related to updates, corrections, additions/deletions of members, and digitization issues (e.g., Aadhaar linking).
+\textbf{Note:} As the dominant ORTPS category with 63.7\% FY2023-24 growth, Ration Card word clouds are critical for understanding systemic service delivery challenges. Expect high frequency of terms related to updates, corrections, additions/deletions of members, and digitization issues (e.g., Aadhaar linking).
 
 \end{document}

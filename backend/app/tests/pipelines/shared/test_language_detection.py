@@ -68,3 +68,17 @@ def test_custom_labels_are_applied():
     )
 
     assert labels == ["english", "other"]
+
+
+def test_low_confidence_lingua_path_is_classified_non_en(monkeypatch):
+    detector = build_detector(threshold=0.85)
+
+    class FakeLinguaDetector:
+        def compute_language_confidence_in_parallel(self, vals, target_lang):
+            return [0.2 for _ in vals]
+
+    detector.detector = FakeLinguaDetector()
+
+    labels, stats = detector.detect_batch(["completely ambiguous ascii tokens"])
+    assert labels == ["non_en"]
+    assert stats["lingua_low_conf"] == 1

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -163,3 +165,29 @@ def test_create_model_adjusts_umap_params_for_small_samples(monkeypatch):
     assert captured["min_cluster_size"] == 4
     assert captured["min_samples"] == 4
     assert isinstance(model, FakeBERTopicCtor)
+
+
+def test_accessors_raise_before_fit():
+    analyzer = TopicAnalyzer(category="Unfitted", n_samples=10)
+
+    with pytest.raises(ValueError, match="Model not fitted yet"):
+        analyzer.get_topic_info()
+    with pytest.raises(ValueError, match="Model not fitted yet"):
+        analyzer.get_topics()
+    with pytest.raises(ValueError, match="Model not fitted yet"):
+        analyzer.save_model(Path("unused"))
+
+
+def test_tiny_sample_fallback_save_writes_outlier_only_marker(tmp_path):
+    analyzer = TopicAnalyzer(category="Tiny", n_samples=2)
+    analyzer.fit(
+        texts=["a", "b"],
+        embeddings=np.array([[0.1, 0.2], [0.3, 0.4]]),
+    )
+
+    model_path = tmp_path / "tiny_model.safetensors"
+    analyzer.save_model(model_path)
+
+    assert model_path.exists()
+    content = model_path.read_text(encoding="utf-8")
+    assert "outlier_only" in content

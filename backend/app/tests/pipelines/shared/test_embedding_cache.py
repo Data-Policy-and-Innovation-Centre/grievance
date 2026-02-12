@@ -69,3 +69,24 @@ def test_load_embeddings_cache_returns_none_on_model_mismatch(tmp_path):
     )
     assert loaded is None
 
+
+def test_load_embeddings_cache_returns_none_on_hash_mismatch(tmp_path):
+    embeddings = np.array([[0.5, 0.6]])
+    path = tmp_path / "cache.pkl"
+    save_embeddings_cache(
+        cache_path=path,
+        embeddings=embeddings,
+        metadata={
+            "model_name": "model_a",
+            "text_hash": "hash_a",
+            "num_texts": 1,
+            "embedding_dim": 2,
+        },
+    )
+
+    loaded = load_embeddings_cache(
+        cache_path=path,
+        expected_model_name="model_a",
+        expected_text_hash="hash_b",
+    )
+    assert loaded is None

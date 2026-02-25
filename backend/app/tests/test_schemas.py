@@ -58,6 +58,11 @@ def valid_complaint_dict(**overrides):
         "resolvedBy": "Officer Y",
         "benefitted": "No",
         "trackingId": "track-123",
+        "reviewAuthority": None,
+        "reviewAuthorityName": None,
+        "vchAllEscUser": None,
+        "reopenedBy": None,
+        "vchAccount": None,
     }
     data.update(overrides)
     return data

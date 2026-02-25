@@ -121,6 +121,11 @@ def sample_complaint_data():
             "resolvedBy": "Officer Y",
             "benefitted": "No",
             "trackingId": "track-123",
+            "reviewAuthority": None,
+            "reviewAuthorityName": None,
+            "vchAllEscUser": None,
+            "reopenedBy": None,
+            "vchAccount": None,
         },
     ]
 

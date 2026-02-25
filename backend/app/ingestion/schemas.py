@@ -99,12 +99,13 @@ class Complaint(BaseModel):
     resolved_by: str = Field(..., alias="resolvedBy")
     resolved_on: Optional[datetime] = Field(..., alias="ResolvedOn")
     benefitted: str = Field(..., alias="benefitted")
-    tracking_id: str = Field(..., alias="trackingId")
+    trackingId: str = Field(..., alias="trackingId")
     review_authority: Optional[int] = Field(..., alias="reviewAuthority")
     review_authority_name: Optional[str] = Field(..., alias="reviewAuthorityName")
     vch_all_esc_user: Optional[str] = Field(..., alias="vchAllEscUser")
     reopened_by: Optional[str] = Field(..., alias="reopenedBy")
     vch_account: Optional[str] = Field(..., alias="vchAccount")
+
 
     @field_validator("office", mode="before")
     def validate_office(cls, v):
@@ -166,10 +167,12 @@ class ActionHistory(BaseModel):
     ticket_no: str = Field(..., alias="ticketNumber")
     action_taken_by: Optional[str]
     action_taken_date: Optional[datetime]
-    action_taken_remark: str
+    action_taken_remark: Optional[str]
     action_status: str
-    complaint_status_with_authority: str
-    tracking_id: Optional[str] = Field(..., alias="trackingId")
+    complaint_status_with_authority: Optional[str]
+    trackingId: Optional[str] = Field(..., alias="trackingId")
+    
+
 
     @field_validator("action_taken_date", mode="before")
     def validate_datetime(cls, v):

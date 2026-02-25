@@ -5,7 +5,7 @@ from loguru import logger
 from more_itertools import chunked
 from pydantic import ValidationError
 from sqlalchemy import (Engine, MetaData, Table, create_engine, distinct, func,
-                        select)
+                        select, delete)
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import (AsyncEngine, AsyncSession,
@@ -69,7 +69,7 @@ async def migrate_complaints(
 
     async def build_tracking_map() -> Dict[str, str]:
         res = await sqlite_sess.execute(
-            select(ComplaintModel.tracking_id, ComplaintModel.ticket_no)
+            select(ComplaintModel.trackingId, ComplaintModel.ticket_no)
         )
         rows = res.all()
         tracking_map = {tid: tn for tid, tn in rows}
@@ -130,10 +130,20 @@ async def migrate_action_history(
         logger.info("No action_history to migrate (empty tracking_map).")
         return
 
+    # Check if there are any records in the action_history table before clearing it
+    first_record = (await sqlite_sess.execute(select(ActionHistoryModel).limit(1))).first()
+
+    if first_record:
+        logger.info("Existing data found in action_history table, clearing before migration.")
+        await sqlite_sess.execute(delete(ActionHistoryModel))
+        await sqlite_sess.commit()
+    else:
+        logger.info("action_history table is already empty. Proceeding with migration.")
+    
     table_name, Schema, Model = (
         "t_janasunani_etl_history_pre_data",
         ActionHistorySchema,
-        ActionHistoryModel,
+        ActionHistoryModel,5
     )
     meta = MetaData()
     history_t = Table(table_name, meta, autoload_with=mysql_sess.bind)
@@ -182,7 +192,7 @@ async def migrate_action_history(
         stmt = sqlite_insert(Model).values(to_insert)
         stmt = (
             stmt.on_conflict_do_nothing(
-                index_elements=["tracking_id", "action_taken_date"]
+                index_elements=["trackingId", "action_taken_date"]
             )
             if hasattr(stmt, "on_conflict_do_nothing")
             else stmt
@@ -206,12 +216,11 @@ async def migrate_action_history(
                 except (IntegrityError, OperationalError):
                     await sqlite_sess.rollback()
                     logger.warning(
-                        f"Skipping bad history record for tracking_id {rec.get('tracking_id')}"
+                        f"Skipping bad history record for trackingId {rec.get('trackingId')}"
                     )
 
         offset += CHUNK_SIZE
         batch_no += 1
-        break
 
     logger.info(f"Inserted {inserted}/{total} action_history records")
 

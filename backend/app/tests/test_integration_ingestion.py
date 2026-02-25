@@ -114,6 +114,11 @@ def sample_complaint_data():
             "resolvedBy": "Officer Y",
             "benefitted": "No",
             "trackingId": "track-123",
+            "reviewAuthority": None,
+            "reviewAuthorityName": None,
+            "vchAllEscUser": None,
+            "reopenedBy": None,
+            "vchAccount": None,
         }
     ]
 
@@ -232,39 +237,43 @@ class TestRunIngestionService:
             ComplaintSchema(**complaint) for complaint in sample_complaint_data
         ]
 
-        mock_get_complaints.side_effect = [1, complaints]
+        mock_get_complaints.side_effect = [1, complaints, 0]
 
-        # Mock orchestrator methods
-        with patch(
-            "app.ingestion.orchestrator.IngestionOrchestrator"
-        ) as mock_orchestrator_class:
-            mock_orchestrator = MagicMock()
-            mock_orchestrator_class.return_value = mock_orchestrator
+        # Mock settings.ENV
+        with patch("app.ingestion.orchestrator.settings") as mock_settings:
+            mock_settings.ENV = "dev"
 
-            # Mock district ingestion
-            mock_orchestrator.ingest_districts.return_value = districts
+            # Mock orchestrator methods
+            with patch(
+                "app.ingestion.orchestrator.IngestionOrchestrator"
+            ) as mock_orchestrator_class:
+                mock_orchestrator = MagicMock()
+                mock_orchestrator_class.return_value = mock_orchestrator
 
-            # Mock document ingestion
-            mock_orchestrator.ingest_documents = AsyncMock(
-                return_value={"T123": "success"}
-            )
+                # Mock district ingestion
+                mock_orchestrator.ingest_districts.return_value = districts
 
-            # Execute
-            result = await run_ingestion_service(
-                force_params=None,
-                ingest_complaints=False,
-                ingest_documents=True,
-                ingest_action_history=False,
-            )
+                # Mock document ingestion
+                mock_orchestrator.ingest_documents = AsyncMock(
+                    return_value={"T123": "success"}
+                )
 
-            # Verify
-            assert result["statusCode"] == 200
-            assert "Data ingestion completed successfully" in result["body"]
-            assert mock_stop_logging.call_count > 0
-            assert mock_resume_logging.call_count > 0
+                # Execute
+                result = await run_ingestion_service(
+                    force_params=None,
+                    ingest_complaints=False,
+                    ingest_documents=True,
+                    ingest_action_history=False,
+                )
 
-            # Verify document ingestion was called
-            assert mock_orchestrator.ingest_documents.call_count > 0
+                # Verify
+                assert result["statusCode"] == 200
+                assert "Data ingestion completed successfully" in result["body"]
+                assert mock_stop_logging.call_count > 0
+                assert mock_resume_logging.call_count > 0
+
+                # Verify document ingestion was called
+                assert mock_orchestrator.ingest_documents.call_count > 0
 
     @patch("app.ingestion.orchestrator.get_db")
     @patch("app.ingestion.orchestrator.get_tickets_needing_action_history")
@@ -609,7 +618,12 @@ class TestRunIngestionService:
             "app.ingestion.orchestrator.get_complaints_without_documents"
         ) as mock_get_complaints, patch(
             "app.ingestion.orchestrator.get_tickets_needing_action_history"
-        ) as mock_get_tickets:
+        ) as mock_get_tickets, patch(
+            "app.ingestion.orchestrator.settings"
+        ) as mock_settings:
+
+            # Mock settings.ENV
+            mock_settings.ENV = "dev"
 
             # Mock complaints without documents
             from app.ingestion.schemas import Complaint as ComplaintModel
@@ -617,7 +631,7 @@ class TestRunIngestionService:
             complaints = [
                 ComplaintModel(**complaint) for complaint in sample_complaint_data
             ]
-            mock_get_complaints.side_effect = [1, complaints]
+            mock_get_complaints.side_effect = [1, complaints, 0]
 
             # Mock tickets needing action history
             mock_get_tickets.return_value = ["T123"]

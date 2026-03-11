@@ -7,9 +7,9 @@ matplotlib.use('Agg')  # Set non-interactive backend for headless environments
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud, STOPWORDS
 
-def wordcloud(df, column="grievance",
-                custom_stopwords=[],
-                show=False):
+def wordcloud(df: pl.DataFrame | pl.LazyFrame, column: str ="grievance",
+                custom_stopwords: list[str] =[],
+                show: bool = False):
     """
     Minimal word cloud from a Polars DataFrame column.
 

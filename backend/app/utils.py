@@ -1,15 +1,20 @@
 import re
 from collections import Counter
 
-import polars as pl
 import matplotlib
-matplotlib.use('Agg')  # Set non-interactive backend for headless environments
-import matplotlib.pyplot as plt
-from wordcloud import WordCloud, STOPWORDS
+import polars as pl
 
-def wordcloud(df: pl.DataFrame | pl.LazyFrame, column: str ="grievance",
-                custom_stopwords: list[str] =[],
-                show: bool = False):
+matplotlib.use("Agg")  # Set non-interactive backend for headless environments
+import matplotlib.pyplot as plt
+from wordcloud import STOPWORDS, WordCloud
+
+
+def wordcloud(
+    df: pl.DataFrame | pl.LazyFrame,
+    column: str = "grievance",
+    custom_stopwords: list[str] = [],
+    show: bool = False,
+):
     """
     Minimal word cloud from a Polars DataFrame column.
 
@@ -46,14 +51,24 @@ def wordcloud(df: pl.DataFrame | pl.LazyFrame, column: str ="grievance",
 
     # Stopwords
     custom_stopwords = set(custom_stopwords).union(
-        set(["odisha", "sir", "request", "kindly", "regarding", "please", "give", "madam", "need", "take"])
+        set(
+            [
+                "odisha",
+                "sir",
+                "request",
+                "kindly",
+                "regarding",
+                "please",
+                "give",
+                "madam",
+                "need",
+                "take",
+            ]
+        )
     )
     stopwords = set(STOPWORDS).union(custom_stopwords)
 
-    words = [
-        w for w in text.split()
-        if len(w) > 2 and w not in stopwords
-    ]
+    words = [w for w in text.split() if len(w) > 2 and w not in stopwords]
 
     freqs = Counter(words)
 
@@ -72,6 +87,6 @@ def wordcloud(df: pl.DataFrame | pl.LazyFrame, column: str ="grievance",
         plt.show()
 
     # Close any open figures to free memory in headless mode
-    plt.close('all')
+    plt.close("all")
 
     return wc

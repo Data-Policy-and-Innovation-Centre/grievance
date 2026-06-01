@@ -1,12 +1,13 @@
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING, Literal, Union
 
+import duckdb
 from loguru import logger
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from tqdm import tqdm
-from typing import Literal, TYPE_CHECKING, Union
-import duckdb
+
 if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
@@ -44,7 +45,7 @@ class Directories:
             self.OUTPUT,
             self.TABLES,
             self.DOCUMENTS,
-            self.MODELS
+            self.MODELS,
         ]:
             dir.mkdir(exist_ok=True)
 

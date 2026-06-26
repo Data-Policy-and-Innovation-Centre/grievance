@@ -5,8 +5,6 @@ from typing import Any, Optional
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
-from app.config import settings
-
 from . import OFFICE
 
 
@@ -66,38 +64,48 @@ class Complaint(BaseModel):
     petitioner_name: Optional[str] = Field(..., alias="petitionerName")
     petitioner_mobile: Optional[str] = Field(..., alias="petitionerMobile")
     petitioner_email: Optional[str] = Field(..., alias="petitionerEmail")
-    grievance: str = Field(..., alias="grievanceSubject")
-    document_url: str = Field(..., alias="Document")
-    office: str = Field(..., alias="officeNAme")
-    received_by: str = Field(..., alias="RecievedByOfficerName")
-    district: str = Field(..., alias="districtName")
+    grievance: Optional[str] = Field(..., alias="grievanceSubject")
+    document_url: Optional[str] = Field(..., alias="Document")
+    office_id: int = Field(..., alias="intOfficeId")
+    office: Optional[str] = Field(..., alias="officeNAme")
+    received_by: Optional[str] = Field(..., alias="RecievedByOfficerName")
+    district_id: Optional[int] = Field(..., alias="intDistId")
+    district: Optional[str] = Field(..., alias="districtName")
+    block_id: int = Field(..., alias="intBlockId")
     block: Optional[str] = Field(..., alias="blockName")
     address: Optional[str] = Field(..., alias="Address")
     mode: str = Field(..., alias="modeName")
     disability: Optional[str] = Field(..., alias="disbilityName")
-    status: str = Field(..., alias="StatusName")
+    status: Optional[str] = Field(..., alias="StatusName")
     govt_ticket: bool = Field(..., alias="govtTicket")
     created_on: datetime = Field(..., alias="CreatedOn")
     tagged_to: Optional[Any] = Field(..., alias="taggedTo")
     tagged_by: Optional[Any] = Field(..., alias="taggedByName")
     tagged_date: Optional[datetime] = Field(..., alias="taggedDate")
-    category: str = Field(..., alias="category")
+    category_id: int = Field(..., alias="CategoryId")
+    category: Optional[str] = Field(..., alias="category")
+    dept_id: int = Field(..., alias="DepartmentId")
     dept: Optional[str] = Field(..., alias="deptName")
+    subcategory_id: int = Field(..., alias="SubCategoryId")
     subcategory: Optional[str] = Field(..., alias="Subcategory")
-    state: str = Field(..., alias="stateName")
+    state: Optional[str] = Field(..., alias="stateName")
     petitioner_gender: str = Field(..., alias="genderName")
     transfer_status: str = Field(..., alias="transferStatus")
     urgent: str = Field(..., alias="mostUrgent")
     pending_with: Optional[str] = Field(..., alias="pendingwithName")
-    assigned_on: datetime = Field(..., alias="assignedOn")
+    assigned_on: Optional[datetime] = Field(..., alias="assignedOn")
     escalation_date: Optional[datetime] = Field(..., alias="escalationDate")
-    self_assign: Optional[str] = Field(..., alias="isSelfAssign")
+    self_assign: str = Field(..., alias="isSelfAssign")
+    resolved_by: str = Field(..., alias="resolvedBy")
     resolved_on: Optional[datetime] = Field(..., alias="ResolvedOn")
-    benefitted: Optional[str] = Field(..., alias="benefitted")
+    benefitted: str = Field(..., alias="benefitted")
+    trackingId: str = Field(..., alias="trackingId")
 
     @field_validator("office", mode="before")
     def validate_office(cls, v):
-        if v not in OFFICE:
+        if v is None:
+            return v
+        elif v not in OFFICE:
             closest = get_close_matches(str(v), OFFICE.values(), n=1)
             if closest:
                 return closest[0]
@@ -156,6 +164,7 @@ class ActionHistory(BaseModel):
     action_taken_remark: str
     action_status: str
     complaint_status_with_authority: str
+    trackingId: Optional[str] = Field(..., alias="trackingId")
 
     @field_validator("action_taken_date", mode="before")
     def validate_datetime(cls, v):

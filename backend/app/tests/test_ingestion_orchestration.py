@@ -1,5 +1,4 @@
 import asyncio
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -8,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db.models import Base
-from app.db.models import District as DistrictModel
 from app.ingestion.orchestrator import IngestionOrchestrator
 from app.ingestion.schemas import ActionHistory, Complaint, District
 
@@ -87,35 +85,43 @@ def sample_complaint_data():
             "petitionerName": "John Doe",
             "petitionerMobile": "1234567890",
             "petitionerEmail": "john@example.com",
-            "grievanceSubject": "Test Grievance",
-            "Document": "http://example.com/file~pdf",
-            "officeNAme": "Chief Minister",
+            "grievanceSubject": "Road issue",
+            "Document": "www.example.com",
+            "intOfficeId": 1,
+            "officeNAme": "Office of the Chief Minister",
             "RecievedByOfficerName": "Officer X",
-            "taggedTo": "Officer Y",
-            "taggedByName": "Officer Z",
-            "taggedDate": "2024-03-20T10:00:00",
-            "isSelfAssign": "yes",
-            "ResolvedOn": "2024-03-20T10:00:00",
-            "benefitted": "yes",
-            "escalationDate": "2024-03-20T10:00:00",
-            "pendingwithName": "Officer Y",
-            "districtName": "Test District",
-            "blockName": "Test Block",
-            "Address": "123 Test St",
+            "intDistId": 1,
+            "districtName": "District 1",
+            "intBlockId": 1,
+            "blockName": "Block A",
+            "Address": "123 Main St",
             "modeName": "Online",
-            "disbilityName": "None",
+            "disbilityName": None,
             "StatusName": "Pending",
-            "govtTicket": "yes",
-            "CreatedOn": "2024-03-20T10:00:00",
-            "assignedOn": "2024-03-20T10:00:00",
-            "category": "Test Category",
-            "deptName": "Test Dept",
-            "Subcategory": "Test Subcategory",
-            "stateName": "Test State",
+            "govtTicket": "Yes",
+            "CreatedOn": "2024-06-01T12:00:00",
+            "taggedTo": None,
+            "taggedByName": None,
+            "taggedDate": None,
+            "CategoryId": 1,
+            "category": "Infrastructure",
+            "DepartmentId": 1,
+            "deptName": "PWD",
+            "SubCategoryId": 1,
+            "Subcategory": "Road",
+            "stateName": "StateX",
             "genderName": "Male",
             "transferStatus": "None",
             "mostUrgent": "No",
-        }
+            "pendingwithName": None,
+            "assignedOn": "2024-06-01T13:00:00",
+            "escalationDate": None,
+            "isSelfAssign": "No",
+            "ResolvedOn": None,
+            "resolvedBy": "Officer Y",
+            "benefitted": "No",
+            "trackingId": "track-123",
+        },
     ]
 
 
@@ -130,6 +136,7 @@ def sample_action_history_data():
             "action_taken_by": "System",
             "action_status": "Pending",
             "complaint_status_with_authority": "Lodu",
+            "trackingId": "track-123",
         }
     ]
 

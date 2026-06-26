@@ -3,11 +3,11 @@ import glob
 import os
 import re
 from datetime import datetime
+from io import BytesIO
 from typing import Dict, List, Tuple
 
 import aiofiles
 import httpx
-from botocore.exceptions import ClientError
 from loguru import logger
 from more_itertools import chunked
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,13 +16,10 @@ from tqdm import tqdm
 from app.config import (directories, resume_logging_to_console, settings,
                         stop_logging_to_console)
 from app.db.crud import (get_complaint_by_ticket,
-                         get_complaints_with_document_urls,
-                         get_complaints_without_documents,
-                         update_document_status)
+                         get_complaints_with_document_urls)
 from app.db.models import Complaint as ComplaintModel
 from app.db.session import get_db
 from app.ingestion.client import with_retry
-from app.ingestion.schemas import Complaint
 from app.s3service import S3Service
 
 
@@ -34,8 +31,9 @@ class DocumentService:
     def __init__(
         self, s3_bucket: str = settings.AWS_S3_DOCUMENTS, db: AsyncSession = None
     ):
-        self.semaphore = asyncio.Semaphore(15)
-        self.db = db or next(get_db())
+        self.semaphore = asyncio.Semaphore(30)
+        self.db = db
+        self.async_lock = asyncio.Lock()
         if settings.ENV == "dev":
             self._create_local_folder()
         else:
@@ -135,7 +133,7 @@ class DocumentService:
 
     @with_retry()
     async def download_document(
-        self, complaint: Complaint, document_type: str = "complaint"
+        self, complaint: ComplaintModel, document_type: str = "complaint"
     ) -> str:
         """
         Asynchronously downloads the document associated with a complaint, if not already downloaded.
@@ -146,7 +144,7 @@ class DocumentService:
         - Downloads and saves the document using an async HTTP Client
 
         Args:
-            complaint (Complaint): The complaint object containing the document URL and ticket number.
+            complaint (ComplaintModel): The complaint object containing the document URL and ticket number.
             document_type (str, optional): Label to distinguish types of documents. Defaults to "complaint".
 
         Returns:
@@ -171,7 +169,10 @@ class DocumentService:
 
         if self.document_already_downloaded(ticket_no, document_type, extension):
             logger.info(f"Document for complaint {ticket_no} already saved.")
-            return None
+            if settings.ENV == "dev":
+                return "local"
+            else:
+                return "s3"
 
         try:
             async with self.semaphore:
@@ -182,7 +183,12 @@ class DocumentService:
                         async with aiofiles.open(path, "wb") as f:
                             await f.write(response.content)
                     else:
-                        self.s3_service.upload_fileobj(response.content, path)
+                        file_obj = BytesIO(response.content)
+                        await asyncio.to_thread(
+                            self.s3_service.upload_fileobj, file_obj, path
+                        )
+                        file_obj.close()
+
                 logger.info(f"Downloaded document for complaint {ticket_no} to {path}")
             return path
         except Exception as e:
@@ -191,7 +197,7 @@ class DocumentService:
             raise
 
     async def batch_download_documents(
-        self, complaints: List[Complaint], batch_size: int = 500
+        self, complaints: List[ComplaintModel], batch_size: int = 500
     ) -> Dict[str, str]:
         """
         Batch download documents with optimized database operations.
@@ -199,7 +205,7 @@ class DocumentService:
         results = {}
         batch_updates = []
 
-        async def process(complaint: Complaint) -> Tuple[str, str, Dict]:
+        async def process(complaint: ComplaintModel) -> Tuple[str, str, Dict]:
             """Process a single document download."""
             try:
                 path = await self.download_document(complaint)
@@ -254,15 +260,15 @@ class DocumentService:
         return results
 
     async def batch_download_documents_in_chunks(
-        self, complaints: List[Complaint], chunk_size: int = 100
+        self, complaints: List[ComplaintModel], chunk_size: int = 100
     ) -> Dict[str, str]:
         results = {}
 
         for i, complaint_chunk in enumerate(chunked(complaints, chunk_size), 1):
-            logger.info(f"📦 Processing chunk {i} ({len(complaint_chunk)} complaints)")
+            logger.info(f" Processing chunk {i} ({len(complaint_chunk)} complaints)")
             chunk_result = await self.batch_download_documents(complaint_chunk)
             results.update(chunk_result)
-            logger.success(f"✅ Finished chunk {i}: {len(chunk_result)} processed")
+            logger.success(f" Finished chunk {i}: {len(chunk_result)} processed")
 
         return results
 
@@ -324,9 +330,9 @@ class DocumentService:
                     ),
                 )
             )
-
-            result = await self.db.execute(stmt)
-            await self.db.commit()
+            async with self.async_lock:
+                result = await self.db.execute(stmt)
+                await self.db.commit()
 
             logger.info(f"Bulk updated {result.rowcount} document statuses")
 
@@ -360,11 +366,11 @@ async def main():
     sample_1000 = [
         get_complaint_by_ticket(db, ticket_no) for ticket_no in pending_tickets[:50000]
     ]
-    logger.info(f"Starting downloading")
+    logger.info("Starting downloading")
     stop_logging_to_console(mode="w")
-    result = await doc_service.batch_download_documents_in_chunks(sample_1000, 100)
+    await doc_service.batch_download_documents_in_chunks(sample_1000, 100)
     resume_logging_to_console()
-    logger.info(f"Finalizing downloading")
+    logger.info("Finalizing downloading")
 
 
 if __name__ == "__main__":

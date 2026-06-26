@@ -110,6 +110,11 @@ class Complaint(Base):
     document_downloaded = Column(Boolean, default=False)
     document_download_date = Column(DateTime, nullable=True)
     document_download_error = Column(String, nullable=True)
+    review_authority = Column(Integer, nullable=True)
+    review_authority_name = Column(String, nullable=True)
+    vch_all_esc_user = Column(String, nullable=True)
+    reopened_by = Column(String, nullable=True)
+    vch_account = Column(String, nullable=True)
 
     __table_args__ = (UniqueConstraint("ticket_no", name="ticket_no_uniq"),)
 

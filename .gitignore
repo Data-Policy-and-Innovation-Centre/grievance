@@ -173,6 +173,7 @@ cython_debug/
 # Learn more at https://abstra.io/docs
 .abstra/
 
+
 # Visual Studio Code
 #  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
 #  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
@@ -214,3 +215,27 @@ tfplan*
 *logs/
 backend/coverage.lcov
 
+# Model artifacts
+*.bin
+*.f32
+*.pkl
+
+# Data
+*.xlsx
+*.png
+*.parquet
+backend/output/*.csv
+backend/output/ortps_analysis/*.csv
+
+# Tex
+*.aux
+*.lof
+*.out
+*.toc
+*.pdf
+*.fls
+*.lot
+*.fdb_latexmk
+
+# Documents
+*.docx
